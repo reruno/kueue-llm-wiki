@@ -35,10 +35,10 @@ Not every job integration trivially mirrors. MultiKueue has specific integration
 - batch/v1 Job, JobSet — early and stable.
 - Kubeflow jobs (PyTorchJob, MPIJob, TFJob, etc.) — rolled out later.
 - RayJob, RayCluster — worker-side reconciliation is complex because Ray's state is non-trivial.
-- Plain Pods and PodGroups — added with caveats (source: issue-2341.md, source: issue-4719.md).
-- Priority class mutation on managed workloads (source: issue-7429.md — support mutating the priority class for workloads managed by MultiKueue).
+- Plain Pods and PodGroups — added with caveats ([[issue-2341]], [[issue-4719]]).
+- Priority class mutation on managed workloads ([[issue-7429]] — support mutating the priority class for workloads managed by MultiKueue).
 
-A general tracking theme: "Fair Share Preemption with MultiKueue + Plain Pods - Preempted Pod not Terminated in the Manager Cluster" (source: issue-5979.md) captures the cross-cluster preemption mirroring problem.
+A general tracking theme: "Fair Share Preemption with MultiKueue + Plain Pods - Preempted Pod not Terminated in the Manager Cluster" ([[issue-5979]]) captures the cross-cluster preemption mirroring problem.
 
 ## Worker cluster selection
 
@@ -46,14 +46,14 @@ Worker choice is per-Workload: when the MultiKueue check evaluates, it queries e
 
 ## KEP tracker and graduation
 
-MultiKueue was built under its own KEP; graduation work is tracked in recurring issues (representative: issue-10626.md, pr-10684.md, pr-10656.md). Priority-class mutation (source: issue-7429.md) is indicative of the feature area still being shaped.
+MultiKueue was built under its own KEP; graduation work is tracked in recurring issues (representative: [[issue-10626]], [[pr-10684]], [[pr-10656]]). Priority-class mutation ([[issue-7429]]) is indicative of the feature area still being shaped.
 
 ## Operational considerations
 
 - **Kubeconfigs.** The manager needs credentials to each worker. These live in a Secret referenced by `MultiKueueCluster`.
 - **Version skew.** Worker clusters must run a Kueue version compatible with the manager — cross-version mirror-Workload fields can drift.
 - **Observability.** Metrics expose both manager-side admission and mirror-side dispatch; both should be scraped for end-to-end visibility. See [[metrics]].
-- **Plain Pods caveat.** Because plain Pods aren't owned by a controller the manager can suspend, enabling MultiKueue for plain Pods required extra glue (source: issue-2341.md).
+- **Plain Pods caveat.** Because plain Pods aren't owned by a controller the manager can suspend, enabling MultiKueue for plain Pods required extra glue ([[issue-2341]]).
 
 ## Related pages
 

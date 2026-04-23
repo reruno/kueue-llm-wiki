@@ -12,7 +12,7 @@
 
 If you want to run an arbitrary workload through Kueue but the underlying CRD doesn't have a first-class Kueue integration (e.g. a bespoke training CRD), wrap it in an AppWrapper. AppWrapper itself is Kueue-aware, so the outer object gets suspended and scheduled; when admitted, the inner components are instantiated.
 
-"Document using AppWrappers to manage unsupported types with Kueue" (source: issue-3975.md) is the explicit marker that this is the intended escape hatch.
+"Document using AppWrappers to manage unsupported types with Kueue" ([[issue-3975]]) is the explicit marker that this is the intended escape hatch.
 
 ## Lifecycle
 
@@ -22,19 +22,19 @@ If you want to run an arbitrary workload through Kueue but the underlying CRD do
 
 ## MultiKueue
 
-"Implement multi-kueue adapter for appwrapper integration" (source: issue-3989.md) — the AppWrapper-specific adapter for dispatching wrapped workloads to worker clusters. Associated flaky E2E tests show the maturity progression (source: issue-4376.md, source: issue-4378.md, source: issue-4477.md, source: issue-8970.md, source: issue-9608.md).
+"Implement multi-kueue adapter for appwrapper integration" ([[issue-3989]]) — the AppWrapper-specific adapter for dispatching wrapped workloads to worker clusters. Associated flaky E2E tests show the maturity progression ([[issue-4376]], [[issue-4378]], [[issue-4477]], [[issue-8970]], [[issue-9608]]).
 
 ## TAS
 
-AppWrapper + TAS (source: issue-4495.md — Flaky test: TopologyAwareScheduling for AppWrapper when Creating an AppWrapper Should place pods) is supported but shares topology assignment through the inner components.
+AppWrapper + TAS ([[issue-4495]] — Flaky test: TopologyAwareScheduling for AppWrapper when Creating an AppWrapper Should place pods) is supported but shares topology assignment through the inner components.
 
 ## Value validation quirk
 
-"workload.codeflare.dev/appwrapper unsupported value" (source: issue-4215.md) — label-value validation specifics that the integration needed to accept.
+"workload.codeflare.dev/appwrapper unsupported value" ([[issue-4215]]) — label-value validation specifics that the integration needed to accept.
 
 ## Integration list inclusion
 
-"Add AppWrapper to the lists of integrations consistently" (source: issue-4024.md) — a meta-issue ensuring the integration appears in every documented integration list.
+"Add AppWrapper to the lists of integrations consistently" ([[issue-4024]]) — a meta-issue ensuring the integration appears in every documented integration list.
 
 ## Related pages
 

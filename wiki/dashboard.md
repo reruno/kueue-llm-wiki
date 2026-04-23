@@ -20,16 +20,16 @@ KueueViz is oriented at operational visibility, not management actions — edits
 - Cluster-queue list with usage vs. nominal quota.
 - Cohort-level views.
 - Per-namespace / per-LocalQueue pending workloads.
-- Resource utilization plots (source: issue-10072.md — UI improvements).
+- Resource utilization plots ([[issue-10072]] — UI improvements).
 
 ## Known issues / evolution
 
-- "Kueueviz backend fails to list cohorts due to missing permissions" (source: issue-10091.md) — the backend ServiceAccount needed an RBAC update when cohorts became a first-class CRD.
-- "KueueViz: add e2e tests for the resource utilization feature" (source: issue-10132.md) — test coverage catching up to features.
+- "Kueueviz backend fails to list cohorts due to missing permissions" ([[issue-10091]]) — the backend ServiceAccount needed an RBAC update when cohorts became a first-class CRD.
+- "KueueViz: add e2e tests for the resource utilization feature" ([[issue-10132]]) — test coverage catching up to features.
 
 ## MultiKueue stats
 
-"Support worker resource stats visibility in MultiKueue manager cluster" (source: issue-10105.md) — KueueViz historically couldn't reach into worker clusters; this opened the path.
+"Support worker resource stats visibility in MultiKueue manager cluster" ([[issue-10105]]) — KueueViz historically couldn't reach into worker clusters; this opened the path.
 
 ## Related pages
 

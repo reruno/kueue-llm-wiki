@@ -19,17 +19,17 @@ Per scheduling cycle, cost drivers:
 
 At moderate scale (hundreds of CQs, thousands of pending Workloads) the loop fits comfortably. At larger scale, hot spots appear:
 
-- **TAS reconcile cost.** Listing all Workloads in the Node reconciler is expensive (source: issue-10037.md — TAS NodeHotSwap: Fix performance issue due to listing all Workloads in Reconcile).
-- **TAS memory footprint.** "Optimize memory usage of TAS" (source: issue-3522.md) tracks the cache shape.
-- **Visibility snapshot lock.** "Release the lock as soon as possible when computing the snapshot for CQ visibility" (source: issue-1098.md).
-- **Cohort hierarchy updates.** "Unexport access to Cohorts and ClusterQueues maps in hierarchy.Manager" (source: issue-2996.md) was a cleanup that tightened mutation patterns so accesses could be made faster.
-- **Terminating-pod accounting.** "TAS capacity accounting doesn't track Terminating pods" (source: issue-10076.md) caused false-negative admission decisions.
+- **TAS reconcile cost.** Listing all Workloads in the Node reconciler is expensive ([[issue-10037]] — TAS NodeHotSwap: Fix performance issue due to listing all Workloads in Reconcile).
+- **TAS memory footprint.** "Optimize memory usage of TAS" ([[issue-3522]]) tracks the cache shape.
+- **Visibility snapshot lock.** "Release the lock as soon as possible when computing the snapshot for CQ visibility" ([[issue-1098]]).
+- **Cohort hierarchy updates.** "Unexport access to Cohorts and ClusterQueues maps in hierarchy.Manager" ([[issue-2996]]) was a cleanup that tightened mutation patterns so accesses could be made faster.
+- **Terminating-pod accounting.** "TAS capacity accounting doesn't track Terminating pods" ([[issue-10076]]) caused false-negative admission decisions.
 
 ## Scale-oriented features
 
 - **TAS NodeHotSwap** — a path for node replacement that avoids full re-reconcile.
 - **Hierarchical cohort validation** — cheap checks that catch malformed trees before they enter the cache.
-- **Subtree borrowing accounting** — correct subtree math was a bug (source: issue-10615.md — Subtree borrowing ignored when scheduling) whose fix also tightened the iteration hot path.
+- **Subtree borrowing accounting** — correct subtree math was a bug ([[issue-10615]] — Subtree borrowing ignored when scheduling) whose fix also tightened the iteration hot path.
 
 ## Known non-linearities
 

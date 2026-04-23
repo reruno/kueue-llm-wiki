@@ -18,7 +18,7 @@
 
 ## Elastic parallelism
 
-With the `ElasticJobsViaWorkloadSlices` feature gate (see [[elastic-jobs]]), `parallelism` can be changed on an admitted Job. The integration observes the change and adjusts the Workload via WorkloadSlices. Flaky tests around this path are tracked (source: issue-6161.md — elastic Job scale-down/up flakes).
+With the `ElasticJobsViaWorkloadSlices` feature gate (see [[elastic-jobs]]), `parallelism` can be changed on an admitted Job. The integration observes the change and adjusts the Workload via WorkloadSlices. Flaky tests around this path are tracked ([[issue-6161]] — elastic Job scale-down/up flakes).
 
 ## MultiKueue
 

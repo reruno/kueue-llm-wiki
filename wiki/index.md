@@ -26,6 +26,7 @@
 
 - [[admission]] — The admission flow: QuotaReservation, AdmissionChecks, and `.spec.suspend` toggling.
 - [[admission-check]] — Pluggable gates after quota reservation (ProvisioningRequest, MultiKueue dispatch, custom checks).
+- [[provisioning-request]] — Canonical capacity-gating check; creates a Cluster Autoscaler `ProvisioningRequest` per Workload and passes once nodes are provisioned.
 - [[queueing-strategy]] — StrictFIFO vs BestEffortFIFO and priority-within-queue behavior.
 - [[preemption]] — Within-ClusterQueue, reclaim-within-cohort, and preemption-while-borrowing.
 - [[fair-sharing]] — DRF-style sharing of unused quota across a cohort.

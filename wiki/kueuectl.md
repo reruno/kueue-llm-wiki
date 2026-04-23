@@ -16,19 +16,19 @@ Ships as a standalone binary and a `kubectl` plugin (`kubectl kueue ...`). The p
 
 The CLI grew incrementally during v0.6–v0.7. Representative tracking issues:
 
-- **Create**: `kueuectl create clusterqueue`, `kueuectl create localqueue` (source: issue-2113.md — Allow create ClusterQueue).
-- **List**: `kueuectl list workloads`, `kueuectl list clusterqueue` (source: issue-2135.md, source: issue-2114.md).
-- **Stop / Resume**: `kueuectl stop workload`, `kueuectl stop clusterqueue`, `kueuectl stop localqueue`, and matching `resume` (source: issue-2132.md, source: issue-2133.md, source: issue-2137.md, source: issue-2138.md, source: issue-2139.md). Stop on a CQ can either drain (evict admitted) or just hold (let admitted finish); there's separate flaky-test coverage for both (source: issue-2247.md, source: issue-2245.md).
-- **Pass-through**: "Add Pass-through commands" (source: issue-2180.md) — `kueuectl` can proxy operations on the underlying job.
-- **List pods for a job**: a convenience over `kubectl get pods -l` (source: issue-2204.md).
+- **Create**: `kueuectl create clusterqueue`, `kueuectl create localqueue` ([[issue-2113]] — Allow create ClusterQueue).
+- **List**: `kueuectl list workloads`, `kueuectl list clusterqueue` ([[issue-2135]], [[issue-2114]]).
+- **Stop / Resume**: `kueuectl stop workload`, `kueuectl stop clusterqueue`, `kueuectl stop localqueue`, and matching `resume` ([[issue-2132]], [[issue-2133]], [[issue-2137]], [[issue-2138]], [[issue-2139]]). Stop on a CQ can either drain (evict admitted) or just hold (let admitted finish); there's separate flaky-test coverage for both ([[issue-2247]], [[issue-2245]]).
+- **Pass-through**: "Add Pass-through commands" ([[issue-2180]]) — `kueuectl` can proxy operations on the underlying job.
+- **List pods for a job**: a convenience over `kubectl get pods -l` ([[issue-2204]]).
 
 ## Validation
 
-`kueuectl create localqueue` validates that the target ClusterQueue exists (source: issue-2112.md). ResourceFlavor names with hyphens were rejected by an earlier validation bug (source: issue-2701.md).
+`kueuectl create localqueue` validates that the target ClusterQueue exists ([[issue-2112]]). ResourceFlavor names with hyphens were rejected by an earlier validation bug ([[issue-2701]]).
 
 ## Test infrastructure
 
-`kueuectl` tests use a fake clock to avoid real-time flakiness (source: issue-2287.md).
+`kueuectl` tests use a fake clock to avoid real-time flakiness ([[issue-2287]]).
 
 ## Related pages
 

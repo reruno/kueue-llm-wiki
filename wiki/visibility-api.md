@@ -14,23 +14,23 @@ Reading all Workloads to answer "where am I in line" is expensive at scale. The 
 
 ## Evolution
 
-- The feature started as alpha under the `QueueVisibility` feature gate (source: issue-1102.md — Add `QueueVisibility` to featureGate).
-- Position-in-queue report was added (source: issue-1657.md).
-- Integration tests landed (source: issue-1377.md) and HA of the extension apiserver was considered (source: issue-1510.md).
-- Cohort-level visibility was added (source: issue-2272.md).
-- "Deprecate the `QueueVisibility` feature gate and corresponding API" (source: issue-2256.md) marks the transition from the older aggregated approach to the new server implementation.
-- Cross-namespace / cross-LocalQueue visibility fetches were extended (source: issue-10575.md).
+- The feature started as alpha under the `QueueVisibility` feature gate ([[issue-1102]] — Add `QueueVisibility` to featureGate).
+- Position-in-queue report was added ([[issue-1657]]).
+- Integration tests landed ([[issue-1377]]) and HA of the extension apiserver was considered ([[issue-1510]]).
+- Cohort-level visibility was added ([[issue-2272]]).
+- "Deprecate the `QueueVisibility` feature gate and corresponding API" ([[issue-2256]]) marks the transition from the older aggregated approach to the new server implementation.
+- Cross-namespace / cross-LocalQueue visibility fetches were extended ([[issue-10575]]).
 
 ## Caveats
 
-- **Snapshot locking.** The snapshot that serves the API is shared with the scheduler's cache. Holding the lock for long while serving a large cohort was a performance concern (source: issue-1098.md — Release the lock as soon as possible when computing the snapshot for CQ visibility).
-- **Port collision.** Visibility and pprof endpoints both landed on 8082 originally (source: issue-2226.md).
-- **Staleness.** A deleted Workload could still appear as pending until the next snapshot refresh (source: issue-1555.md).
-- **Discovery failures.** "Failed to get resource list for visibility.kueue.x-k8s.io/v1alpha1" (source: issue-1519.md) is the canonical "apiserver can't reach the extension" symptom, usually a Service/Endpoints misconfiguration.
+- **Snapshot locking.** The snapshot that serves the API is shared with the scheduler's cache. Holding the lock for long while serving a large cohort was a performance concern ([[issue-1098]] — Release the lock as soon as possible when computing the snapshot for CQ visibility).
+- **Port collision.** Visibility and pprof endpoints both landed on 8082 originally ([[issue-2226]]).
+- **Staleness.** A deleted Workload could still appear as pending until the next snapshot refresh ([[issue-1555]]).
+- **Discovery failures.** "Failed to get resource list for visibility.kueue.x-k8s.io/v1alpha1" ([[issue-1519]]) is the canonical "apiserver can't reach the extension" symptom, usually a Service/Endpoints misconfiguration.
 
 ## Model revisit
 
-"Revisit the model for cache management and visibility server" (source: issue-10553.md) — an open thread about whether the cache needs reshaping to serve visibility cheaply at larger cluster scales.
+"Revisit the model for cache management and visibility server" ([[issue-10553]]) — an open thread about whether the cache needs reshaping to serve visibility cheaply at larger cluster scales.
 
 ## Related pages
 

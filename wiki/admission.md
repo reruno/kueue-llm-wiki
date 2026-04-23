@@ -24,7 +24,7 @@ created → QuotaReserved → Admitted → (Finished | Evicted)
                      (checks pass)  (requeue with backoff)
 ```
 
-Evicted Workloads can be requeued; too many evictions → deactivation (source: issue-2174.md). Deactivated Workloads stay in the API but are ignored by the scheduler until `spec.active` is flipped.
+Evicted Workloads can be requeued; too many evictions → deactivation ([[issue-2174]]). Deactivated Workloads stay in the API but are ignored by the scheduler until `spec.active` is flipped.
 
 ## What the scheduler actually does per cycle
 
@@ -36,7 +36,7 @@ Per scheduling cycle, for each ClusterQueue:
 4. If not, gather preemption candidates, mark them `Evicted`, and wait for them to release quota on the next cycle.
 5. If still not, either defer to the next cycle (BestEffortFIFO, may attempt another CQ) or block the queue head (StrictFIFO).
 
-The scheduler is single-threaded per binary; this is where scale work focuses. TAS multiplies the per-cycle cost (source: issue-10037.md).
+The scheduler is single-threaded per binary; this is where scale work focuses. TAS multiplies the per-cycle cost ([[issue-10037]]).
 
 ## When a Workload cannot be admitted
 

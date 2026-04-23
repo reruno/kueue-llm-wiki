@@ -18,12 +18,12 @@ This is the same mechanism [[elastic-jobs]] use; bug classes overlap.
 
 The gate-based model has sharper edges than suspend-based integrations:
 
-- **Finalizer leaks.** "Failure to remove finalizer for pod / podgroup workload type" (source: issue-6919.md) — Pods stuck undeletable.
-- **Stuck terminating.** "Plain Pod remains in Terminating state after deleting" (source: issue-1339.md).
-- **Inability to delete before completion.** "Plain Pods cannot delete before completion" (source: issue-6149.md).
-- **Admission-check interactions.** "Plain Pod gets deleted once admitted via ProvisioningRequest (DWS)" (source: issue-2213.md) — DWS's reservation model conflicted with the Pod's lifecycle.
-- **Externally-removed gates.** "Kueue will say a workload is admitted if its scheduling gates are removed" (source: issue-9482.md) — a third party stripping gates confuses the accounting.
-- **WaitForPodsReady.** "Unexplained behavior with plain pods + waitForPodsReady" (source: issue-1648.md) — gang semantics over plain Pods differ from Jobs.
+- **Finalizer leaks.** "Failure to remove finalizer for pod / podgroup workload type" ([[issue-6919]]) — Pods stuck undeletable.
+- **Stuck terminating.** "Plain Pod remains in Terminating state after deleting" ([[issue-1339]]).
+- **Inability to delete before completion.** "Plain Pods cannot delete before completion" ([[issue-6149]]).
+- **Admission-check interactions.** "Plain Pod gets deleted once admitted via ProvisioningRequest (DWS)" ([[issue-2213]]) — DWS's reservation model conflicted with the Pod's lifecycle.
+- **Externally-removed gates.** "Kueue will say a workload is admitted if its scheduling gates are removed" ([[issue-9482]]) — a third party stripping gates confuses the accounting.
+- **WaitForPodsReady.** "Unexplained behavior with plain pods + waitForPodsReady" ([[issue-1648]]) — gang semantics over plain Pods differ from Jobs.
 
 ## PodGroups
 
@@ -31,15 +31,15 @@ A PodGroup is a set of Pods sharing `kueue.x-k8s.io/pod-group-name: <name>`. Kue
 
 ## Known-owner plain Pods
 
-Some workflows (including custom controllers) create plain Pods with owner references to their own CRDs. "Add Support for Plain Pods with Known OwnerReferences" (source: issue-4106.md) covers the case where Kueue should treat those Pods as a PodGroup but respect the owner's lifecycle.
+Some workflows (including custom controllers) create plain Pods with owner references to their own CRDs. "Add Support for Plain Pods with Known OwnerReferences" ([[issue-4106]]) covers the case where Kueue should treat those Pods as a PodGroup but respect the owner's lifecycle.
 
 ## MultiKueue
 
-"Support MultiKueue for Plain Pod Integration" (source: issue-2341.md) and PodGroup-specific MultiKueue (source: issue-4719.md — Support PodGroups for MultiKueue, including e2e testing & docs) extended the mechanism cross-cluster, but with caveats because mirroring gated Pods cross-cluster is non-trivial.
+"Support MultiKueue for Plain Pod Integration" ([[issue-2341]]) and PodGroup-specific MultiKueue ([[issue-4719]] — Support PodGroups for MultiKueue, including e2e testing & docs) extended the mechanism cross-cluster, but with caveats because mirroring gated Pods cross-cluster is non-trivial.
 
 ## When to disable
 
-Enabling the plain-Pod integration mutates every Pod in the cluster that matches certain namespaces. "Allow usage of plain Pod owned by integrations that are disabled" (source: issue-2481.md) is the control for letting specific owner kinds through without Kueue gating.
+Enabling the plain-Pod integration mutates every Pod in the cluster that matches certain namespaces. "Allow usage of plain Pod owned by integrations that are disabled" ([[issue-2481]]) is the control for letting specific owner kinds through without Kueue gating.
 
 ## Related pages
 

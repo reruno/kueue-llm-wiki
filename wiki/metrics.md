@@ -21,8 +21,8 @@
 
 Labels are expanded incrementally. Relevant issues:
 
-- "Add priority_class label to Kueue metrics" (source: issue-5989.md).
-- "Add priority_class_source label to Kueue metrics" (source: issue-7291.md).
+- "Add priority_class label to Kueue metrics" ([[issue-5989]]).
+- "Add priority_class_source label to Kueue metrics" ([[issue-7291]]).
 
 The `priority_class_source` label distinguishes stock `PriorityClass` from `WorkloadPriorityClass` so dashboards can separate the two. See [[workload-priority]].
 
@@ -30,9 +30,9 @@ The `priority_class_source` label distinguishes stock `PriorityClass` from `Work
 
 Cohort-level metrics have had flakes as the hierarchical-cohort accounting matured:
 
-- "[Flaky] Cohorts follows reporting correct metrics" (source: issue-10195.md).
-- "flaky test: Cohorts when creating, modifying and removing follows reporting correct metrics" (source: issue-10417.md).
-- "Cohorts when creating, modifying and removing correctly handles cohort metrics when workload admitted with admission check" (source: issue-10057.md).
+- "[Flaky] Cohorts follows reporting correct metrics" ([[issue-10195]]).
+- "flaky test: Cohorts when creating, modifying and removing follows reporting correct metrics" ([[issue-10417]]).
+- "Cohorts when creating, modifying and removing correctly handles cohort metrics when workload admitted with admission check" ([[issue-10057]]).
 
 These are test flakes, not always reliability issues in production; still, dashboards that sum across cohort levels should be checked for double-counting under hierarchical setups.
 

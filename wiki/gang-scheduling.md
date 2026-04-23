@@ -20,29 +20,29 @@ Key configuration fields (global and/or per-CQ):
 
 - `timeout` — deadline for PodsReady.
 - `requeuingStrategy.timestamp` — re-queue by creation time or eviction time.
-- `requeuingStrategy.backoffBaseSeconds` — exponential backoff base. Default consistency with timeout was debated (source: issue-2215.md).
-- `requeuingStrategy.backoffMaxSeconds` — cap on retry backoff (source: issue-2216.md — limit the retry period length).
-- `requeuingStrategy.backoffLimit` — after N evictions, deactivate the Workload (source: issue-2174.md — reactivated workload could be immediately re-deactivated).
+- `requeuingStrategy.backoffBaseSeconds` — exponential backoff base. Default consistency with timeout was debated ([[issue-2215]]).
+- `requeuingStrategy.backoffMaxSeconds` — cap on retry backoff ([[issue-2216]] — limit the retry period length).
+- `requeuingStrategy.backoffLimit` — after N evictions, deactivate the Workload ([[issue-2174]] — reactivated workload could be immediately re-deactivated).
 
 ## When gang eviction fires
 
-The scheduler emits an `Evicted` condition with a PodsReady-specific reason; an event is recorded (though the absence of events was itself a bug — source: issue-2012.md). `status.conditions.Requeued` tracks re-entry into the queue (source: issue-2291.md).
+The scheduler emits an `Evicted` condition with a PodsReady-specific reason; an event is recorded (though the absence of events was itself a bug — [[issue-2012]]). `status.conditions.Requeued` tracks re-entry into the queue ([[issue-2291]]).
 
-"WaitForPodsReady will requeue after `timeout` if a *replacement* Pod can't schedule" — useful for handling a crashed Pod that can't be rescheduled (source: issue-2732.md).
+"WaitForPodsReady will requeue after `timeout` if a *replacement* Pod can't schedule" — useful for handling a crashed Pod that can't be rescheduled ([[issue-2732]]).
 
 ## Integrations supported
 
-Not every integration supports WaitForPodsReady out of the box. "Adding waitForPodsReady capability for all the jobs kueue supports" tracks the gap (source: issue-2594.md). PyTorchJob-specific gang scheduling on AWS EKS was a recurring ask (source: issue-2796.md, source: issue-2508.md).
+Not every integration supports WaitForPodsReady out of the box. "Adding waitForPodsReady capability for all the jobs kueue supports" tracks the gap ([[issue-2594]]). PyTorchJob-specific gang scheduling on AWS EKS was a recurring ask ([[issue-2796]], [[issue-2508]]).
 
 For multi-template jobs (JobSet, RayJob), gang means "all PodSets' replicas must reach Ready" — one PodSet finishing its startup doesn't excuse another that's slower.
 
 ## Interaction with AdmissionChecks
 
-`waitForPodsReady` timer should probably pause while an [[admission-check]] is still pending — otherwise the timer can expire before the Pods are even unsuspended. This was tracked as "Extend waitForPodsReady config to account for AdmissionChecks" (source: issue-3231.md) and is material for ProvisioningRequest flows where check duration can be large.
+`waitForPodsReady` timer should probably pause while an [[admission-check]] is still pending — otherwise the timer can expire before the Pods are even unsuspended. This was tracked as "Extend waitForPodsReady config to account for AdmissionChecks" ([[issue-3231]]) and is material for ProvisioningRequest flows where check duration can be large.
 
 ## Interaction with TAS
 
-[[topology-aware-scheduling]] adds a twist: if an admitted Workload has `UnhealthyNodes` and needs re-admission but the AdmissionCheck `Retry` path is active, the workload might not get re-evicted as expected (source: issue-10660.md — TAS: admitted workload with UnhealthyNodes is not evicted due to AdmissionCheck Retry or PodsReadyTimeout).
+[[topology-aware-scheduling]] adds a twist: if an admitted Workload has `UnhealthyNodes` and needs re-admission but the AdmissionCheck `Retry` path is active, the workload might not get re-evicted as expected ([[issue-10660]] — TAS: admitted workload with UnhealthyNodes is not evicted due to AdmissionCheck Retry or PodsReadyTimeout).
 
 ## Related pages
 

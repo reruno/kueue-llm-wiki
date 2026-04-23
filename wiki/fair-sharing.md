@@ -12,7 +12,7 @@
 
 With borrowing enabled, a CQ that consistently has demand will tend to consume the cohort's idle capacity faster than a bursty sibling. Over time this looks unfair — the bursty sibling can't get its "fair share" of the shared headroom. Fair sharing formalizes what "fair share" means so the scheduler can rebalance.
 
-The KEP-1714 PR (source: pr-1773.md) defines the formal model; subsequent work extends it to hierarchical cohorts.
+The KEP-1714 PR ([[pr-1773]]) defines the formal model; subsequent work extends it to hierarchical cohorts.
 
 ## How it works
 
@@ -20,11 +20,11 @@ Each ClusterQueue gets a `fairSharing.weight` (default 1). The cohort's idle cap
 
 ## `FairSharingPrioritizeNonBorrowing`
 
-A policy variant prefers admitting a workload to a CQ from its nominal quota over admitting it to a CQ that would need to borrow. Misordering between these classes caused a bug where borrowers were admitted before non-borrowers (source: issue-10126.md — Incorrect admission ordering with FairSharingPrioritizeNonBorrowing).
+A policy variant prefers admitting a workload to a CQ from its nominal quota over admitting it to a CQ that would need to borrow. Misordering between these classes caused a bug where borrowers were admitted before non-borrowers ([[issue-10126]] — Incorrect admission ordering with FairSharingPrioritizeNonBorrowing).
 
 ## Subtree accounting in hierarchical cohorts
 
-For hierarchical cohorts, subtree borrowing has to be counted at each level of the tree. A recent bug: "Subtree borrowing ignored when scheduling" (source: issue-10615.md). Preemption under fair-sharing + hierarchy is similarly subtle: "Priority is not respected and causes non-deterministic preemption using hierarchical cohort with fair sharing" (source: issue-10131.md).
+For hierarchical cohorts, subtree borrowing has to be counted at each level of the tree. A recent bug: "Subtree borrowing ignored when scheduling" ([[issue-10615]]). Preemption under fair-sharing + hierarchy is similarly subtle: "Priority is not respected and causes non-deterministic preemption using hierarchical cohort with fair sharing" ([[issue-10131]]).
 
 ## Interaction with priority and preemption
 

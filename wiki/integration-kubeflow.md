@@ -18,19 +18,19 @@ All support `.spec.runPolicy.suspend` (mirroring `batch/v1.Job`), which Kueue to
 
 ### MPIJob
 
-Oldest Kubeflow integration (source: issue-65.md — Support kubeflow's MPIJob, source: issue-577.md). Has Launcher + Workers. The `managedBy` feature allows delegating lifecycle to Kueue under MultiKueue (source: issue-3257.md). Common friction: Pod `nodeSelector` not matching the MPIJob-level selector (source: issue-3400.md). Error messages when the CRD isn't installed were weak (source: issue-665.md).
+Oldest Kubeflow integration ([[issue-65]] — Support kubeflow's MPIJob, [[issue-577]]). Has Launcher + Workers. The `managedBy` feature allows delegating lifecycle to Kueue under MultiKueue ([[issue-3257]]). Common friction: Pod `nodeSelector` not matching the MPIJob-level selector ([[issue-3400]]). Error messages when the CRD isn't installed were weak ([[issue-665]]).
 
 ### PyTorchJob
 
-Has Master + Workers. Gang scheduling is frequently requested (source: issue-2796.md). Early integration didn't propagate ResourceFlavor nodeLabels onto the Pods (source: issue-1407.md). Docs caught up in sample-pytorchjob refreshes (source: issue-1910.md). Cleanup-on-completion edges: "Consider pytorchJob cleanPodPolicy in kueue" (source: issue-1574.md).
+Has Master + Workers. Gang scheduling is frequently requested ([[issue-2796]]). Early integration didn't propagate ResourceFlavor nodeLabels onto the Pods ([[issue-1407]]). Docs caught up in sample-pytorchjob refreshes ([[issue-1910]]). Cleanup-on-completion edges: "Consider pytorchJob cleanPodPolicy in kueue" ([[issue-1574]]).
 
 ### TFJob
 
-Legacy TensorFlow operator job. Known preemption edge: "Broken preemption on TFJob with non default `runPolicy.ttlSecondsAfterFinished`" (source: issue-2923.md). Considered together with PyTorchJob in early adoption discussions (source: issue-652.md — Can we use tfjob or pytorchjob in kueue?).
+Legacy TensorFlow operator job. Known preemption edge: "Broken preemption on TFJob with non default `runPolicy.ttlSecondsAfterFinished`" ([[issue-2923]]). Considered together with PyTorchJob in early adoption discussions ([[issue-652]] — Can we use tfjob or pytorchjob in kueue?).
 
 ### XGBoostJob, MXJob, PaddleJob, JAXJob
 
-Lighter traffic; adapters follow the same pattern. Representative MultiKueue flake: "[Flaky] Should run a kubeflow XGBoostJob" (source: issue-2838.md). PaddleJob test flakes (source: issue-2901.md). JAXJob is the most recent addition.
+Lighter traffic; adapters follow the same pattern. Representative MultiKueue flake: "[Flaky] Should run a kubeflow XGBoostJob" ([[issue-2838]]). PaddleJob test flakes ([[issue-2901]]). JAXJob is the most recent addition.
 
 ## Gang scheduling caveats
 
@@ -38,15 +38,15 @@ Training jobs benefit from `WaitForPodsReady` (see [[gang-scheduling]]), but spe
 
 ## ProvisioningRequest
 
-"MPIJobs can't run with ProvisioningRequest with DWS" (source: issue-2260.md) is an example of an [[admission-check]] that couldn't fully reserve the gang's capacity for the replica-typed PodSets.
+"MPIJobs can't run with ProvisioningRequest with DWS" ([[issue-2260]]) is an example of an [[admission-check]] that couldn't fully reserve the gang's capacity for the replica-typed PodSets.
 
 ## MultiKueue
 
-Each Kubeflow type needs its own MultiKueue adapter; adoption has been incremental. PyTorchJob and MPIJob E2E coverage on worker clusters grew over time (source: issue-5258.md for PyTorchJob E2E). MultiKueue + priority-class mutation on Kubeflow workloads (source: issue-7429.md).
+Each Kubeflow type needs its own MultiKueue adapter; adoption has been incremental. PyTorchJob and MPIJob E2E coverage on worker clusters grew over time ([[issue-5258]] for PyTorchJob E2E). MultiKueue + priority-class mutation on Kubeflow workloads ([[issue-7429]]).
 
 ## TAS
 
-Topology-aware PyTorchJobs (source: issue-1476.md — pytorchjobs scheduling unaware of node resource topology) were an explicit motivator for [[topology-aware-scheduling]]. MPIJob + TAS flakes are actively tracked (source: issue-3696.md).
+Topology-aware PyTorchJobs ([[issue-1476]] — pytorchjobs scheduling unaware of node resource topology) were an explicit motivator for [[topology-aware-scheduling]]. MPIJob + TAS flakes are actively tracked ([[issue-3696]]).
 
 ## Related pages
 

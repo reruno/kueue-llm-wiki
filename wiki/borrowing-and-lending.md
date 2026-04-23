@@ -21,19 +21,19 @@
 
 ## When reclaim happens
 
-If CQ-A is lending and a new workload arrives at CQ-A needing that nominal quota, the scheduler preempts borrowers in the cohort to free it (source: issue-1149.md — reclaim consumed resources once quit from cohort; source: issue-1337.md — support preemption while borrowing). This is the "reclaim within cohort" preemption trigger described in [[preemption]].
+If CQ-A is lending and a new workload arrives at CQ-A needing that nominal quota, the scheduler preempts borrowers in the cohort to free it ([[issue-1149]] — reclaim consumed resources once quit from cohort; [[issue-1337]] — support preemption while borrowing). This is the "reclaim within cohort" preemption trigger described in [[preemption]].
 
 ## Fungibility across flavors
 
-Within a CQ, `flavorFungibility` controls what to try first when a flavor is full: the next flavor in the list, or preemption in the current one, or borrowing from the cohort. Mis-interactions with preemption and borrowing are well-represented in the issue tracker (source: issue-1344.md, source: issue-2560.md).
+Within a CQ, `flavorFungibility` controls what to try first when a flavor is full: the next flavor in the list, or preemption in the current one, or borrowing from the cohort. Mis-interactions with preemption and borrowing are well-represented in the issue tracker ([[issue-1344]], [[issue-2560]]).
 
 ## Blocking: one CQ blocks the cohort
 
-A pending workload at the head of a StrictFIFO CQ can block borrowing by other flavors in the cohort — because the scheduler treats the head as the next thing it's trying to satisfy (source: issue-1036.md). Whether this is desirable is situational; BestEffortFIFO avoids the block at the cost of strict ordering.
+A pending workload at the head of a StrictFIFO CQ can block borrowing by other flavors in the cohort — because the scheduler treats the head as the next thing it's trying to satisfy ([[issue-1036]]). Whether this is desirable is situational; BestEffortFIFO avoids the block at the cost of strict ordering.
 
 ## Hierarchical cohorts
 
-When cohorts have parents, borrowing walks up: sibling CQs in the immediate cohort first, then the parent cohort's other subtrees, subject to each level's group limits. Hierarchical borrowing math is tricky enough that dedicated validation is needed (source: issue-3644.md — HierarchicalCohort: Support validations to avoid accidental parent cohort removal).
+When cohorts have parents, borrowing walks up: sibling CQs in the immediate cohort first, then the parent cohort's other subtrees, subject to each level's group limits. Hierarchical borrowing math is tricky enough that dedicated validation is needed ([[issue-3644]] — HierarchicalCohort: Support validations to avoid accidental parent cohort removal).
 
 ## Monitoring
 

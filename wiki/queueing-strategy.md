@@ -14,7 +14,7 @@ The head of the queue is always considered first. If it can't be admitted — qu
 
 Tradeoff: a big workload that nobody can currently satisfy can starve the CQ. Fixes have layered on top (preemption while borrowing, reclaim-in-cohort) but the fundamental "head blocks" property is preserved.
 
-Known sharp edge: "StrictFIFO prevents borrowing when CQ has pending workloads" (source: issue-4809.md). This is working as intended — the pending head is why borrowing is suppressed — but surprising to operators until documented.
+Known sharp edge: "StrictFIFO prevents borrowing when CQ has pending workloads" ([[issue-4809]]). This is working as intended — the pending head is why borrowing is suppressed — but surprising to operators until documented.
 
 ## BestEffortFIFO
 
@@ -28,11 +28,11 @@ The queue heap is ordered by (priority descending, creation-time ascending). See
 
 ## Immutability
 
-`spec.queueingStrategy` has been restricted from changing on a CQ with admitted workloads because it would re-sort the queue mid-flight (source: issue-434.md, source: issue-1877.md). The user confusion in issue-1877 is the canonical "why can't I switch" explanation.
+`spec.queueingStrategy` has been restricted from changing on a CQ with admitted workloads because it would re-sort the queue mid-flight ([[issue-434]], [[issue-1877]]). The user confusion in issue-1877 is the canonical "why can't I switch" explanation.
 
 ## Flaky-test heritage
 
-StrictFIFO tests are often timing-sensitive — "should schedule workloads by their priority strictly" (source: issue-678.md) and related cohort+StrictFIFO flakes (source: issue-2020.md) are recurring. This reflects the tight race between preemption, quota release, and head-of-queue re-consideration.
+StrictFIFO tests are often timing-sensitive — "should schedule workloads by their priority strictly" ([[issue-678]]) and related cohort+StrictFIFO flakes ([[issue-2020]]) are recurring. This reflects the tight race between preemption, quota release, and head-of-queue re-consideration.
 
 ## Related pages
 

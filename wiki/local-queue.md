@@ -18,11 +18,11 @@ This also means a single CQ can be reached from many namespaces (one LQ per name
 
 Jobs opt into Kueue by carrying `kueue.x-k8s.io/queue-name: <local-queue-name>`. If the label is absent, integration controllers ignore the job — it runs normally, outside any Kueue gating. This opt-in design is intentional: non-participating jobs on the cluster keep working.
 
-KEP-2936 ([[feature-gates]] `LocalQueueDefaulting`) added a per-namespace default LocalQueue so that jobs without the label can still be gated (source: pr-3652.md, source: issue-9633.md). When enabled and a LocalQueue named `default` exists in the namespace, jobs without the label get admitted through it.
+KEP-2936 ([[feature-gates]] `LocalQueueDefaulting`) added a per-namespace default LocalQueue so that jobs without the label can still be gated ([[pr-3652]], [[issue-9633]]). When enabled and a LocalQueue named `default` exists in the namespace, jobs without the label get admitted through it.
 
 ## Status: summary of the CQ
 
-Recent versions added per-LQ status fields that mirror the CQ (pending/admitted counts, usage, fair-share weight) so tenants can query their own LQ without needing RBAC on the cluster-scoped CQ (source: pr-10145.md). Before this, observability was limited for non-admins.
+Recent versions added per-LQ status fields that mirror the CQ (pending/admitted counts, usage, fair-share weight) so tenants can query their own LQ without needing RBAC on the cluster-scoped CQ ([[pr-10145]]). Before this, observability was limited for non-admins.
 
 ## Visibility
 

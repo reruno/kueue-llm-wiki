@@ -27,13 +27,13 @@ The unit of quota and priority in Kueue is the **job** — not the Pod. Decision
 
 Primary users are **platform teams** running shared Kubernetes clusters for ML/AI training, HPC, data processing, or CI. Fair-share quota enforcement across teams on expensive accelerators (GPUs, TPUs) is the most common motivation.
 
-Recurring themes in the issue tracker confirm this audience: RayJob adoption (source: issue-10438.md), PyTorchJob gang-scheduling (source: issue-2796.md), DRA/device support (source: pr-3071.md), and topology-aware placement for ML training (source: issue-2724.md).
+Recurring themes in the issue tracker confirm this audience: RayJob adoption ([[issue-10438]]), PyTorchJob gang-scheduling ([[issue-2796]]), DRA/device support ([[pr-3071]]), and topology-aware placement for ML training ([[issue-2724]]).
 
 ## What Kueue is not
 
 - It is **not** a replacement for `kube-scheduler`. It does not make placement decisions (which node a Pod lands on); it only decides *when* a Pod gets to exist.
 - It is **not** a job runtime. The actual job execution is handled by `Job`, `JobSet`, `RayJob`, etc. — the upstream controllers Kueue integrates with.
-- It is **not** a cluster autoscaler, though it can integrate with one through the [[admission-check]] + ProvisioningRequest mechanism (source: pr-7673.md).
+- It is **not** a cluster autoscaler, though it can integrate with one through the [[admission-check]] + ProvisioningRequest mechanism ([[pr-7673]]).
 
 ## Related pages
 

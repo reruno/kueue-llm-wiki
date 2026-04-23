@@ -12,9 +12,9 @@
 
 A `ResourceFlavor` object has:
 
-- `nodeLabels` — map of labels that Kueue injects as `nodeSelector` on admitted Pods, so `kube-scheduler` lands them on matching nodes (source: issue-425.md — this is intentional injection, not a naming accident).
+- `nodeLabels` — map of labels that Kueue injects as `nodeSelector` on admitted Pods, so `kube-scheduler` lands them on matching nodes ([[issue-425]] — this is intentional injection, not a naming accident).
 - `nodeTaints` — reverse of the label mapping; informational.
-- `tolerations` — Pod tolerations that Kueue mutates onto admitted Pods so they can run on tainted nodes. The tolerations also need to flow into any PodTemplate attached to a ProvisioningRequest ([[admission-check]]) so that autoscaled nodes match (source: issue-2572.md).
+- `tolerations` — Pod tolerations that Kueue mutates onto admitted Pods so they can run on tainted nodes. The tolerations also need to flow into any PodTemplate attached to a ProvisioningRequest ([[admission-check]]) so that autoscaled nodes match ([[issue-2572]]).
 - `topology` (with TAS) — a reference to a [[topology-aware-scheduling]] Topology object. Only flavors that reference a Topology participate in topology-aware placement.
 
 ## Flavors inside ClusterQueue
@@ -23,15 +23,15 @@ ClusterQueue `spec.resourceGroups[].flavors[]` references flavors by name and as
 
 ## Fungibility
 
-If a Workload's first-choice flavor is full, Kueue can try the next flavor in the ClusterQueue's list. The `flavorFungibility` policy on the CQ controls whether Kueue borrows from the cohort first, preempts within the current flavor first, or falls through to the next flavor first. Edge cases around preemption interacting with flavor fallback are common (source: issue-1344.md, source: issue-2560.md).
+If a Workload's first-choice flavor is full, Kueue can try the next flavor in the ClusterQueue's list. The `flavorFungibility` policy on the CQ controls whether Kueue borrows from the cohort first, preempts within the current flavor first, or falls through to the next flavor first. Edge cases around preemption interacting with flavor fallback are common ([[issue-1344]], [[issue-2560]]).
 
 ## Deletion safety
 
-A ResourceFlavor cannot be deleted while any ClusterQueue still references it — Kueue puts a finalizer on the RF (source: issue-249.md, source: issue-283.md). This prevents silently breaking a CQ's quota definition.
+A ResourceFlavor cannot be deleted while any ClusterQueue still references it — Kueue puts a finalizer on the RF ([[issue-249]], [[issue-283]]). This prevents silently breaking a CQ's quota definition.
 
 ## Tolerations in integrations
 
-ResourceFlavor tolerations have to reach the Pods the underlying integration creates. For PyTorchJob this was a bug in early versions (source: issue-1407.md — nodeLabels from ResourceFlavor not added as node selectors to Kubeflow PyTorchJobs). The general pattern: the integration's mutating step must merge flavor labels/tolerations into the Pod template before the Pods become visible to `kube-scheduler`.
+ResourceFlavor tolerations have to reach the Pods the underlying integration creates. For PyTorchJob this was a bug in early versions ([[issue-1407]] — nodeLabels from ResourceFlavor not added as node selectors to Kubeflow PyTorchJobs). The general pattern: the integration's mutating step must merge flavor labels/tolerations into the Pod template before the Pods become visible to `kube-scheduler`.
 
 ## Related pages
 

@@ -12,7 +12,7 @@
 
 Kueue ships as a single `kueue-controller-manager` Deployment with leader election. It uses controller-runtime and exposes `/metrics` for Prometheus. The in-memory `cache` and `queue` packages are the scheduling source-of-truth; reconcilers write to them, and the scheduling loop reads from them.
 
-Scale hardening over time has focused on making those in-memory structures cheaper: node reconciler rewrites for TAS (source: issue-10037.md), cohort hierarchy manager refactors (source: issue-2996.md), and generic controller-cache tuning.
+Scale hardening over time has focused on making those in-memory structures cheaper: node reconciler rewrites for TAS ([[issue-10037]]), cohort hierarchy manager refactors ([[issue-2996]]), and generic controller-cache tuning.
 
 ## Reconciliation flow
 
@@ -25,7 +25,7 @@ At the level of a single job, the pipeline is:
 5. **Scheduler** (Kueue's own scheduling loop, not `kube-scheduler`) picks the next admissible Workload for a ClusterQueue based on the [[queueing-strategy]], verifies quota, and sets `QuotaReservation`. Any configured [[admission-check]]s run next; once they pass, the Workload is marked `Admitted`. See [[admission]].
 6. **Job-specific integration controller** observes `Admitted=True`, sets `.spec.suspend: false` (or removes scheduling gates), and `kube-scheduler` now sees the Pods and places them.
 7. **On completion**, the Workload controller marks the Workload `Finished`, quota is released, and the next Workload in the ClusterQueue is reconsidered.
-8. **On preemption**, the scheduler marks the Workload `Evicted`, the integration re-suspends the job, Pods are deleted, quota is released, and the Workload is requeued (source: issue-1874.md).
+8. **On preemption**, the scheduler marks the Workload `Evicted`, the integration re-suspends the job, Pods are deleted, quota is released, and the Workload is requeued ([[issue-1874]]).
 
 ## In-memory state
 
@@ -34,7 +34,7 @@ Two packages hold state that the scheduler reads on every cycle:
 - **`cache`** — per-[[cluster-queue]] and per-[[cohort]] accounting of admitted usage, nominal quota, borrowing limits, and lending limits. The cache is also where [[topology-aware-scheduling]] tracks per-topology-domain free capacity.
 - **`queue`** — per-ClusterQueue heap of pending Workloads, ordered by the [[queueing-strategy]]. The priority of a Workload comes from its PriorityClass or [[workload-priority]] class.
 
-These structures are kept consistent with API state via the reconcilers. Bugs here manifest as over-admission or under-admission (source: issue-2678.md — overadmission after deleting resources from a borrowing CQ).
+These structures are kept consistent with API state via the reconcilers. Bugs here manifest as over-admission or under-admission ([[issue-2678]] — overadmission after deleting resources from a borrowing CQ).
 
 ## Controllers at a glance
 

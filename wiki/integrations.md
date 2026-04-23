@@ -35,25 +35,25 @@ See dedicated pages:
 
 ## `manageJobsWithoutQueueName`
 
-A global config toggle: if true, Kueue manages every job of supported types even without the `queue-name` label, using a default LocalQueue. Historically the interaction of `manageJobsWithoutQueueName` with RayJob left admitted RayJobs in pending state (source: issue-1568.md), so operators should enable this deliberately and test integrations that lag its semantics.
+A global config toggle: if true, Kueue manages every job of supported types even without the `queue-name` label, using a default LocalQueue. Historically the interaction of `manageJobsWithoutQueueName` with RayJob left admitted RayJobs in pending state ([[issue-1568]]), so operators should enable this deliberately and test integrations that lag its semantics.
 
 ## PodSets per integration
 
 One of the hardest parts of adding an integration is getting PodSet decomposition right:
 
 - **batch/v1 Job** — one PodSet.
-- **JobSet** — one PodSet per replicated job × replica. Empty replicated jobs (`replicas: 0`) were a surprising bug (source: issue-2227.md).
-- **RayJob** — head + worker groups, plus a "submitter Job Pod" that also counts against quota (source: issue-1434.md — PodSets for RayJobs should account for submitter Job Pod).
+- **JobSet** — one PodSet per replicated job × replica. Empty replicated jobs (`replicas: 0`) were a surprising bug ([[issue-2227]]).
+- **RayJob** — head + worker groups, plus a "submitter Job Pod" that also counts against quota ([[issue-1434]] — PodSets for RayJobs should account for submitter Job Pod).
 - **Kubeflow jobs** — one PodSet per replica type (master, worker, ps, chief, etc.). MPIJob specifically has launcher + workers.
-- **LeaderWorkerSet** — leader + worker PodSets per group; TAS-ranked co-scheduling matters (source: issue-4531.md).
+- **LeaderWorkerSet** — leader + worker PodSets per group; TAS-ranked co-scheduling matters ([[issue-4531]]).
 
 ## ResourceFlavor label/toleration propagation
 
-Every integration must flow the [[resource-flavor]]'s `nodeLabels` and `tolerations` into the pod template it controls. Bugs here show up as "pods of PyTorchJob don't go to the right node" (source: issue-1407.md) or MPIJob workers having inconsistent selectors vs. workers (source: issue-3400.md).
+Every integration must flow the [[resource-flavor]]'s `nodeLabels` and `tolerations` into the pod template it controls. Bugs here show up as "pods of PyTorchJob don't go to the right node" ([[issue-1407]]) or MPIJob workers having inconsistent selectors vs. workers ([[issue-3400]]).
 
 ## MultiKueue compatibility
 
-Not all integrations work with [[multikueue]] out-of-the-box. Each needs a MultiKueue adapter that can mirror the job to a worker cluster and mirror status back. AppWrapper's adapter is tracked under issue-3989.md; PodGroup support under issue-4719.md.
+Not all integrations work with [[multikueue]] out-of-the-box. Each needs a MultiKueue adapter that can mirror the job to a worker cluster and mirror status back. AppWrapper's adapter is tracked under [[issue-3989]]; PodGroup support under [[issue-4719]].
 
 ## Related pages
 
