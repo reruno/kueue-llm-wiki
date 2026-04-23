@@ -65,3 +65,10 @@
 
 - [[release-process]] — Branching, versioning, Kubernetes version support.
 - [[performance-and-scale]] — Scalability benchmarks and known bottlenecks.
+
+## Developer workflow
+
+- [[testing]] — Landing page: test pyramid, prerequisites, make targets, CI job map, focus strategies, flake debugging.
+- [[testing-integration]] — `envtest`-based integration suites; main/baseline/extended/multikueue variants; writing and labeling tests.
+- [[testing-e2e]] — Kind-based e2e; `E2E_MODE=dev` loop; full MultiKueue invocation; per-suite matrix.
+- [[testing-performance]] — Scheduler perf benchmarks and TAS perf variant.

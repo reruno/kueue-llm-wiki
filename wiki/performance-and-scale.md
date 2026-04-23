@@ -51,3 +51,4 @@ RayCluster with many worker groups, or a JobSet with many replicated jobs, creat
 - [[metrics]] — scheduling-loop instrumentation.
 - [[topology-aware-scheduling]] — main source of scale work.
 - [[visibility-api]] — snapshot cost.
+- [[testing-performance]] — how to run the scheduler perf benchmarks that substantiate the claims on this page.
