@@ -48,7 +48,7 @@ When the user adds a new source to `raw/` and asks you to ingest it:
 4. Create or update concept pages for each major idea or entity
 5. Add wiki-links ([[page-name]]) to connect related pages
 6. Update `wiki/index.md` with new pages and one-line descriptions
-7. Append an entry to `wiki/log.md` with the date, source name, and what changed
+7. Append an entry to `wiki/log.md` with the date, source name, what changed, and the git commit hash of the `[data-collection]` commit this analysis was based on (run `git log --oneline --grep='\[data-collection\]' -1` to find it)
 
 
 A single source may touch 10-15 wiki pages. That is normal.
