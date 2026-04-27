@@ -78,3 +78,33 @@ Converted all 300 inline source citations across 36 wiki pages from `(source: is
 **Sources cited inline**: [[issue-9952]], [[issue-9954]], [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-2415]], [[pr-5414]], [[pr-6906]]. Authoritative repo files cited by path: `Makefile-test.mk`, `hack/testing/e2e-common.sh`, `hack/testing/e2e-test.sh`, `hack/testing/e2e-multikueue-test.sh`, `hack/testing/performance-test.sh`, `hack/testing/compare-performance.sh`, `test/util/constants.go`, `test/util/util.go`, `site/content/en/docs/contribution_guidelines/testing.md`, and the `test/integration/`, `test/e2e/`, `test/performance/` trees.
 
 **Correction noted**: The 2026-04-23 bulk-ingest entry above stated that `raw/kueue/` was uninitialized. That is no longer true — the submodule is populated, so this section could cite `Makefile-test.mk`, the `hack/testing/*.sh` runners, and the `test/` tree directly.
+
+---
+
+## 2026-04-27 — Triage-only batch (no wiki changes)
+
+**Data-collection commit**: `663bb2a2f206bf7f721aebef491d25ac8efb21ee`
+
+**Source files reviewed**:
+
+- Issues: `issue-10766.md`, `issue-10786.md`, `issue-10792.md`, `issue-10795.md`
+- PRs: `pr-10725.md`, `pr-10752.md`, `pr-10753.md`, `pr-10760.md`, `pr-10775.md`, `pr-10780.md`, `pr-10782.md`, `pr-10783.md`, `pr-10788.md`, `pr-10793.md`, `pr-10794.md`, `pr-10796.md`
+
+**Outcome**: No wiki pages created or updated. All items fall under the exclusion rules:
+
+- `issue-10766` — KEP discussion ("Composable dispatcher" for MultiKueue); proposal-stage.
+- `issue-10786`, `issue-10792` — flaky-test report and E2E cleanup task; admin/test-infra.
+- `issue-10795` — open RayService bug ("Redis cleanup jobs enter Suspended"); not yet fixed.
+- `pr-10725` — open MultiKueue past-execution-time bug fix; unmerged.
+- `pr-10752` — open TAS test fix; unmerged + test-infra.
+- `pr-10753` — merged but `kind/flake` only; the bug analysis surfaced a real CQ-cleanup race (CQ may stick around if last evicting workloads + LQ are deleted in a narrow window) which the maintainers explicitly deferred to a separate issue rather than fixing in shipped code. No behaviour change to record.
+- `pr-10760` — open TAS NodeHotSwap "late pods" UnhealthyNodes pollution fix; unmerged.
+- `pr-10775` — open Dockerfile multi-arch fix; release/build infra.
+- `pr-10780` — open additional perf tests; test infra.
+- `pr-10782` — open indexer-test addition; test infra.
+- `pr-10783` — open TAS `stateWithLeader` aggregation fix for grouped PodSets; unmerged.
+- `pr-10788` — merged backport (release-0.17) of an MK e2e flake timeout bump; admin/test-infra.
+- `pr-10793`, `pr-10794` — zh-CN doc translations; localization, no behaviour.
+- `pr-10796` — open KEP-10765 (`WorkloadPriorityClassDefaulting` feature gate proposal); proposal-stage.
+
+**Note for future ingests**: PR #10725 (MultiKueue past-execution-time), #10760 (TAS late-pods/UnhealthyNodes), #10783 (TAS grouped-PodSet `stateWithLeader`), and the KEP-10765 implementation should be revisited once merged — they each refine non-obvious controller invariants worth documenting in `[[multikueue]]`, `[[topology-aware-scheduling]]`, or `[[workload-priority]]`.
