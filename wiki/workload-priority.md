@@ -35,3 +35,4 @@ Without any priority annotation and without a `priorityClassName` on the Pod tem
 - [[workload]] — where priority is stored.
 - [[queueing-strategy]] — how priority affects queue order.
 - [[preemption]] — priority determines candidates.
+- [[preemption-cost]] — **[Alpha]** dynamic priority adjustment via the `priority-boost` annotation.

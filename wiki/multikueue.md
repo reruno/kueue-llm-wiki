@@ -60,3 +60,4 @@ MultiKueue was built under its own KEP; graduation work is tracked in recurring 
 - [[admission-check]] — MultiKueue is one.
 - [[workload]] — mirror workloads exist on each worker.
 - [[integrations]] — which job types can be dispatched.
+- [[multikueue-orchestrated-preemption]] — **[Alpha]** serializes preemption across worker clusters to avoid duplicate disruption.

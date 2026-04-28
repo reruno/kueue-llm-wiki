@@ -27,11 +27,14 @@ See dedicated pages:
 - [[integration-batchjob]] — batch/v1 Job (the baseline).
 - [[integration-jobset]] — JobSet (the recommended multi-template primitive).
 - [[integration-kubeflow]] — PyTorchJob, TFJob, MPIJob, MXJob, PaddleJob, XGBoostJob, JAXJob.
+- [[integration-trainjob]] — **[Alpha]** TrainJob (Training Operator v2; successor to the Kubeflow v1 jobs).
 - [[integration-rayjob]] — RayJob and RayCluster.
 - [[integration-leaderworkerset]] — LeaderWorkerSet (LWS).
 - [[integration-appwrapper]] — AppWrapper (Project CodeFlare), used to wrap unsupported types.
 - [[integration-argo-workflow]] — Argo Workflows (template-level gating).
 - [[integration-plain-pod]] — plain Pods and PodGroups.
+- [[integration-statefulset]] — **[Beta]** StatefulSet (uses pod scheduling gates instead of `spec.suspend`).
+- [[integration-spark]] — **[Alpha]** SparkApplication (Kubeflow Spark Operator v2).
 
 ## `manageJobsWithoutQueueName`
 
@@ -57,6 +60,8 @@ Not all integrations work with [[multikueue]] out-of-the-box. Each needs a Multi
 
 ## Related pages
 
+- [[kueue-overview]] — the high-level role integrations play.
 - [[workload]] — what integrations author.
 - [[admission]] — when integrations un-suspend.
 - [[webhooks]] — integrations ship their own defaulting and validation webhooks.
+- [[job-framework-interface]] — the `GenericJob` contract every integration must implement.

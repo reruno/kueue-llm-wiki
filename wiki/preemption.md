@@ -47,3 +47,5 @@ Preemption accounting must stay consistent with quota: if a CQ's quota is reduce
 - [[cohort]] — reclaim target.
 - [[fair-sharing]] — alternate ordering that interacts with preemption.
 - [[borrowing-and-lending]] — borrowing is the precondition for reclaim.
+- [[preemption-cost]] — **[Alpha]** external controllers can boost a workload's effective priority via annotation.
+- [[multikueue-orchestrated-preemption]] — **[Alpha]** serializes preemption across MultiKueue worker clusters.

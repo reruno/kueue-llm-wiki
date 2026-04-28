@@ -32,7 +32,9 @@ The CLI grew incrementally during v0.6–v0.7. Representative tracking issues:
 
 ## Related pages
 
+- [[kueue-overview]] — what Kueue is and where the CLI fits.
 - [[cluster-queue]] — the CLI's main creation target.
 - [[local-queue]] — tenant-side CLI target.
 - [[workload]] — what `stop` / `resume` / `list` act on.
 - [[visibility-api]] — what some list commands query under the hood.
+- [[debugging-guide]] — when `kueuectl` helps diagnose stuck workloads.

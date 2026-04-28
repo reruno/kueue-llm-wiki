@@ -58,3 +58,6 @@ These structures are kept consistent with API state via the reconcilers. Bugs he
 - [[workload]] — the central CRD.
 - [[metrics]] — what the binary exposes for observability.
 - [[importer]] — the one-shot tool for backfilling Workloads on an existing cluster.
+- [[debugging-guide]] — diagnosing workloads stuck in pending.
+- [[scheduler-internals]] — the 6-phase scheduling cycle.
+- [[cache-architecture]] — in-memory cache and per-cycle snapshot.

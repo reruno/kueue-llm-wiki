@@ -52,3 +52,6 @@ A Workload carries a finalizer so quota accounting stays consistent while the un
 - [[integrations]] — which controllers author Workloads.
 - [[workload-priority]] — priority fields and immutability.
 - [[gang-scheduling]] — PodsReady condition.
+- [[workload-garbage-collection]] — **[Stable]** retention policies for finished/deactivated Workloads.
+- [[workload-max-execution-time]] — **[Beta]** `spec.maximumExecutionTimeSeconds` enforcement.
+- [[concurrent-admission]] — **[Alpha]** Parent/Variant Workload model for racing flavors.

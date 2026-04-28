@@ -45,3 +45,4 @@ A check can populate `Workload.spec.podSetUpdates` with extra labels, annotation
 - [[cluster-queue]] — where checks are declared.
 - [[provisioning-request]] — the canonical capacity-gating check.
 - [[multikueue]] — the canonical multi-cluster dispatch check.
+- [[concurrent-admission]] — **[Alpha]** Variant Workloads can run different checks per flavor in parallel.

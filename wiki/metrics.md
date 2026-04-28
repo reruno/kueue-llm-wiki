@@ -52,3 +52,4 @@ Common alert patterns:
 - [[visibility-api]] — complementary view.
 - [[dashboard]] — KueueViz, the UI-layer consumer of the same data.
 - [[workload-priority]] — `priority_class*` labels.
+- [[debugging-guide]] — which metrics to check when triaging stuck workloads.

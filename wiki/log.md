@@ -55,7 +55,7 @@ Append-only. Most recent entries at the bottom.
 
 Converted all 300 inline source citations across 36 wiki pages from `(source: issue-NNN.md)` / `(source: pr-NNN.md)` form to Obsidian wiki-links `[[issue-NNN]]` / `[[pr-NNN]]`. Descriptive text after the em-dash is preserved, e.g. `([[issue-9633]] — confirms v0.17 GA)`. Bare in-prose references like `issue-3450.md` were also converted. The style-description sentence on line 23 of this log was updated to reflect the new convention.
 
-**Rationale**: Obsidian-style wiki-links render as clickable references in Obsidian (and compatible viewers), let the existing `[[wiki-page]]` convention extend uniformly to raw sources, and make it trivial to navigate from any claim to its source file under `raw/github/kubernetes-sigs__kueue/`.
+**Rationale**: Obsidian-style wiki-links render as clickable references in Obsidian (and compatible viewers), let the existing `[[wiki-page]]` (placeholder) convention extend uniformly to raw sources, and make it trivial to navigate from any claim to its source file under `raw/github/kubernetes-sigs__kueue/`.
 
 ---
 
@@ -108,3 +108,65 @@ Converted all 300 inline source citations across 36 wiki pages from `(source: is
 - `pr-10796` — open KEP-10765 (`WorkloadPriorityClassDefaulting` feature gate proposal); proposal-stage.
 
 **Note for future ingests**: PR #10725 (MultiKueue past-execution-time), #10760 (TAS late-pods/UnhealthyNodes), #10783 (TAS grouped-PodSet `stateWithLeader`), and the KEP-10765 implementation should be revisited once merged — they each refine non-obvious controller invariants worth documenting in `[[multikueue]]`, `[[topology-aware-scheduling]]`, or `[[workload-priority]]`.
+
+---
+
+## 2026-04-28 — Gap analysis and bulk wiki expansion (19 new pages)
+
+**Data-collection commit**: `663bb2a2f206bf7f721aebef491d25ac8efb21ee`
+
+**Operator**: Claude Code, driven by a gap analysis of KEPs in `raw/kueue/keps/` and job types in `raw/kueue/pkg/controller/jobs/` that lacked wiki coverage.
+
+**What was created** (19 new pages):
+
+### Features and scheduling
+- `wiki/dra.md` — **Alpha** DRA support (KEP-2941): ResourceClaimTemplate and extended-resource paths, `deviceClassMappings` config, feature gates `DynamicResourceAllocation` + `DRAExtendedResources`.
+- `wiki/resource-transformer.md` — **GA** Configurable resource transformers (KEP-2937): Replace/Retain modes, MIG GPU slicing, budget credits use case, `multiplyBy` field.
+- `wiki/admission-fair-sharing.md` — **Beta** Admission fair sharing (KEP-4136): usage-decay, entry penalty, AdmissionScope, weight config; distinct from preemption-based fair sharing.
+- `wiki/concurrent-admission.md` — **Alpha** Concurrent admission (KEP-8691): Parent/Variant Workload model, flavor racing, migration policies.
+- `wiki/admission-gated-by-annotation.md` — **Alpha** `kueue.x-k8s.io/admission-gated-by` annotation (KEP-6915): delay admission for external controllers patching resource requests.
+- `wiki/preemption-cost.md` — **Alpha** `kueue.x-k8s.io/priority-boost` annotation (KEP-7990): dynamic effective priority for scheduling and preemption candidate ordering.
+- `wiki/multikueue-orchestrated-preemption.md` — **Alpha** MultiKueue orchestrated preemption (KEP-8303): PreemptionGate API, serialized ungating, 5-min timeout.
+- `wiki/failure-recovery.md` — **Alpha** Failure recovery (KEP-6757): zombie pod force-delete, `safe-to-forcefully-delete` annotation, `FailureRecovery` gate.
+- `wiki/workload-max-execution-time.md` — **Beta** Maximum execution time (KEP-3125): `spec.maximumExecutionTimeSeconds`, accumulation across preemption cycles, deactivation outcome.
+
+### Operator tooling
+- `wiki/workload-garbage-collection.md` — **Stable** GC of finished/deactivated Workloads (KEP-1618): `objectRetentionPolicies` config, cascade deletion warning.
+- `wiki/local-queue-defaulting.md` — **Stable** LocalQueue defaulting (KEP-2936): auto-inject `queue-name: default` when a `default` LQ exists in the namespace.
+- `wiki/manage-jobs-selectively.md` — **Stable** Selective job management (KEP-3589): `manageJobsWithoutQueueName` + `managedJobsNamespaceSelector`, namespace-selector patterns.
+
+### New integrations
+- `wiki/integration-spark.md` — **Alpha** SparkApplication (Spark Operator v2): driver+executor PodSets, no dynamic allocation, no MultiKueue support.
+- `wiki/integration-statefulset.md` — **Beta** StatefulSet: pod scheduling gates (no spec.suspend), MultiKueue adapter with limited status sync.
+- `wiki/integration-trainjob.md` — **Alpha** TrainJob (Training Operator v2): delegates PodSets to child JobSet, reclaimable pods, full MultiKueue status sync.
+
+### Developer and debugging
+- `wiki/job-framework-interface.md` — **Stable** GenericJob interface (KEP-369): all required methods, optional interfaces, base reconciler, webhook scaffolding, integration registration.
+- `wiki/debugging-guide.md` — Synthesized from source code and GitHub issues: workload condition table, 6 root cause categories (quota, flavor mismatch, admission check, PodsReady timeout, TAS, deactivation), kueuectl commands, Prometheus metrics.
+- `wiki/scheduler-internals.md` — The 6-phase scheduling cycle (Heads → Snapshot → Nominate → Iterator → processEntry → Requeue), FlavorAssigner modes (Fit/Preempt/NoFit), quota tiers, fair-sharing iterator.
+- `wiki/cache-architecture.md` — Scheduler cache vs queue manager, per-cycle snapshot, `hierarchy.Manager`, cycle detection, informer-based consistency model.
+
+**Also changed**:
+- `wiki/index.md` — 19 new entries added under existing and new subsections; alpha/beta/stable labels added to relevant entries.
+- `wiki/dra.md` — added prominent alpha callout block after the stage reminder from user.
+
+**Sources**: `raw/kueue/keps/` (KEPs 2941, 2937, 4136, 8691, 6915, 7990, 8303, 6757, 3125, 1618, 2936, 3589, 369), `raw/kueue/pkg/scheduler/`, `raw/kueue/pkg/cache/`, `raw/kueue/pkg/controller/jobframework/`, `raw/kueue/pkg/controller/jobs/{sparkapplication,statefulset,trainjob}/`, `raw/kueue/pkg/dra/`, `raw/github/kubernetes-sigs__kueue/` (selected issues for debugging patterns).
+
+---
+
+## 2026-04-28 — Lint pass on the bulk-expansion entry
+
+**Operator**: Claude Code, follow-up to the same-day gap-analysis ingest.
+
+**What changed**:
+
+- Inline source citations on the 19 new pages stripped of the redundant `raw/kueue/` prefix; paths are now repo-relative (e.g. `(source: keps/4136-admission-fair-sharing/README.md)`), matching the convention already in use on the testing pages.
+- Stage labels normalized: every new page that documents a single feature now carries a top-of-page `> **Stage: X** — feature-gate \`Name\`, …` blockquote. Pages that previously held a separate `## Stage` or `## Feature gate` section have had it folded into the top callout. Pages without a single owning feature (`scheduler-internals`, `cache-architecture`, `debugging-guide`) intentionally have no callout.
+- `wiki/index.md` — `**[Stable/GA]**` on `[[resource-transformer]]` collapsed to `**[Stable]**`; `Last updated` bumped.
+- `wiki/feature-gates.md` — extended the "Gates that have shipped" list to cover `AdmissionFairSharing`, `ConcurrentAdmission`, `MultiKueueOrchestratedPreemption`, `AdmissionGatedBy`, `WorkloadPriorityBoost`, `FailureRecovery`, `MaxExecTime`, `ManagedJobsNamespaceSelectorAlwaysRespected`, `DRAExtendedResources`, `SparkApplicationIntegration`. Existing `LocalQueueDefaulting` bullet repointed at `[[local-queue-defaulting]]`. Added a config-only-knobs callout for `objectRetentionPolicies` and `integrations.frameworks`.
+- Wired the eight orphan pages: `[[concurrent-admission]]` from `admission-check`, `scheduler-internals`, `workload`; `[[debugging-guide]]` from `architecture`, `kueuectl`, `metrics`, `scheduler-internals`; `[[integration-spark]]`, `[[integration-statefulset]]`, `[[integration-trainjob]]` from `integrations`; `[[multikueue-orchestrated-preemption]]` from `multikueue`, `preemption`; `[[preemption-cost]]` from `preemption`, `workload-priority`; `[[workload-garbage-collection]]` and `[[workload-max-execution-time]]` from `workload`.
+- `[[kueue-overview]]` cross-linked from `integrations`, `kueuectl`, `debugging-guide` (it was previously only linked from `architecture`).
+- `wiki/dra.md` — Related-pages list now includes `[[provisioning-request]]`. The duplicated DRA-vs-resource-transformer comparison was collapsed to a one-line cross-link to the canonical version on `[[resource-transformer]]`.
+- `wiki/log.md` — annotated the `[[wiki-page]]` literal (line 58) as a placeholder so readers don't mistake it for a broken link.
+
+**Not changed**: the `**Sources**:` headers on individual pages still carry the full `raw/kueue/...` paths, since those serve as a self-contained "where this came from" reference and the redundancy is one-line, not per-paragraph.
