@@ -170,3 +170,23 @@ Converted all 300 inline source citations across 36 wiki pages from `(source: is
 - `wiki/log.md` — annotated the `[[wiki-page]]` literal (line 58) as a placeholder so readers don't mistake it for a broken link.
 
 **Not changed**: the `**Sources**:` headers on individual pages still carry the full `raw/kueue/...` paths, since those serve as a self-contained "where this came from" reference and the redundancy is one-line, not per-paragraph.
+
+---
+
+## 2026-04-30 — Reviewer profile: mimowo
+
+**Data-collection commit**: `663bb2a2f206bf7f721aebef491d25ac8efb21ee`
+
+**Operator**: Claude Code, driven by user request to analyze maintainer review style for LLM code-review agents.
+
+**What was created**:
+
+- `wiki/reviewer-mimowo.md` — NEW page profiling @mimowo's review philosophy, patterns, communication style, and a checklist for LLM reviewers. Drawn from analysis of review comments across 6,000+ PRs where @mimowo participated, with representative deep reads of [[pr-4444]], [[pr-8082]], [[pr-8151]], [[pr-8186]], [[pr-8341]], [[pr-8464]], [[pr-8530]], [[pr-8805]], [[pr-9311]], [[pr-9619]].
+
+**What changed**:
+
+- `wiki/index.md` — added "Reviewer profiles" section at the bottom; linked [[reviewer-mimowo]].
+
+**Scope and method**:
+
+Grepped all 8,241 PR files for `@mimowo` comments; identified PRs with 5+ comments from them; read 10 representative PRs spanning 2025-03 through 2026-04 to collect inline review comments, prose feedback, and approval patterns. Synthesized into categories: backwards compatibility, naming, API design, test requirements, log verbosity, helper extraction, communication vocabulary, approval workflow.

@@ -91,3 +91,7 @@
 - [[debugging-guide]] — Diagnosing workloads stuck in pending: quota exhaustion, flavor mismatch, admission check hang, TAS, zombie pods.
 - [[scheduler-internals]] — The 6-phase scheduling cycle, FlavorAssigner modes, quota tiers, fair-sharing iterator.
 - [[cache-architecture]] — In-memory scheduler cache, per-cycle snapshot, hierarchy manager, queue manager.
+
+## Reviewer profiles
+
+- [[reviewer-mimowo]] — @mimowo's review philosophy, recurring patterns, communication style, and checklist for LLM code review agents.
