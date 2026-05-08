@@ -4,17 +4,17 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7992
 
-**Last updated**: 2026-04-20T06:58:22Z
+**Last updated**: 2026-05-04T13:38:34Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-11-28T11:06:44Z
-- **Updated**: 2026-04-20T06:58:22Z
-- **Closed**: —
+- **Updated**: 2026-05-04T13:38:34Z
+- **Closed**: 2026-05-04T13:38:33Z
 - **Labels**: `kind/bug`, `kind/cleanup`, `priority/important-longterm`
 - **Assignees**: _none_
 - **Comments**: 11

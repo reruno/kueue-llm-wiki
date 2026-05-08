@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5257
 
-**Last updated**: 2026-02-02T12:50:24Z
+**Last updated**: 2026-05-05T19:40:58Z
 
 ---
 
 ## Metadata
 
-- **State**: closed (not_planned)
+- **State**: open (reopened)
 - **Author**: [@kannon92](https://github.com/kannon92)
 - **Created**: 2025-05-15T14:46:08Z
-- **Updated**: 2026-02-02T12:50:24Z
-- **Closed**: 2026-02-01T00:27:42Z
+- **Updated**: 2026-05-05T19:40:58Z
+- **Closed**: —
 - **Labels**: `kind/feature`, `lifecycle/rotten`
 - **Assignees**: _none_
-- **Comments**: 20
+- **Comments**: 23
 
 ## Description
 
@@ -282,3 +282,25 @@ Were there any developments on this issue?
 ### Comment by [@kannon92](https://github.com/kannon92) — 2026-02-02T12:50:24Z
 
 Other than my research into that Kueue evicts pods if they change after being admitted, nothing else has been done.
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-05-05T19:26:06Z
+
+/reopen
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-05T19:26:13Z
+
+@kannon92: Reopened this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/5257#issuecomment-4382327532):
+
+>/reopen
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
+
+### Comment by [@natasha41575](https://github.com/natasha41575) — 2026-05-05T19:40:58Z
+
+Sorry if this has already been discussed and I missed it, but does kueue need to always evict the pod? Can kueue do something along the lines of seeing the resize request as a "new" admission request; if it fits the current quota it stays; otherwise it can be evicted?

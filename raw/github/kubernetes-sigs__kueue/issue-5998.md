@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5998
 
-**Last updated**: 2026-03-01T08:34:40Z
+**Last updated**: 2026-05-04T21:14:51Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@and-1](https://github.com/and-1)
 - **Created**: 2025-07-16T17:02:19Z
-- **Updated**: 2026-03-01T08:34:40Z
+- **Updated**: 2026-05-04T21:14:51Z
 - **Closed**: —
-- **Labels**: `kind/bug`
+- **Labels**: `kind/bug`, `priority/important-longterm`
 - **Assignees**: _none_
-- **Comments**: 8
+- **Comments**: 10
 
 ## Description
 
@@ -140,3 +140,18 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-03-01T08:34:38Z
 
 /remove-lifecycle stale
+
+### Comment by [@amy](https://github.com/amy) — 2026-05-04T21:12:05Z
+
+To float this up again... yeah it is sort of an odd experience to have something like this:
+- 8 CPU CQ quota
+- 1 CPU is taken up by system pods
+- meaning only 7 is ever schedulable 
+
+It can be mitigated by Kueue node metrics somewhat to help users with workload sizing. But... the paradigm to start off with is odd. 
+
+Not sure whether or not it should be solved in Kueue or in business logic. But... something to think about for sure.
+
+### Comment by [@amy](https://github.com/amy) — 2026-05-04T21:14:49Z
+
+/priority important-longterm

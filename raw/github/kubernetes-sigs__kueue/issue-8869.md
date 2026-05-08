@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8869
 
-**Last updated**: 2026-02-04T20:22:18Z
+**Last updated**: 2026-05-05T20:22:45Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2026-01-29T01:55:29Z
-- **Updated**: 2026-02-04T20:22:18Z
+- **Updated**: 2026-05-05T20:22:45Z
 - **Closed**: —
-- **Labels**: _none_
+- **Labels**: `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 11
+- **Comments**: 12
 
 ## Description
 
@@ -288,3 +288,23 @@ By contrast, the original KEP proposes a different model: introducing a special 
 > A key takeaway for me is the value of focusing the discussion on resource quota rebalancing
 
 Indeed I think one of the strengths of the UberClusterQueue KEP currently is that the quota taken by the "UberClusterQueue" is balanced among the other ClusterQueues in the cohort, but it is not necessarily binary, just lowers the "nominal quotas" to "effective nominal quotas" uniformly. I'm confident it can be achieved here too.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-05T20:22:43Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

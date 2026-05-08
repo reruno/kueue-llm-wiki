@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8651
 
-**Last updated**: 2026-04-14T17:06:04Z
+**Last updated**: 2026-05-05T16:13:31Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@sohankunkerkar](https://github.com/sohankunkerkar)
 - **Created**: 2026-01-17T17:13:45Z
-- **Updated**: 2026-04-14T17:06:04Z
+- **Updated**: 2026-05-05T16:13:31Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `priority/important-soon`
 - **Assignees**: [@sohankunkerkar](https://github.com/sohankunkerkar)
-- **Comments**: 19
+- **Comments**: 23
 
 ## Description
 
@@ -178,3 +178,98 @@ Seems hard to explain so should we wait for this bug to be fixed?
 > Seems hard to explain so should we wait for this bug to be fixed?
 
 Yes, would suggest to wait for this bug to be fixed. This bug is blocking people to user RayService autoscaling right now. Also better to package workload slicing feature together for RayJob/RaySerivce/RayCluster to avoid fragement.
+
+### Comment by [@MaysaMacedo](https://github.com/MaysaMacedo) — 2026-04-30T13:25:18Z
+
+@kannon92 @hiboyang Given the mentioned bug related to RayService was fixed, do you know if there is anything else preventing the feature `ElasticJobsViaWorkloadSlices` from moving to beta?
+
+### Comment by [@sohankunkerkar](https://github.com/sohankunkerkar) — 2026-05-05T03:02:05Z
+
+I went through the [beta graduation criteria](https://github.com/kubernetes-sigs/kueue/blob/main/keps/77-dynamically-sized-jobs/README.md#beta) and here is where things stand.
+
+**Already done:**
+
+- MultiKueue elastic race fixed ([#7068](https://github.com/kubernetes-sigs/kueue/pull/7068)). KEP criterion still unchecked, but the original race is fixed and the implementation is in place.
+- Workload slice name collision fix ([#9960](https://github.com/kubernetes-sigs/kueue/pull/9960)). Backported to 0.16 and 0.15.
+- Dedicated `ElasticJobUngater` controller ([#10272](https://github.com/kubernetes-sigs/kueue/pull/10272)). Backported to 0.17 and 0.16.
+- RayService autoscaling E2E ([#10252](https://github.com/kubernetes-sigs/kueue/pull/10252)).
+- RayCluster, RayJob, and RayService integrate with the elastic workload flow. Covered by integration tests ([raycluster](https://github.com/kubernetes-sigs/kueue/blob/main/test/integration/singlecluster/controller/jobs/raycluster/raycluster_controller_test.go)) and E2E tests ([kuberay_test.go](https://github.com/kubernetes-sigs/kueue/blob/main/test/e2e/singlecluster/kuberay_test.go)).
+- Scale-up/down, slice replacement, sticky flavor, and preemption covered by [scheduler integration tests](https://github.com/kubernetes-sigs/kueue/blob/main/test/integration/singlecluster/scheduler/scheduler_test.go) and [preemption tests](https://github.com/kubernetes-sigs/kueue/blob/main/test/integration/singlecluster/scheduler/preemption_test.go).
+- MultiKueue elastic propagation covered by [integration test](https://github.com/kubernetes-sigs/kueue/blob/main/test/integration/multikueue/jobs_test.go#L1681) (scale-up with slice replacement, scale-down, cross-cluster job sync, and completion).
+- Workload slice lifecycle visible via `kubectl describe workload` (standard conditions + `WorkloadSliceReplacementFor` annotation).
+
+**Needs work:**
+
+1. Re-scope the KEP beta criteria (need alignment first, see proposal below).
+2. Webhook validation: reject elastic annotation on unsupported frameworks (JobSet, PyTorchJob, MPIJob, etc.) and reject PartialAdmission + Elastic on the same job.
+3. Slice-specific metrics/events and documentation with examples.
+
+**Needs scoping discussion:**
+
+- GC for finished workload slices: beta requirement or follow-up?
+- "All Kueue-managed workloads": should move to GA. Core mechanism works for Ray + `batch/v1.Job`. Block misuse via validation instead of holding beta.
+- WorkloadSlice vs WorkloadResize ([#5897](https://github.com/kubernetes-sigs/kueue/issues/5897)) and [#9015](https://github.com/kubernetes-sigs/kueue/issues/9015) (quota gap during slice replacement): neither is a beta blocker per [@mimowo's comment](https://github.com/kubernetes-sigs/kueue/issues/8651#issuecomment-4235004219). Beta commits to the user-facing behavior (elastic annotation, autoscaling works) not the internal mechanism. If WorkloadResize turns out to be better, it can replace WorkloadSlice transparently as @mimowo noted. [#9015](https://github.com/kubernetes-sigs/kueue/issues/9015) should be documented as a known limitation.
+
+**Scoped out (separate alpha gate):**
+
+- TAS criteria track `ElasticJobsViaWorkloadSlicesWithTAS`, stays at alpha.
+
+**Proposal:**
+
+Beta is realistic if we re-scope the KEP:
+
+1. Move the "all frameworks" requirement to GA. Add webhook validation to reject elastic on unsupported frameworks.
+2. Decide whether GC is required for beta or can follow shortly after.
+3. Add missing validation, metrics/events, and docs.
+4. Update the KEP and document [#9015](https://github.com/kubernetes-sigs/kueue/issues/9015) as a known limitation.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-05T14:28:23Z
+
+**Needs work:**
+
+> Webhook validation: reject elastic annotation on unsupported frameworks (JobSet, PyTorchJob, MPIJob, etc.) and reject PartialAdmission + Elastic on the same job.
+> Slice-specific metrics/events and documentation with examples.
+
+sgtm
+
+**Needs scoping discussion:**
+
+> GC for finished workload slices: beta requirement or follow-up?
+
+I would say a follow up, but nice-to-have. It is not a pressing need, because we have a generic GC for finished workloads. Yes, we can have a more specific one, say GC if there are more than 3 slices, but I wouldn't say this is needed for Beta.
+
+> "All Kueue-managed workloads": should move to GA. Core mechanism works for Ray + batch/v1.Job. Block misuse via validation instead of holding beta.
+
+Yes, I'm fine for using validation when it doesn't work.
+
+> WorkloadSlice vs WorkloadResize (#5897) and #9015 (quota gap during slice replacement): neither is a beta blocker per @mimowo's comment. Beta commits to the user-facing behavior (elastic annotation, autoscaling works) not the internal mechanism. If WorkloadResize turns out to be better, it can replace WorkloadSlice transparently as @mimowo noted. #9015 should be documented as a known limitation.
+
+I think we could move this as a blocker for GA. However, we just make sure that there are no user-facing (Job/Ray) APIs which leak the implementation details (like slices). For example, the APi for GC might be premature at this point, because it would lose relevance once we have WorkloadResize.
+
+**Scoped out (separate alpha gate):**
+
+> TAS criteria track ElasticJobsViaWorkloadSlicesWithTAS, stays at alpha.
+
+sgtm
+
+**Beta is realistic if we re-scope the KEP:**
+
+> Move the "all frameworks" requirement to GA. Add webhook validation to reject elastic on unsupported frameworks.
+
+support here
+
+> Decide whether GC is required for beta or can follow shortly after.
+
+I would move it out for GA, I would not expose any API facing knobs for that becase the API may lose relevance when we have WorkloadResize, but I'm ok with some hardcoded GC, like remove when 3 or more slices are accumulated.
+
+> Add missing validation, metrics/events, and docs.
+
+sgtm. I consider validation the most relevant here. The metrics and events we may do on best effort basis, and add more once in Beta.
+
+> Update the KEP and document https://github.com/kubernetes-sigs/kueue/issues/9015 as a known limitation.
+
+sgtm
+
+### Comment by [@hiboyang](https://github.com/hiboyang) — 2026-05-05T16:13:31Z
+
+So far, we tested RayJob/RayService autoscaling in a light to moderate load, it is working. There may be still some race condition as mentioned in https://github.com/kubernetes-sigs/kueue/issues/9015. It would be better to add some stress test to tigger autoscaling heavily/frequently and evaluate the result.

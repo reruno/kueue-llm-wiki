@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9270
 
-**Last updated**: 2026-02-20T12:52:10Z
+**Last updated**: 2026-04-29T13:29:19Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mpsanj](https://github.com/mpsanj)
 - **Created**: 2026-02-16T07:59:57Z
-- **Updated**: 2026-02-20T12:52:10Z
+- **Updated**: 2026-04-29T13:29:19Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `area/multikueue`
-- **Assignees**: _none_
-- **Comments**: 8
+- **Assignees**: [@Mostafahassen1](https://github.com/Mostafahassen1)
+- **Comments**: 9
 
 ## Description
 
@@ -147,3 +147,7 @@ So, basically, +1 on this enhancement.
 /retitle MultiKueue: allow configuring step size in the incremental dispatcher
 
 If you don't mind - because the current title sounds like quite another feature.
+
+### Comment by [@Mostafahassen1](https://github.com/Mostafahassen1) — 2026-04-29T13:29:16Z
+
+/assign

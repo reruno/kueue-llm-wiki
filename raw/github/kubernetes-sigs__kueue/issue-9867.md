@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9867
 
-**Last updated**: 2026-03-17T06:00:27Z
+**Last updated**: 2026-05-06T08:24:34Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-03-13T13:41:10Z
-- **Updated**: 2026-03-17T06:00:27Z
-- **Closed**: —
+- **Updated**: 2026-05-06T08:24:34Z
+- **Closed**: 2026-05-06T08:24:34Z
 - **Labels**: `kind/feature`
 - **Assignees**: [@mbobrovskyi](https://github.com/mbobrovskyi)
-- **Comments**: 4
+- **Comments**: 5
 
 ## Description
 
@@ -56,3 +56,7 @@ I fully support this request 👍
 ### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-03-17T06:00:24Z
 
 /assign
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-04-30T13:25:59Z
+
+ping @mbobrovskyi , let us know if you have cycles to cover this one, otherwise let's search for an assignee

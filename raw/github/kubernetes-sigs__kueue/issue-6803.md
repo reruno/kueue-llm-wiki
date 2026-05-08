@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/6803
 
-**Last updated**: 2026-03-19T09:00:29Z
+**Last updated**: 2026-05-04T22:14:15Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-09-12T09:42:02Z
-- **Updated**: 2026-03-19T09:00:29Z
+- **Updated**: 2026-05-04T22:14:15Z
 - **Closed**: —
 - **Labels**: `kind/cleanup`, `priority/important-longterm`, `area/multikueue`
-- **Assignees**: _none_
-- **Comments**: 5
+- **Assignees**: [@andrewseif](https://github.com/andrewseif)
+- **Comments**: 6
 
 ## Description
 
@@ -87,3 +87,9 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@mimowo](https://github.com/mimowo) — 2026-03-19T09:00:26Z
 
 /remove-lifecycle stale
+
+### Comment by [@andrewseif](https://github.com/andrewseif) — 2026-05-04T08:51:27Z
+
+I would like to work on this issue 😄 
+
+/assign

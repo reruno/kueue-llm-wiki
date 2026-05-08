@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9015
 
-**Last updated**: 2026-04-06T14:55:21Z
+**Last updated**: 2026-05-01T06:16:02Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2026-02-05T20:47:31Z
-- **Updated**: 2026-04-06T14:55:21Z
+- **Updated**: 2026-05-01T06:16:02Z
 - **Closed**: —
 - **Labels**: `kind/bug`
 - **Assignees**: _none_
-- **Comments**: 22
+- **Comments**: 23
 
 ## Description
 
@@ -319,3 +319,11 @@ Were any changes made regarding the issue?
 From my perspective, there haven’t been any substantial changes addressing the core issue. It seems possible that maintainers may be considering a different direction that does not center around WorkloadSlices, which could explain the lack of meaningful progress.
 
 That said, I may be wrong, so would appreciate clarification if there have been updates or a shift in approach.
+
+### Comment by [@atosatto](https://github.com/atosatto) — 2026-05-01T04:48:04Z
+
+Just wanted to mention I am super interested in seeing this feature coming to fruition. Maturing the WorkloadSlices implementation is critical to the support of scenarios where we want the running replicas to continue their execution instead of being terminated due to the Workload re-admission flow such as Spark Dynamic Allocation and Deployments scale up (and down). 
+
+Do we have a set of next steps to push this forward? Happy to help in any way 🙏 
+
+cc @ichekrygin  @mimowo @tenzen-y

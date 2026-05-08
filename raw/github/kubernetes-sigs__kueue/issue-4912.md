@@ -4,17 +4,17 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/4912
 
-**Last updated**: 2026-04-21T23:45:38Z
+**Last updated**: 2026-05-04T17:02:24Z
 
 ---
 
 ## Metadata
 
-- **State**: open (reopened)
+- **State**: closed (completed)
 - **Author**: [@abrennan89](https://github.com/abrennan89)
 - **Created**: 2025-04-08T15:57:33Z
-- **Updated**: 2026-04-21T23:45:38Z
-- **Closed**: —
+- **Updated**: 2026-05-04T17:02:24Z
+- **Closed**: 2026-05-04T17:02:24Z
 - **Labels**: `kind/documentation`
 - **Assignees**: [@kannon92](https://github.com/kannon92)
 - **Comments**: 18

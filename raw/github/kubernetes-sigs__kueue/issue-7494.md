@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7494
 
-**Last updated**: 2026-04-20T05:46:54Z
+**Last updated**: 2026-05-04T04:56:10Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@pajakd](https://github.com/pajakd)
 - **Created**: 2025-11-03T07:26:47Z
-- **Updated**: 2026-04-20T05:46:54Z
+- **Updated**: 2026-05-04T04:56:10Z
 - **Closed**: —
 - **Labels**: `kind/cleanup`, `priority/important-longterm`
-- **Assignees**: _none_
-- **Comments**: 4
+- **Assignees**: [@ShaanveerS](https://github.com/ShaanveerS)
+- **Comments**: 5
 
 ## Description
 
@@ -81,3 +81,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-04-20T05:46:51Z
 
 /remove-lifecycle rotten
+
+### Comment by [@ShaanveerS](https://github.com/ShaanveerS) — 2026-05-04T04:56:08Z
+
+/assign

@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5704
 
-**Last updated**: 2026-04-16T11:43:19Z
+**Last updated**: 2026-05-07T22:24:15Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2025-06-20T16:23:55Z
-- **Updated**: 2026-04-16T11:43:19Z
+- **Updated**: 2026-05-07T22:24:15Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `priority/important-longterm`, `area/multikueue`
 - **Assignees**: [@mszadkow](https://github.com/mszadkow)
-- **Comments**: 21
+- **Comments**: 22
 
 ## Description
 
@@ -225,3 +225,11 @@ One other challenge that remains is how do we avoid the MultiKueue admission che
 
 
 - @mimowo
+
+### Comment by [@olekzabl](https://github.com/olekzabl) — 2026-05-07T22:24:15Z
+
+Another question (raised by @mimowo on the Apr 9 WG call but then apparently lost in the discussion?) is: which ClusterQueue should be used for the MultiK workloads dispatched to the "manager as worker"?
+
+By the current rules, it'd be the same CQ to which the original workload belonged, but this sounds like trouble (even if we use a copy with a different name). For example, such "naive approach" would mean *double accounting* of the workload's requests against CQ quota.
+
+For my intuition, it'd be cleanest to separate CQs and LQs per the manager/worker role. This would require introducing new kinds of dispatching rules, like "dispatch from manager LQ `lq1` to worker LQs named `lq2`". (So far, we assumed equality of those names).

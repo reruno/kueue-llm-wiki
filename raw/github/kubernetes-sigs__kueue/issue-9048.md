@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9048
 
-**Last updated**: 2026-02-09T08:20:32Z
+**Last updated**: 2026-05-08T07:33:20Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@GonzaloSaez](https://github.com/GonzaloSaez)
 - **Created**: 2026-02-07T12:03:22Z
-- **Updated**: 2026-02-09T08:20:32Z
-- **Closed**: —
+- **Updated**: 2026-05-08T07:33:20Z
+- **Closed**: 2026-05-08T07:33:20Z
 - **Labels**: `kind/bug`
 - **Assignees**: _none_
-- **Comments**: 1
+- **Comments**: 2
 
 ## Description
 
@@ -223,3 +223,263 @@ spec:
   - nvidia.com/gpu
 ```
 cc @yaroslava-serdiuk
+
+### Comment by [@cvgenesis](https://github.com/cvgenesis) — 2026-05-05T18:55:06Z
+
+I have a similar problem. GKE, standard node pool, TAS + autoscaling with provisioningClassName: best-effort-atomic-scale-up.autoscaling.x-k8s.io
+
+There are 3 other workloads already using 32 GPUs, and 8 GPUs are still GPUs available.
+```
+  spec:
+    admissionChecksStrategy:
+      admissionChecks:
+      - name: provisioning
+        onFlavors:
+        - default-flavor
+    flavorFungibility:
+      whenCanBorrow: MayStopSearch
+      whenCanPreempt: TryNextFlavor
+    namespaceSelector: {}
+    preemption:
+      borrowWithinCohort:
+        policy: Never
+      reclaimWithinCohort: Never
+      withinClusterQueue: LowerPriority
+    queueingStrategy: BestEffortFIFO
+    resourceGroups:
+    - coveredResources:
+      - nvidia.com/gpu
+      - cpu
+      - memory
+      - rdma/rdma_shared_device_a
+      flavors:
+      - name: default-flavor
+        resources:
+        - name: nvidia.com/gpu
+          nominalQuota: "40"
+        - name: cpu
+          nominalQuota: "1760"
+        - name: memory
+          nominalQuota: 19200Gi
+        - name: rdma/rdma_shared_device_a
+          nominalQuota: "0"
+    stopPolicy: None
+  status:
+    admittedWorkloads: 3
+    conditions:
+    - lastTransitionTime: "2026-05-03T19:15:21Z"
+      message: Can admit new workloads
+      observedGeneration: 68
+      reason: Ready
+      status: "True"
+      type: Active
+    flavorsReservation:
+    - name: default-flavor
+      resources:
+      - borrowed: "0"
+        name: cpu
+        total: 801500m
+      - borrowed: "0"
+        name: memory
+        total: "9764575761920"
+      - borrowed: "0"
+        name: nvidia.com/gpu
+        total: "32"
+      - borrowed: "0"
+        name: rdma/rdma_shared_device_a
+        total: "0"
+    flavorsUsage:
+    - name: default-flavor
+      resources:
+      - borrowed: "0"
+        name: cpu
+        total: 801500m
+      - borrowed: "0"
+        name: memory
+        total: "9764575761920"
+      - borrowed: "0"
+        name: nvidia.com/gpu
+        total: "32"
+      - borrowed: "0"
+        name: rdma/rdma_shared_device_a
+        total: "0"
+    pendingWorkloads: 0
+    reservingWorkloads: 3
+```
+
+I add a single workload with 8 GPUs. No other workloads are being added. And I see that it is stuck at SecondPassFailed
+
+```
+25s         Normal    ProvisioningRequestCreated               workload/rayjob-test-gpu-e11f0                       Created ProvisioningRequest: "rayjob-test-gpu-e11f0-provisioning-1"
+25s         Normal    QuotaReserved                            workload/rayjob-test-gpu-e11f0                       Quota reserved in ClusterQueue cluster-queue, wait time since queued was 0s
+25s         Normal    CreatedWorkload                          rayjob/test-gpu                                      Created Workload: default/rayjob-test-gpu-e11f0
+16s         Normal    AdmissionCheckUpdated                    workload/rayjob-test-gpu-e11f0                       Admission check provisioning updated state from Pending to Ready with message: Capacity is found in the cluster
+1s          Warning   SecondPassFailed                         workload/rayjob-test-gpu-e11f0                       couldn't assign flavors to pod set h100x8: insufficient unused quota for nvidia.com/gpu in flavor default-flavor, 8 more needed
+```
+
+```
+  spec:
+    admissionChecksStrategy:
+      admissionChecks:
+      - name: provisioning
+        onFlavors:
+        - default-flavor
+    flavorFungibility:
+      whenCanBorrow: MayStopSearch
+      whenCanPreempt: TryNextFlavor
+    namespaceSelector: {}
+    preemption:
+      borrowWithinCohort:
+        policy: Never
+      reclaimWithinCohort: Never
+      withinClusterQueue: LowerPriority
+    queueingStrategy: BestEffortFIFO
+    resourceGroups:
+    - coveredResources:
+      - nvidia.com/gpu
+      - cpu
+      - memory
+      - rdma/rdma_shared_device_a
+      flavors:
+      - name: default-flavor
+        resources:
+        - name: nvidia.com/gpu
+          nominalQuota: "40"
+        - name: cpu
+          nominalQuota: "1760"
+        - name: memory
+          nominalQuota: 19200Gi
+        - name: rdma/rdma_shared_device_a
+          nominalQuota: "0"
+    stopPolicy: None
+  status:
+    admittedWorkloads: 3
+    conditions:
+    - lastTransitionTime: "2026-05-03T19:15:21Z"
+      message: Can admit new workloads
+      observedGeneration: 68
+      reason: Ready
+      status: "True"
+      type: Active
+    flavorsReservation:
+    - name: default-flavor
+      resources:
+      - borrowed: "0"
+        name: cpu
+        total: 901610m
+      - borrowed: "0"
+        name: memory
+        total: 10513290348Ki
+      - borrowed: "0"
+        name: nvidia.com/gpu
+        total: "40"
+      - borrowed: "0"
+        name: rdma/rdma_shared_device_a
+        total: "0"
+    flavorsUsage:
+    - name: default-flavor
+      resources:
+      - borrowed: "0"
+        name: cpu
+        total: 801500m
+      - borrowed: "0"
+        name: memory
+        total: "9764575761920"
+      - borrowed: "0"
+        name: nvidia.com/gpu
+        total: "32"
+      - borrowed: "0"
+        name: rdma/rdma_shared_device_a
+        total: "0"
+    pendingWorkloads: 0
+    reservingWorkloads: 4
+```
+
+If I edit ClusterQueue and add 8 to nominal quota, the job slips into Running
+
+```
+1s          Normal    CreatedWorkerPod                         raycluster/test-gpu-x66lv                            Created worker Pod default/test-gpu-x66lv-h100x8-worker-v2rbm
+1s          Normal    CreatedHeadPod                           raycluster/test-gpu-x66lv                            Created head Pod default/test-gpu-x66lv-head-gh8px
+1s          Normal    CreatedService                           raycluster/test-gpu-x66lv                            Created service default/test-gpu-x66lv-head-svc
+1s          Normal    Admitted                                 workload/rayjob-test-gpu-e11f0                       Admitted by ClusterQueue cluster-queue, wait time since reservation was 0s
+1s          Normal    Started                                  rayjob/test-gpu                                      Admitted by clusterQueue cluster-queue
+1s          Normal    CreatedRayCluster                        rayjob/test-gpu                                      Created RayCluster default/test-gpu-x66lv
+```
+
+```
+  spec:
+    admissionChecksStrategy:
+      admissionChecks:
+      - name: provisioning
+        onFlavors:
+        - default-flavor
+    flavorFungibility:
+      whenCanBorrow: MayStopSearch
+      whenCanPreempt: TryNextFlavor
+    namespaceSelector: {}
+    preemption:
+      borrowWithinCohort:
+        policy: Never
+      reclaimWithinCohort: Never
+      withinClusterQueue: LowerPriority
+    queueingStrategy: BestEffortFIFO
+    resourceGroups:
+    - coveredResources:
+      - nvidia.com/gpu
+      - cpu
+      - memory
+      - rdma/rdma_shared_device_a
+      flavors:
+      - name: default-flavor
+        resources:
+        - name: nvidia.com/gpu
+          nominalQuota: "48"
+        - name: cpu
+          nominalQuota: "1760"
+        - name: memory
+          nominalQuota: 19200Gi
+        - name: rdma/rdma_shared_device_a
+          nominalQuota: "0"
+    stopPolicy: None
+  status:
+    admittedWorkloads: 4
+    conditions:
+    - lastTransitionTime: "2026-05-03T19:15:21Z"
+      message: Can admit new workloads
+      observedGeneration: 69
+      reason: Ready
+      status: "True"
+      type: Active
+    flavorsReservation:
+    - name: default-flavor
+      resources:
+      - borrowed: "0"
+        name: cpu
+        total: 901610m
+      - borrowed: "0"
+        name: memory
+        total: 10513290348Ki
+      - borrowed: "0"
+        name: nvidia.com/gpu
+        total: "40"
+      - borrowed: "0"
+        name: rdma/rdma_shared_device_a
+        total: "0"
+    flavorsUsage:
+    - name: default-flavor
+      resources:
+      - borrowed: "0"
+        name: cpu
+        total: 901610m
+      - borrowed: "0"
+        name: memory
+        total: 10513290348Ki
+      - borrowed: "0"
+        name: nvidia.com/gpu
+        total: "40"
+      - borrowed: "0"
+        name: rdma/rdma_shared_device_a
+        total: "0"
+    pendingWorkloads: 0
+    reservingWorkloads: 4
+```

@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7301
 
-**Last updated**: 2026-03-16T16:58:45Z
+**Last updated**: 2026-05-04T11:25:23Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: closed (not_planned)
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2025-10-17T04:51:31Z
-- **Updated**: 2026-03-16T16:58:45Z
+- **Updated**: 2026-05-04T11:25:23Z
 - **Closed**: 2026-03-16T16:58:44Z
 - **Labels**: `kind/bug`, `lifecycle/rotten`
 - **Assignees**: _none_
-- **Comments**: 13
+- **Comments**: 14
 
 ## Description
 
@@ -250,3 +250,7 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/7301#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@j-skiba](https://github.com/j-skiba) — 2026-05-04T11:25:23Z
+
+https://github.com/kubernetes-sigs/kueue/pull/10082#issuecomment-4370632708 - proposed solution

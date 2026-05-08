@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5310
 
-**Last updated**: 2026-02-06T14:04:01Z
+**Last updated**: 2026-05-07T14:54:49Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@gabesaba](https://github.com/gabesaba)
 - **Created**: 2025-05-22T08:57:27Z
-- **Updated**: 2026-02-06T14:04:01Z
+- **Updated**: 2026-05-07T14:54:49Z
 - **Closed**: —
-- **Labels**: `kind/cleanup`
+- **Labels**: `lifecycle/stale`, `kind/cleanup`
 - **Assignees**: _none_
-- **Comments**: 17
+- **Comments**: 18
 
 ## Description
 
@@ -160,3 +160,23 @@ An example of how issue (ii) could be problematic is when moving the Backoff han
 ### Comment by [@Singularity23x0](https://github.com/Singularity23x0) — 2026-02-06T14:03:58Z
 
 /unassign
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-07T14:54:45Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

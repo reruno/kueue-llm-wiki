@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8808
 
-**Last updated**: 2026-01-30T21:53:36Z
+**Last updated**: 2026-04-30T22:17:39Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2026-01-27T06:00:14Z
-- **Updated**: 2026-01-30T21:53:36Z
+- **Updated**: 2026-04-30T22:17:39Z
 - **Closed**: —
-- **Labels**: `kind/documentation`
+- **Labels**: `lifecycle/stale`, `kind/documentation`
 - **Assignees**: _none_
-- **Comments**: 4
+- **Comments**: 5
 
 ## Description
 
@@ -136,3 +136,23 @@ B. Clearly document which fields are mutable and the consequences of mutating th
 C. Both A and B.
 
 Today, Kueue documentation already provides a well-structured, user-facing place to capture this. The “Run workloads” section of the Kueue docs offers a clear and authoritative surface where immutability or mutability constraints, along with their handling and consequences, could be explicitly documented and kept up to date.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-04-30T22:17:37Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

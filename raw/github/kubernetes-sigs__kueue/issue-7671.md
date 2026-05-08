@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7671
 
-**Last updated**: 2026-03-15T15:19:02Z
+**Last updated**: 2026-05-05T02:58:22Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@kennygt51](https://github.com/kennygt51)
 - **Created**: 2025-11-14T16:01:59Z
-- **Updated**: 2026-03-15T15:19:02Z
-- **Closed**: —
+- **Updated**: 2026-05-05T02:58:22Z
+- **Closed**: 2026-05-05T02:58:22Z
 - **Labels**: `kind/feature`, `priority/important-longterm`
 - **Assignees**: _none_
-- **Comments**: 5
+- **Comments**: 6
 
 ## Description
 
@@ -65,3 +65,9 @@ Possibly related: https://github.com/kubernetes-sigs/kueue/issues/6932
 Are we talking total beginners? like people who only know what a CRD is but not how to create one?
 
 I took a look at #6932, and while that ticket target scheduling scenarios, there are a lot more that docs should do, one of which is not just targeting users but contributors to kueue aswell?
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-05-04T18:18:25Z
+
+https://github.com/kubernetes-sigs/kueue/pull/10875
+
+Maybe this is sufficient?

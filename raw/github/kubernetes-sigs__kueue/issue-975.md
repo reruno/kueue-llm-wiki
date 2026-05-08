@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/975
 
-**Last updated**: 2026-02-05T22:11:28Z
+**Last updated**: 2026-05-06T22:40:45Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ahg-g](https://github.com/ahg-g)
 - **Created**: 2023-07-11T17:25:03Z
-- **Updated**: 2026-02-05T22:11:28Z
+- **Updated**: 2026-05-06T22:40:45Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 21
+- **Comments**: 22
 
 ## Description
 
@@ -259,3 +259,23 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 We've been running Kueue in production. It's been working pretty well and are now enabling it for our RayJobs. Our main concern is that preemption today is all-or-nothing -- when reclaiming borrowed capacity, a running RayJob gets fully preempted even if only a fraction of its resources need to be freed. We plan to run several RayJobs concurrently on shared clusters, and downscaling a running job would be far less disruptive than killing it entirely.
 
 There's related discussion on the WorkloadResize approach (#5897) and the ElasticJobsViaWorkloadSlices beta path (#8651). I'm new to the Kueue contributor community but happy to help with testing, prototyping, or whatever else would be useful to move this forward.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-06T22:40:43Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

@@ -4,17 +4,17 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9741
 
-**Last updated**: 2026-03-08T20:09:07Z
+**Last updated**: 2026-05-07T19:15:22Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@amy](https://github.com/amy)
 - **Created**: 2026-03-08T19:57:40Z
-- **Updated**: 2026-03-08T20:09:07Z
-- **Closed**: —
+- **Updated**: 2026-05-07T19:15:22Z
+- **Closed**: 2026-05-07T19:15:22Z
 - **Labels**: `kind/feature`
 - **Assignees**: [@amy](https://github.com/amy)
 - **Comments**: 1

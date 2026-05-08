@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9843
 
-**Last updated**: 2026-03-18T12:46:59Z
+**Last updated**: 2026-05-06T07:51:51Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-03-13T09:22:05Z
-- **Updated**: 2026-03-18T12:46:59Z
+- **Updated**: 2026-05-06T07:51:51Z
 - **Closed**: —
 - **Labels**: `kind/bug`
-- **Assignees**: _none_
-- **Comments**: 10
+- **Assignees**: [@mszadkow](https://github.com/mszadkow)
+- **Comments**: 11
 
 ## Description
 
@@ -192,3 +192,7 @@ Yes, this is another option, but still I think, most importantly, we need an abs
 /unassign
 
 I'm not sure there is agreement yet on the approach and I'm not sure I will implement that right now.
+
+### Comment by [@mszadkow](https://github.com/mszadkow) — 2026-05-06T07:51:49Z
+
+/assign

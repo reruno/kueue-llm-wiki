@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8022
 
-**Last updated**: 2026-03-19T10:48:41Z
+**Last updated**: 2026-04-30T11:32:29Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@kshalot](https://github.com/kshalot)
 - **Created**: 2025-12-01T14:55:19Z
-- **Updated**: 2026-03-19T10:48:41Z
-- **Closed**: —
+- **Updated**: 2026-04-30T11:32:29Z
+- **Closed**: 2026-04-30T11:32:29Z
 - **Labels**: `kind/cleanup`, `priority/important-longterm`
 - **Assignees**: _none_
-- **Comments**: 3
+- **Comments**: 4
 
 ## Description
 
@@ -72,3 +72,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@mimowo](https://github.com/mimowo) — 2026-03-19T10:48:38Z
 
 /remove-lifecycle stale
+
+### Comment by [@kshalot](https://github.com/kshalot) — 2026-04-30T11:32:29Z
+
+I think this is not relevant anymore, thanks to [#10463](https://github.com/kubernetes-sigs/kueue/pull/10463) which watches node events. So if the node taints are changing, we trigger reconciles for its pods.

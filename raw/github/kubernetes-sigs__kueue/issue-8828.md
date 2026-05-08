@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8828
 
-**Last updated**: 2026-01-28T18:48:50Z
+**Last updated**: 2026-04-28T19:46:40Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-01-27T15:50:20Z
-- **Updated**: 2026-01-28T18:48:50Z
+- **Updated**: 2026-04-28T19:46:40Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: [@j-skiba](https://github.com/j-skiba)
-- **Comments**: 10
+- **Comments**: 11
 
 ## Description
 
@@ -131,3 +131,23 @@ Do you assume to implement webhook mechanism for manually evicted pods which wil
 ### Comment by [@mimowo](https://github.com/mimowo) — 2026-01-28T18:48:14Z
 
 I might be missing something, but I think we dont need any special mechanism. If the new NoSchedule taint is untolerated kube-scheduler will not schedule the pods on the newly tainted nodes. It will also not schedule them on other pods due to the NodeSelector injected by TopologyUngater.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-04-28T19:46:38Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

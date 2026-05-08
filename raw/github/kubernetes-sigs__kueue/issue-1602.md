@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/1602
 
-**Last updated**: 2026-03-24T12:57:27Z
+**Last updated**: 2026-05-07T14:17:24Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: open (reopened)
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2024-01-17T17:45:17Z
-- **Updated**: 2026-03-24T12:57:27Z
+- **Updated**: 2026-05-07T14:17:24Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `lifecycle/rotten`
+- **Labels**: `kind/feature`
 - **Assignees**: _none_
-- **Comments**: 17
+- **Comments**: 21
 
 ## Description
 
@@ -253,3 +253,73 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-04-23T13:26:38Z
+
+The Kubernetes project currently lacks enough active contributors to adequately respond to all issues and PRs.
+
+This bot triages issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Reopen this issue with `/reopen`
+- Mark this issue as fresh with `/remove-lifecycle rotten`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/close not-planned
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-04-23T13:26:45Z
+
+@k8s-triage-robot: Closing this issue, marking it as "Not Planned".
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/1602#issuecomment-4304746373):
+
+>The Kubernetes project currently lacks enough active contributors to adequately respond to all issues and PRs.
+>
+>This bot triages issues according to the following rules:
+>- After 90d of inactivity, `lifecycle/stale` is applied
+>- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+>- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+>
+>You can:
+>- Reopen this issue with `/reopen`
+>- Mark this issue as fresh with `/remove-lifecycle rotten`
+>- Offer to help out with [Issue Triage][1]
+>
+>Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+>
+>/close not-planned
+>
+>[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-05-07T14:17:15Z
+
+/reopen
+/remove-lifecycle rotten
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-07T14:17:23Z
+
+@kannon92: Reopened this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/1602#issuecomment-4397914212):
+
+>/reopen
+>/remove-lifecycle rotten
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

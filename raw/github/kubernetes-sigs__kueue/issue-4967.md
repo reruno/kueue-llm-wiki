@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/4967
 
-**Last updated**: 2026-04-14T05:46:49Z
+**Last updated**: 2026-05-04T17:32:23Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mbobrovskyi](https://github.com/mbobrovskyi)
 - **Created**: 2025-04-14T16:50:34Z
-- **Updated**: 2026-04-14T05:46:49Z
-- **Closed**: —
+- **Updated**: 2026-05-04T17:32:23Z
+- **Closed**: 2026-05-04T17:32:23Z
 - **Labels**: `kind/bug`
 - **Assignees**: [@mbobrovskyi](https://github.com/mbobrovskyi)
-- **Comments**: 14
+- **Comments**: 15
 
 ## Description
 
@@ -236,3 +236,7 @@ https://github.com/kubernetes-sigs/kueue/blob/b89dae018b31ca32eed282040e19eceee0
 ### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-04-14T05:46:49Z
 
 I already created PR https://github.com/kubernetes-sigs/kueue/pull/4932.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-04-30T15:46:30Z
+
+Thank you, let me review that now 👍

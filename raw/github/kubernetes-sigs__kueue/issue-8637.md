@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8637
 
-**Last updated**: 2026-02-16T10:49:45Z
+**Last updated**: 2026-05-06T09:24:33Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2026-01-16T14:51:41Z
-- **Updated**: 2026-02-16T10:49:45Z
-- **Closed**: —
+- **Updated**: 2026-05-06T09:24:33Z
+- **Closed**: 2026-05-06T09:24:33Z
 - **Labels**: `kind/cleanup`, `priority/important-longterm`, `area/multikueue`
-- **Assignees**: _none_
-- **Comments**: 5
+- **Assignees**: [@MatteoFari](https://github.com/MatteoFari)
+- **Comments**: 6
 
 ## Description
 
@@ -60,3 +60,7 @@ SGTM, thank you for double-checking those.
 ### Comment by [@olekzabl](https://github.com/olekzabl) — 2026-02-16T10:49:43Z
 
 /area multikueue
+
+### Comment by [@MatteoFari](https://github.com/MatteoFari) — 2026-04-29T09:13:29Z
+
+/assign

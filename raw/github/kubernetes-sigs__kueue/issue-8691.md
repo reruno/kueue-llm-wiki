@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8691
 
-**Last updated**: 2026-01-28T17:06:20Z
+**Last updated**: 2026-04-28T17:44:38Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@PBundyra](https://github.com/PBundyra)
 - **Created**: 2026-01-20T11:16:04Z
-- **Updated**: 2026-01-28T17:06:20Z
+- **Updated**: 2026-04-28T17:44:38Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: [@PBundyra](https://github.com/PBundyra)
-- **Comments**: 2
+- **Comments**: 3
 
 ## Description
 
@@ -57,3 +57,23 @@ I.E. WL(100cpu) -> RF1(100cpu) and RF2(100cpu)
 
 --- 
 Update: found the answer in KEP.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-04-28T17:44:36Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

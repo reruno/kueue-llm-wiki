@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/1481
 
-**Last updated**: 2025-02-05T13:25:08Z
+**Last updated**: 2026-05-05T07:20:53Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@achernevskii](https://github.com/achernevskii)
 - **Created**: 2023-12-18T15:19:48Z
-- **Updated**: 2025-02-05T13:25:08Z
+- **Updated**: 2026-05-05T07:20:53Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `lifecycle/frozen`
+- **Labels**: `kind/feature`
 - **Assignees**: [@vladikkuzn](https://github.com/vladikkuzn)
-- **Comments**: 10
+- **Comments**: 11
 
 ## Description
 
@@ -152,3 +152,9 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2025-02-05T13:25:04Z
 
 /lifecycle frozen
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-05T07:20:50Z
+
+/remove-lifecycle stale
+/remove-lifecycle frozen
+I would like to move this forward. Looks like this PR attempted https://github.com/kubernetes-sigs/kueue/pull/9599 recently, but is stopped.

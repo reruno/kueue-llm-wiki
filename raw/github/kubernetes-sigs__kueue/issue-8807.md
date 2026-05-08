@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8807
 
-**Last updated**: 2026-01-27T17:07:17Z
+**Last updated**: 2026-04-27T19:27:43Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2026-01-27T05:56:01Z
-- **Updated**: 2026-01-27T17:07:17Z
+- **Updated**: 2026-04-27T19:27:43Z
 - **Closed**: —
-- **Labels**: `kind/documentation`
+- **Labels**: `lifecycle/stale`, `kind/documentation`
 - **Assignees**: _none_
-- **Comments**: 2
+- **Comments**: 5
 
 ## Description
 
@@ -128,3 +128,63 @@ I don’t think LWS checks or enforces immutability on `.spec.leaderWorkerTempla
 More generally, Kueue’s immutability enforcement is largely scoped to PodTemplateSpec fields, which makes sense given that resource requirements are typically defined there. However, there are some integration-specific edge cases. LeaderWorkerSet is particularly interesting in this regard because it exposes both `spec.replicas` and `spec.leaderWorkerTemplate.size`. While these fields serve different purposes, changes to either can effectively increase or decrease the total number of Pods.
 
 Kueue appears to handle mutations to `spec.replicas` in a well-defined way, whereas mutations to `spec.leaderWorkerTemplate.size` follow a different path, it’s not clear whether this divergence is intentional or incidental.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-04-27T17:27:43Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-04-27T18:27:45Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-04-27T19:27:42Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
