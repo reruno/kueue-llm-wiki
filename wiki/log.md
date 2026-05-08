@@ -190,3 +190,15 @@ Converted all 300 inline source citations across 36 wiki pages from `(source: is
 **Scope and method**:
 
 Grepped all 8,241 PR files for `@mimowo` comments; identified PRs with 5+ comments from them; read 10 representative PRs spanning 2025-03 through 2026-04 to collect inline review comments, prose feedback, and approval patterns. Synthesized into categories: backwards compatibility, naming, API design, test requirements, log verbosity, helper extraction, communication vocabulary, approval workflow.
+
+---
+
+## 2026-05-06 — MultiKueueCluster reconnect mechanics
+
+**Source**: `pkg/controller/admissionchecks/multikueue/multikueuecluster.go` (read directly), prompted by user question about a multikueue e2e log showing two `setting client config` errors 6 ms apart with `retryAfter: 5s` and `retryAfter: 10s`.
+
+**What changed**:
+
+- `wiki/multikueue.md` — added "MultiKueueCluster reconnect mechanics" section documenting the `2^(n-1) * 5s` backoff (capped at ~5m20s, `retryMaxSteps=7`), the `failedConnAttempts` / `connecting` state, and why the condition flip `True/Connected → False/ClientConnectionFailed` causes a self-triggered second reconcile (status-update event re-enqueues the cluster before `RequeueAfter` fires; the cascade stops after one extra cycle because the second status write is a no-op via `cmpConditionState`).
+
+**Why it's worth a wiki entry**: not visible from the [[multikueue]] high-level flow; the "double error in the same second" pattern is a real operational footgun when reading manager logs.
