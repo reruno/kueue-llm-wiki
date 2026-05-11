@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-05-08
 
 ---
 
@@ -37,6 +37,24 @@ LWS with WorkloadPriorityClass had specific flakes around PodTemplate updates ([
 ## Naming consistency
 
 "[LWS] Use consistent naming for prebuilt workload across the codebase" ([[issue-4324]]) — an internal hygiene issue.
+
+## v0.18.0 behaviour changes
+
+### Relaxed PodSpec validation — `nodeSelector` is mutable on running LWS
+
+The LWS validation webhook previously rejected `PodTemplate.Spec` mutation while a Workload was admitted, which blocked operators from rolling node-selector updates onto an already-running LWS (typical when migrating between accelerator pools). v0.18.0 (#10275, with cherry-pick [[pr-10944]] and [[pr-10930]]) relaxes the validation so `nodeSelector` can be changed; other PodSpec fields remain restricted.
+
+### Mutating `queue-name` while idle
+
+When `status.readyReplicas == 0` (no live group), `kueue.x-k8s.io/queue-name` may now be re-labeled on the LWS itself — useful for moving an LWS to a different LocalQueue without recreating it. Released as #4932 in v0.18.0.
+
+### `WorkloadKeyForLeaderWorkerSet` helper
+
+The integration's lookup key (used to map LWS objects back to their owning Workload) was unified into `WorkloadKeyForLeaderWorkerSet()` in #8843. The helper reduces several duplicated key-derivation paths to a single function. Cherry-picked to release-0.16 in [[pr-10945]].
+
+### PodTemplate metadata propagation (#10330)
+
+Labels/annotations on the LWS PodTemplate now propagate into the Workload's PodSets so they are also visible to admission-check controllers (e.g. ProvisioningRequest). Closes the long-standing [[issue-10326]].
 
 ## Related pages
 

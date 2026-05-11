@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-05-08
 
 ---
 
@@ -42,6 +42,16 @@ A CQ becomes inactive if a referenced [[resource-flavor]] is missing or a refere
 ## Stop policies
 
 `spec.stopPolicy` can be set to `Hold` or `HoldAndDrain` to halt admission (and optionally evict admitted workloads). Useful for planned maintenance.
+
+## Finalizer (`kueue.x-k8s.io/cluster-queue`)
+
+A CQ carries a finalizer that is only removed once the CQ has no Workloads or LocalQueues referencing it. The finalizer drop is driven by the CQ reconciler, which re-checks emptiness every time it is enqueued.
+
+The scheduler can also create a transient race: when admission fails, the scheduler removes the assumed Workload from its in-memory cache. If it forgets to nudge the CQ reconciler after that cleanup, the CQ may stay stuck with the finalizer indefinitely after the user deletes all Workloads and LQs in a narrow window (deleting Workloads while they are evicting, then deleting the LQ shortly after). [[pr-10821]] (cherry-picked to release-0.16, release-0.17 in v0.16.7 / v0.17.2) closes the race by making the scheduler enqueue the CQ on assumed-cache cleanup so the finalizer is dropped on the next reconcile. Tracked in [[issue-10759]].
+
+## Configuration: `quotaCheckStrategy` (alpha, v0.18)
+
+The top-level `resources.quotaCheckStrategy` configuration field (gated behind the `QuotaCheckStrategy` feature gate) lets operators choose how strictly Kueue checks Workload requests against the CQ's declared resources. Default is the historical "all requested resources must be declared" behaviour; setting it to `IgnoreUndeclared` admits Workloads that ask for resources the CQ does not list (those resources simply don't count against quota). Introduced in v0.18.0 ([[issue-10861]] release notes; KEP linked from PR #9808).
 
 ## Common pitfalls
 

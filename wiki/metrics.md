@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-05-08
 
 ---
 
@@ -35,6 +35,19 @@ Cohort-level metrics have had flakes as the hierarchical-cohort accounting matur
 - "Cohorts when creating, modifying and removing correctly handles cohort metrics when workload admitted with admission check" ([[issue-10057]]).
 
 These are test flakes, not always reliability issues in production; still, dashboards that sum across cohort levels should be checked for double-counting under hierarchical setups.
+
+### Cohort CPU unit fix (v0.16.7 / v0.17.2 / v0.18.0)
+
+Until v0.16.6, `kueue_cohort_subtree_quota` and `kueue_cohort_subtree_resource_reservations` reported raw **milliCPU** values (e.g. `30000`) for CPU resources, while the equivalent ClusterQueue metrics correctly reported **CPU units** (e.g. `30.0`). The cohort variant did not call `resourceFloat()`. Dashboards that summed CQ + cohort metrics or compared them side-by-side would get wildly inconsistent numbers. [[pr-10747]] aligns the cohort path: `applyCohortMetricPoint` now applies the same conversion and the metric function signatures take `float64`. Fixes [[issue-10746]].
+
+### Stale cohort metrics after subtree change
+
+`kueue_cohort_subtree_admitted_workloads_total` and `kueue_cohort_subtree_admitted_active_workloads` could include results for an implicit root Cohort after a child Cohort or ClusterQueue was deleted. Fixed via #10080 (in v0.18.0 changelog). See also `SubtreeQuota` invalidation under [[fair-sharing]].
+
+## v0.18.0 metric changes
+
+- **`workload_eviction_latency_seconds`** — new histogram recording the time from when an eviction is started to when it is finalized (#10323). Useful as a SLO metric for preemption efficiency.
+- **`evicted_workloads_once_total`** — the `detailed_reason` label was **renamed** to `underlying_cause` for consistency with other metrics (#10637). **Action required**: dashboards/alerts using `detailed_reason` must migrate to `underlying_cause`.
 
 ## What to alert on
 

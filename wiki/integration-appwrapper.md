@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-05-08
 
 ---
 
@@ -35,6 +35,10 @@ AppWrapper + TAS ([[issue-4495]] — Flaky test: TopologyAwareScheduling for App
 ## Integration list inclusion
 
 "Add AppWrapper to the lists of integrations consistently" ([[issue-4024]]) — a meta-issue ensuring the integration appears in every documented integration list.
+
+## AppWrapper version pin
+
+Kueue v0.18.0 ships against **AppWrapper v1.2.1** ([[pr-10898]]). v1.2.1 is a dependency-only patch over v1.2.0: bumps `go.opentelemetry.io/otel/sdk` to 1.43.0, `google.golang.org/grpc` to 1.79.3, and the Go toolchain to 1.26. No behavior change in the integration itself.
 
 ## Related pages
 

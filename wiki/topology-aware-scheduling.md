@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-05-08
 
 ---
 
@@ -50,6 +50,48 @@ Not all job integrations shipped TAS support at once. "TAS: support all Job CRDs
 ## Bin-packing quality
 
 Default placement is greedy. "Optimal bin-packing in TAS" ([[issue-10574]]) tracks algorithmic improvements; "Better accuracy of scheduling by tighter integration with kube-scheduler" ([[issue-3755]]) discusses reducing the split between Kueue's topology choice and the scheduler's node choice.
+
+## Snapshot internals (`tas_flavor_snapshot.go`)
+
+TAS placement is computed off a per-cycle topology snapshot. Each topology domain (region/spine/hostname leaf) carries three counters:
+
+- `state` — capacity assuming a non-leader pod (worker-only).
+- `stateWithLeader` — capacity assuming a leader pod is also placed in the domain. Smaller than `state` because the leader consumes some quota.
+- `leaderState` — whether the domain (or any descendant) can host a leader at all (i.e. the domain has free capacity ≥ leader request on at least one node).
+
+`fillInCounts` aggregates these from leaves up; `fillInCountsHelper` rolls a parent's `stateWithLeader` from its children's `state - stateWithLeader` differences. Two recurring bug classes have been fixed in this code:
+
+### Empty-children over-estimation in `stateWithLeader` (v0.16.7 / v0.17.2)
+
+Aggregation iterated **all** children including `state=0, stateWithLeader=0` reserved nodes, contributing a zero penalty that became the running minimum. Parent `stateWithLeader` then equalled `state`, so the scheduler believed a spine could host both a leader and the workers when in reality the only free node could only host one of them. Symptom: an infinite scheduling loop logging `unexpected remainingCount` / `code assumptions violated` followed by `topologyAssignment.slices: Required value` from CRD validation. Triggered on PodSet groups (e.g. PyTorchJob master + workers) when:
+
+1. `leaderRequest ≤ nodeCapacity` (leader fits)
+2. `workerCount × workerRequest ≤ nodeCapacity` (workers fit alone)
+3. `leaderRequest + workerCount × workerRequest > nodeCapacity` (together they don't)
+
+The fix in [[pr-10841]] (cherry-pick of #10783; preparatory cleanups [[pr-10843]]) restricts the penalty computation to children with `leaderState > 0` and clamps `stateWithLeader` to 0 when no child can host a leader. Tracked under [[issue-10778]]; #7446 still tracks the broader phase-1/phase-2 inconsistency. A follow-up cleanup ([[issue-10812]]) is decoupling non-leader TAS from `stateWithLeader` plumbing.
+
+### Negative state propagating into `TopologyAssignment.podCounts.individual`
+
+`CountInWithLimitingResource` could return a negative `int32` when `tasUsage` (or `tasUsage + assumedUsage` during preempt-mode) exceeded `freeCapacity`. That value was stored verbatim on `leaf.state` and propagated through `fillInCountsHelper` (`childrenCapacity += child.state`), eventually emitting a negative `Count` that the apiserver rejected with `podCounts.individual[*]` `Invalid value: -1: should be greater than or equal to 1`. The Workload would then re-queue with `requeueReason: FailedAfterNomination` indefinitely.
+
+[[pr-10949]] adds two regression tests:
+- `TestBuildTopologyAssignmentForLevels_DropsNonPositiveStateDomains` — output-side filter in `buildTopologyAssignmentForLevels` skips domains with `state ≤ 0`.
+- `TestFillInCounts_ClampsNegativeRemainingCapacity` — source-side fix in `fillInCounts` clamps `leaf.state` to 0 when remaining capacity goes negative (covers both `tasUsage` over-subscription and the `assumedUsage` preempt-mode case).
+
+### Multi-resource second-pass double-counting
+
+The seed loop in `flavorassigner.assignFlavors` previously copied only the **first** preexisting flavor per PodSet. On the second scheduling pass (used for ProvisioningRequests and TAS NodeHotSwap), the remaining resources fell through to `fitsResourceQuota`, which double-counted the workload's own first-pass reservation. Multi-resource workloads (e.g. CPU + memory together) could fail admission for a resource that they had already correctly reserved in the first pass.
+
+[[pr-11005]] preserves all preexisting flavor assignments for the PodSet so the second pass correctly accounts for the workload's already-reserved resources. The TAS scheduler test framework was updated to seed reserved-but-not-admitted workloads into the `cqCache` so the regression is observable in unit tests. Fixes #9048.
+
+## Performance: incremental non-TAS usage cache
+
+Building the topology snapshot dominates scheduler-cycle latency on large clusters. PR #10366 (cherry-picked to release-0.17 in [[pr-11041]]) replaces the per-cycle full scan over non-TAS Pods with **incremental per-node aggregation in `nonTasUsageCache`**. The cache pre-aggregates non-TAS Pod usage per node and is updated event-by-event on Pod create/update/delete; the snapshot reads pre-computed totals instead of walking every Pod.
+
+## NodeHotSwap "late pods"
+
+When a node is marked unhealthy and a workload is partially evicted, replacement pods can land on the new healthy node before the unhealthy state is fully reconciled. The original NodeHotSwap logic added these "late pods" to `UnhealthyNodes` even though they belonged to the new topology assignment, polluting the unhealthy set on subsequent reconciles. The fix (PR #10760, cherry-picked in [[pr-10837]] / [[pr-10838]]) refines NodeHotSwap so `UnhealthyNodes` is only updated for workloads currently assigned to the node via a topology assignment — late pods from stale topologies no longer trigger inaccurate health reporting.
 
 ## Defaults
 

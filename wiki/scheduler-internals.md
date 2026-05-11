@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/scheduler/scheduler.go`, `raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go`, `raw/kueue/pkg/scheduler/logging.go`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-05-08
 
 ---
 
@@ -64,6 +64,12 @@ For each entry the iterator yields, `processEntry` runs the admission pipeline:
 
 All entries not `assumed` (successfully admitted) or `evicted` are re-queued with appropriate reasons: `PendingPreemption`, `PreemptionFailed`, `Inadmissible`, `PreemptionGated`. The queue manager uses these reasons to decide delay and ordering. (source: pkg/scheduler/scheduler.go)
 
+### Inadmissible-workload requeue guard
+
+`Manager.RequeueWorkload` is called from many places (eviction, condition flips, finished-cleanup). It must refuse to enqueue Workloads that have already become inadmissible — specifically, anything where `workload.IsAdmissible(&w)` is false (e.g. `Finished=True`, deactivated, owner gone). Without this guard, a Workload that is concurrently marked Finished can be re-added to the queue and then keep winning the fair-sharing tournament in subsequent cycles, blocking other Workloads from making progress (the scheduler skips it once it sees the Finished condition, but the head-slot is consumed). [[pr-11014]] tightens `RequeueWorkload` to drop inadmissible Workloads. Part of [[issue-10901]].
+
+The same issue motivated the [[failure-recovery]]-related FG **`FinishOrphanedWorkloads`** to be downgraded to Alpha in [[pr-11010]] (release note: "Fix the bug that Kueue may mark workloads as finished immediately after their creation, which could result in blocking the queues by such a workload"). The root cause is that `workload_controller` queries owners via `PartialObjectMetadata`, which has its own informer separate from the structured per-kind informer used by the JobReconciler — the JobReconciler can already see the JobSet and create the Workload before the metadata informer has caught up, so the workload controller sees an absent owner and finishes the Workload as orphaned. Until a structural fix lands, operators on v0.16.6+/v0.17.x can disable `FinishOrphanedWorkloads` to avoid the regression.
+
 ## FlavorAssigner
 
 The `flavorassigner.FlavorAssigner` runs during Phase 3. For each [[workload]]'s PodSets, it evaluates ResourceGroups in the [[cluster-queue]] and assigns a [[resource-flavor]] to each resource.
@@ -86,6 +92,10 @@ Within a ResourceGroup, flavors are tried in order. The assigner scores each fla
 - Within a tie, follow the order defined in the ClusterQueue's `resourceGroups[*].flavors` list.
 
 The `FlavorFungibility` field (`whenCanPreempt`, `whenCanBorrow`) controls how aggressively the assigner searches beyond the first candidate. (source: pkg/scheduler/flavorassigner/flavorassigner.go)
+
+### Second-pass seeding (multi-resource workloads)
+
+`assignFlavors` runs in two passes for workloads that already hold a partial reservation: the first pass picks flavors from scratch; the second pass seeds the result with whatever the workload had previously reserved (used by ProvisioningRequests and TAS NodeHotSwap re-admission). The seed loop must copy **every** preexisting flavor for each PodSet — copying only the first one (the original behaviour) leaves the remaining resources unassigned, and they fall through to `fitsResourceQuota`, which double-counts the workload's own first-pass reservation. The result was that a multi-resource workload (e.g. CPU + memory) could fail second-pass admission for a resource it had already correctly reserved. Fixed in [[pr-11005]] (Fixes #9048); the TAS scheduler test harness was updated to seed reserved-but-not-admitted workloads into `cqCache` so the regression is observable in unit tests. See [[topology-aware-scheduling#Multi-resource second-pass double-counting]].
 
 ## Quota tiers
 

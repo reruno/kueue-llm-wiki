@@ -2,9 +2,9 @@
 
 **Summary**: Table of contents for the Kueue knowledge base. Each entry is one link and a one-line blurb.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-04).
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-05).
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-05-11
 
 ---
 

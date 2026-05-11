@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-05-08
 
 ---
 
@@ -33,6 +33,10 @@ RayCluster's native `spec.suspend` flag controls whether the Ray head and worker
 - **Preempted RayJob resume.** "Preempted RayJob will not resume when resource reclaimed" ([[issue-1146]]) was an earlier bug; resuming Ray state after preemption is not trivial.
 - **In-tree autoscaling.** "Flaky E2E: Kuberay Should run a rayjob with InTreeAutoscaling" ([[issue-10438]], [[issue-10642]]) — interaction with Ray's internal autoscaler is complex because it changes replica counts outside Kueue's direct control.
 - **redis-cleanup Pods.** "Kueue does not remove the scheduling gate from Ray's redis-cleanup jobs" ([[issue-8443]]) — a post-termination Pod got left gated.
+
+## Ray version pin (v0.18.0)
+
+Kueue's e2e fixtures and the RayJob submitter image were bumped from **Ray 2.41.0 → 2.53.0** in [[pr-10707]] (cherry-picks [[pr-10958]] and [[pr-10959]]). The 2.41.0 line had a SIGABRT in the opencensus dependency (`ray-project/kuberay#4760`) that destabilized the Ray submitter Pod. 2.53.0 also requires that Kueue's TAS RayJob e2e bumps the head CPU and CQ quota — see the test bump in PR #10970. Operators upgrading to v0.18 should plan for this Ray version's resource baseline.
 
 ## MultiKueue
 

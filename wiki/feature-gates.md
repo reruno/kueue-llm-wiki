@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-05-08
 
 ---
 
@@ -42,6 +42,17 @@ Representative subset (not exhaustive):
 - **`SparkApplicationIntegration`** — **Alpha**. Enables the Kueue integration for Kubeflow Spark Operator v2 SparkApplication. See [[integration-spark]].
 - **`FairSharingPrioritizeNonBorrowing`** — see [[fair-sharing]] ([[issue-10126]]).
 - **`BorrowWithinCohort` policies** — `LowerPriorityBorrowersOnly` added to protect nominal quota ([[issue-10171]]).
+- **`FinishOrphanedWorkloads`** — **Alpha (downgraded from Beta in v0.18.0)**. When enabled, the workload controller marks Workloads whose owning Job/JobSet/etc. cannot be found as `Finished=True` with `OwnerNotFound`. Was promoted to Beta as part of the [[pr-10274]] fix for stuck Deployment-evicted workloads, but a race between the JobReconciler's structured informer and the workload-controller's `PartialObjectMetadata` informer caused brand-new Workloads to be finished within milliseconds of creation. [[pr-11010]] downgrades the gate to Alpha (off by default) in v0.18 / v0.16.7 / v0.17.2 so the regression no longer hits users by default; [[pr-11014]] independently strengthens `Manager.RequeueWorkload` to refuse to requeue Workloads that are already `Finished` (so even with the gate enabled, they no longer block fair-sharing). Tracked in [[issue-10901]]; the planned structural fix is to query the actual owner kind instead of `PartialObjectMetadata`.
+- **`QuotaCheckStrategy`** — **Alpha (new in v0.18)**. Gates the `resources.quotaCheckStrategy` configuration field on the [[cluster-queue]]; setting it to `IgnoreUndeclared` admits Workloads requesting resources the CQ does not list (those resources don't count against quota). PR #9808.
+- **`RejectUpdatesToCQWithInvalidOnFlavors`** — **Alpha (new in v0.18, action-required)**. When enabled, ClusterQueue updates that reference invalid flavors in `AdmissionCheckStrategy.OnFlavors` are rejected at the validation webhook. Operators must fix any pre-existing invalid references before flipping the gate on.
+
+### v0.18 graduations
+
+The following gates graduated to **Stable** in v0.18.0 (per [[issue-10861]] release notes):
+
+- `MultiKueueRedoAdmissionOnEvictionInWorker` (#10695) — see [[multikueue]].
+- `MultiKueueWaitForWorkloadAdmitted` (#10656) — see [[multikueue]].
+- `SkipFinalizersForPodsSuspendedByParent` (#10645) — Pod-integration internal: don't add Kueue finalizers on pods that the parent has already suspended.
 
 > Configuration-only knobs (not feature gates) used by the new pages:
 > - `objectRetentionPolicies.workloads.afterFinished` / `afterDeactivatedByKueue` — controls [[workload-garbage-collection]] (KEP-1618).

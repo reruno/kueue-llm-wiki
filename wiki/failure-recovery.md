@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/6757-failure-recovery/README.md`, `raw/kueue/keps/6757-failure-recovery/kep.yaml`, `raw/kueue/pkg/controller/failurerecovery/failurerecovery.go`, `raw/kueue/pkg/controller/failurerecovery/pod_termination_controller.go`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-05-08
 
 ---
 
@@ -32,6 +32,12 @@ Kueue's failure recovery controller watches pods belonging to Kueue-managed work
 2. Force-deletes the pod (removes it from etcd).
 
 This unblocks the Job controller, which then starts replacement pods. (source: keps/6757-failure-recovery/README.md)
+
+### Pods already in a terminal phase
+
+The original implementation only handled pods still in `Running` (or `Pending`) when the node went unreachable. In production, kubelet can sometimes transition a pod to `Failed` (or `Succeeded`) just before losing its connection — the pod ends up in a terminal phase but with the kubelet unavailable to issue the final force-delete. JobSet's foreground cascade deletion of the parent Job then blocks on that ghost pod indefinitely.
+
+[[pr-10853]] (cherry-picked to release-0.16, release-0.17 in v0.16.7 / v0.17.2; KEP-6757 follow-up [[pr-10854]]) extends the controller so a pod that is **already in `Failed` or `Succeeded` phase**, scheduled on an unreachable node, with the `safe-to-forcefully-delete` annotation, is also force-deleted. The same opt-in/feature-gate gating applies. Tracked in [[issue-10847]].
 
 ## Opt-in: the safe-to-forcefully-delete annotation
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/controller/jobs/trainjob/trainjob_controller.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_webhook.go`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-05-08
 
 ---
 
@@ -42,6 +42,10 @@ The TrainJob integration implements `JobWithReclaimablePods`: completed replicat
 ## JobWithManagedBy
 
 The TrainJob integration implements `JobWithManagedBy`: the `spec.managedBy` field indicates which controller is managing the job at any given time. When set to a MultiKueue AdmissionCheck's name, the manager cluster takes over dispatch. (source: pkg/controller/jobs/trainjob/trainjob_controller.go)
+
+## Mutating webhook scope (v0.18.0)
+
+Earlier versions of the integration's mutating webhook patched the **referenced `TrainingRuntime` / `ClusterTrainingRuntime`** with the `kueue.x-k8s.io/queue-name` label. This was a leftover from when the TrainJob integration reached into the underlying JobSet for PodSet shape; the integration now delegates PodSet discovery via the JobSet integration directly and never inspects the runtime template. [[pr-10829]] removes the runtime patch from the webhook (Fixes #10099). The webhook still labels the **TrainJob** itself, but the runtime is left untouched — important if the same `TrainingRuntime` is referenced by multiple TrainJobs in different namespaces, since the previous code would race and clobber each other's queue label.
 
 ## Relationship to Kubeflow v1 integrations
 
