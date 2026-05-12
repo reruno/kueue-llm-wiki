@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-05).
 
-**Last updated**: 2026-05-11
+**Last updated**: 2026-05-12
 
 ---
 
@@ -92,6 +92,12 @@
 - [[scheduler-internals]] — The 6-phase scheduling cycle, FlavorAssigner modes, quota tiers, fair-sharing iterator.
 - [[cache-architecture]] — In-memory scheduler cache, per-cycle snapshot, hierarchy manager, queue manager.
 
-## Reviewer profiles
+## Reviewers and code quality
 
-- [[reviewer-mimowo]] — @mimowo's review philosophy, recurring patterns, communication style, and checklist for LLM code review agents.
+- [[reviewers]] — OWNERS structure, Prow approval workflow, and how the active reviewers divide responsibility.
+- [[code-quality]] — Shared technical quality bar enforced across all reviewers: upgrade safety, tests, naming, API versioning, scope, performance, logging, release notes.
+- [[reviewer-mimowo]] — @mimowo: naming, tests, upgrade-safety, log levels; the project's hard blocker on correctness.
+- [[reviewer-tenzen-y]] — @tenzen-y: release management, cherry-picks, TAS annotation semantics, release-note accuracy.
+- [[reviewer-gabesaba]] — @gabesaba: scheduler invariants, preemption correctness, performance, MultiKueue edge cases.
+- [[reviewer-mbobrovskyi]] — @mbobrovskyi: test infrastructure, dependency bumps, code consolidation, SSA migration.
+- [[reviewer-pbundyra]] — @PBundyra: API design, Kubernetes versioning rules, Concurrent Admission KEP, fair sharing.

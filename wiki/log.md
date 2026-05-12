@@ -243,3 +243,33 @@ Grepped all 8,241 PR files for `@mimowo` comments; identified PRs with 5+ commen
 - Documentation/skills/test-infra/release plumbing: numerous merged docs (ConcurrentAdmission docs, Quick Start guide, KubeCon talk update, multikueue-e2e docs), agent-skills additions and skill-tooling work, Helm-test deduplication, test wrappers / labels (`GroupNameLabel`, `PrebuiltWorkloadLabel`), Eventually-wrapping for flake reduction, e2e timeout/recovery bumps, Dockerfile multi-arch fixes, controller-runtime Event Recorder migration ([[pr-10971]] open), HA follower-cache regression test ([[pr-10811]] — test only; the underlying fix was #10518/#10529, already shipped).
 
 **Note for future ingests**: many of the open items above are in active development and will likely land in a future patch or v0.19; revisit when their PRs merge. In particular [[pr-10996]] (DRA → Beta), [[pr-10973]] (Extended Resources → Beta), [[pr-10798]] (WorkloadPriorityClassDefaulting), [[pr-10878]] (TAS fragmentation), and the open MultiKueue dispatcher refactors will each warrant page updates when shipped.
+
+---
+
+## 2026-05-12 — Reviewers and code-quality pages
+
+**Source**: `raw/github/kubernetes-sigs__kueue/` review comments across multiple PRs; `raw/kueue/OWNERS`, `OWNERS_ALIASES`, `CONTRIBUTING.md`, `.golangci.yaml`, `Makefile-verify.mk`.
+
+**Operator**: Claude Code.
+
+**Data-collection commit this analysis is based on**: `b8776e3` (`[data-collection] 283 new,184 updated items from kubernetes-sigs/kueue, kueue@f23b3bf06`).
+
+**What was created**:
+
+- `wiki/reviewers.md` — NEW: overview of OWNERS structure (top-level approvers, path-filter overrides for dependency/test/agent paths, emeritus approvers, security/release contacts), reviewer roster table, Prow command reference (`/lgtm`, `/approve`, `/hold`, `/cherrypick`, `/release-note-edit`, etc.), division-of-responsibility matrix across the five most active reviewers, and a "how to get a PR reviewed quickly" checklist.
+- `wiki/code-quality.md` — NEW: synthesized cross-reviewer quality bar in 12 themes (upgrade safety, integration tests, naming, API versioning, scope/hygiene, scheduler performance, logging verbosity, helper extraction, release notes, feature-gate lifecycle, tooling, and a pre-flight checklist). Quotes from mimowo (pr-8530, pr-8186, pr-9619, pr-8341, pr-8151, pr-8082, pr-6297, pr-10013, pr-8805), tenzen-y (pr-10282), gabesaba (pr-10082, pr-8709, pr-9359), mbobrovskyi (pr-10595, pr-10323), and PBundyra (pr-10244).
+- `wiki/reviewer-tenzen-y.md` — NEW: profile of @tenzen-y as the project's de-facto release manager; release-branch thinking, semantic correctness on annotation pairs, release-note rewriting, conflict-resolution discipline; representative PRs pr-10145, pr-10282, pr-10623, pr-10668, pr-10674, pr-10677, pr-10684.
+- `wiki/reviewer-gabesaba.md` — NEW: profile of @gabesaba focused on scheduler invariants, preemption-loop avoidance, cache coherency, performance regressions in event/workqueue paths, MultiKueue manager-worker disconnect scenarios; representative PRs pr-7392, pr-8484, pr-8658, pr-8709, pr-9359, pr-10082, pr-10422, pr-10510, pr-10524.
+- `wiki/reviewer-mbobrovskyi.md` — NEW: profile of @mbobrovskyi as test-approver and dependency-approver; "do we need this?" pattern, duplication/helper extraction, multi-concern PR splitting, suggestion-block Go idioms, delegation to top approvers via `/assign`; representative PRs pr-10244, pr-10294, pr-10323, pr-10388, pr-10595.
+- `wiki/reviewer-pbundyra.md` — NEW: profile of @PBundyra focused on API design and Kubernetes versioning practices (no in-place removal of beta fields, `+required` vs `omitempty` markers, deprecation migration paths, KEP-first workflow); representative PRs pr-8861, pr-10244, pr-10388.
+
+**Index updates**:
+
+- Renamed "Reviewer profiles" section to "Reviewers and code quality" with entries for all new pages.
+- Bumped `Last updated` to 2026-05-12.
+
+**Method**: parallel research agents extracted recurring patterns and direct quotes from PR comment threads per reviewer; `OWNERS_ALIASES` consulted to confirm roles and path-filter responsibilities; `CONTRIBUTING.md` and `.golangci.yaml` checked to ground the formal-tooling sections in code-quality.md.
+
+**Cross-linking**: each reviewer page links to the others, to `reviewers.md`, and to `code-quality.md`. `code-quality.md` links into the technical pages (`testing`, `feature-gates`, `scheduler-internals`, `preemption`, `cache-architecture`, `multikueue`, `job-framework-interface`, `release-process`). Pre-existing `reviewer-mimowo.md` is referenced but not modified.
+
+**Out of scope**: dedicated profile pages for the second-tier reviewers (kannon92, pajakd, olekzabl, kshalot, sohankunkerkar) — listed in `reviewers.md` only with focus areas.
