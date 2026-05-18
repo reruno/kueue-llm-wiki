@@ -74,6 +74,7 @@ Domains:
 | @code_style.md | 40 |
 | @buggy_behavior.md | 20 |
 | @comments.md | 5 |
+| @security.md | 20 |
 
 
 
@@ -105,6 +106,11 @@ Output the evaluation in this exact structure (Domains and score are example, th
   - No findings
 
 ### Domain: Architectural Decisions
+**Score**: X/<num of points for this domain defined in Step 3>
+**Findings**: (bullet list of specific observations, in accordance with the specified rules for findings)
+  - <High/Medium/Low> | -x pt | <Finding Title>: <Explanation>
+
+### Domain: Security
 **Score**: X/<num of points for this domain defined in Step 3>
 **Findings**: (bullet list of specific observations, in accordance with the specified rules for findings)
   - <High/Medium/Low> | -x pt | <Finding Title>: <Explanation>
