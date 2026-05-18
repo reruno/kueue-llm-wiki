@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Data collection pipeline for kueue-llm-wiki.
-# 1. Runs gh_retrieve.py to sync GitHub issues/PRs into raw/github/
+# 1. Runs collect_gh.py to sync GitHub issues/PRs into raw/github/
 # 2. Updates the raw/kueue submodule to latest main
-# 3. Commits all changes with prefix [data-collection]
+# 3. Runs collect_cve.py to fetch ecosystem CVEs into raw/cve/
+# 4. Commits all changes with prefix [data-collection]
 #
 # Usage:
 #   ./collect_data.sh --token <github-token>
 #   ./collect_data.sh --token <github-token> --max-items 50
 #   GITHUB_TOKEN=ghp_xxx ./collect_data.sh
+#   NVD_API_KEY=xxx ./collect_data.sh          (higher NVD rate limit)
+#   SKIP_CVE=true ./collect_data.sh            (skip CVE collection)
 
 set -euo pipefail
 
@@ -22,6 +25,10 @@ MAX_ITEMS="${MAX_ITEMS:-0}"
 REPO="${REPO:-kubernetes-sigs/kueue}"
 STATE="${STATE:-all}"
 SKIP_SUBMODULE="${SKIP_SUBMODULE:-false}"
+SKIP_CVE="${SKIP_CVE:-false}"
+NVD_API_KEY="${NVD_API_KEY:-}"
+CVE_SINCE="${CVE_SINCE:-2019-01-01}"
+CVE_MAX_PAGES="${CVE_MAX_PAGES:-0}"
 
 usage() {
     echo "Usage: $0 --token <github-token> [options]"
@@ -32,6 +39,10 @@ usage() {
     echo "  --repo <owner/name>    GitHub repo to sync (default: kubernetes-sigs/kueue)"
     echo "  --state <all|open|closed>  Issue/PR state filter (default: all)"
     echo "  --skip-submodule       Skip updating the raw/kueue submodule"
+    echo "  --skip-cve             Skip CVE collection step"
+    echo "  --nvd-key <key>        NVD API key (or set NVD_API_KEY env var)"
+    echo "  --cve-since <date>     Only fetch CVEs published after this date (default: 2019-01-01)"
+    echo "  --cve-max-pages <n>    Cap CVE pages per keyword (0 = unlimited)"
     echo "  --help                 Show this message"
     exit 1
 }
@@ -57,6 +68,22 @@ while [[ $# -gt 0 ]]; do
         --skip-submodule)
             SKIP_SUBMODULE=true
             shift
+            ;;
+        --skip-cve)
+            SKIP_CVE=true
+            shift
+            ;;
+        --nvd-key)
+            NVD_API_KEY="$2"
+            shift 2
+            ;;
+        --cve-since)
+            CVE_SINCE="$2"
+            shift 2
+            ;;
+        --cve-max-pages)
+            CVE_MAX_PAGES="$2"
+            shift 2
             ;;
         --help|-h)
             usage
@@ -85,7 +112,7 @@ GITHUB_TOKEN="$GH_TOKEN" \
 REPO="$REPO" \
 STATE="$STATE" \
 MAX_ITEMS="$MAX_ITEMS" \
-python3 gh_retrieve.py
+python3 collect_gh.py
 
 echo "==> GitHub sync complete."
 
@@ -111,7 +138,25 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Step 3: Commit all changes
+# Step 3: Fetch ecosystem CVEs from NVD into raw/cve/
+# ---------------------------------------------------------------------------
+
+if [[ "$SKIP_CVE" == "false" ]]; then
+    echo "==> Fetching CVEs from NVD (since ${CVE_SINCE})..."
+
+    NVD_API_KEY="$NVD_API_KEY" \
+    CVE_OUTPUT="raw/cve" \
+    CVE_SINCE="$CVE_SINCE" \
+    CVE_MAX_PAGES="$CVE_MAX_PAGES" \
+    python3 collect_cve.py
+
+    echo "==> CVE collection complete."
+else
+    echo "==> Skipping CVE collection (--skip-cve)."
+fi
+
+# ---------------------------------------------------------------------------
+# Step 4: Commit all changes
 # ---------------------------------------------------------------------------
 
 echo "==> Checking for changes to commit..."

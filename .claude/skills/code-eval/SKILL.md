@@ -2,6 +2,9 @@
 name: code-eval
 description: Evaluate the quality of a git diff between two commits. Scores the changes across four domains — Code Style, Buggy Behavior, Comments, and Small Architectural Decisions — then provides actionable recommendations for improvement. Use this skill when user wants to perform code quality evaluation.
 argument-hint: <BaseCommit> <HeadCommit>
+license: Apache-2.0
+metadata:
+  copyright: The Kubernetes Authors
 ---
 
 # Code Evaluation Skill
@@ -76,8 +79,6 @@ Domains:
 
 ## Step 4 — Produce the report
 
-Rules for findings: assume max score is already achieved, when you find violation of the rules, deduct points from the score and denote it. Points deduction depends on severity of a violation. Possible severities: high, medium, low. High=15pt, Medium=7pt, Low=3pt. Report format rules MUST NOT be broken, ensure that report abide by defined formating rules. Remember code evaluation MUST promote these principles: Maintainability, Simplicity, Backward Compatibility. 
-
 Output the evaluation in this exact structure (Domains and score are example, there could be more domains added in the future):
 
 ```
@@ -127,4 +128,5 @@ X% / 100%
 **Solution**: Give a concrete, actionable fix. Where possible, show a before/after code snippet.
 ```
 
+Rules for findings: assume max score is already achieved, when you find violation of the rules, deduct points from the score and denote it. Points deduction depends on severity of a violation. Possible severities: high, medium, low. High=15pt, Medium=7pt, Low=3pt. Report format rules MUST NOT be broken, ensure that report abide by defined formating rules. Remember code evaluation MUST promote these principles: Maintainability, Simplicity, Backward Compatibility. 
 

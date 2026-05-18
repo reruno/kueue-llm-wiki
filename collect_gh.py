@@ -45,32 +45,32 @@ Example usage:
   #    20 most-recently-updated issues/PRs; anonymous -> 60 req/hr.
   #    high_water is left empty so the next uncapped run still walks
   #    the full backlog.
-  MAX_ITEMS=20 python gh_retrieve.py
+  MAX_ITEMS=20 python collect_gh.py
 
   # 2) Authenticated full sync (5000 req/hr) of the default repo.
   #    First call walks the entire history and sets high_water at the end;
   #    every later call is a cheap incremental fetch driven by `since=`.
   export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
-  python gh_retrieve.py
+  python collect_gh.py
 
   # 3) Point the script at a different repository without editing the file.
-  REPO=kubernetes/kubernetes STATE=open MAX_ITEMS=50 python gh_retrieve.py
+  REPO=kubernetes/kubernetes STATE=open MAX_ITEMS=50 python collect_gh.py
 
   # 4) Only open items, writing to raw/github/kubernetes-sigs__kueue/.
   #    Note: `STATE=open` will miss issues that close between runs.
   #    Prefer the default `STATE=all` for incremental syncs.
-  STATE=open python gh_retrieve.py
+  STATE=open python collect_gh.py
 
   # 5) Cron-style incremental refresh every 6 hours.
   #    The state file's high_water + GitHub's `since=` keep this nearly
   #    free -- typically 1 API call when the repo has been quiet.
   #    0 */6 * * * cd /path/to/kueue-llm-wiki && \
-  #       GITHUB_TOKEN=ghp_xxx /usr/bin/python gh_retrieve.py >> sync.log 2>&1
+  #       GITHUB_TOKEN=ghp_xxx /usr/bin/python collect_gh.py >> sync.log 2>&1
 
   # 6) Force a full re-download of everything: delete the state file and re-run.
   #    Removes both the per-item updated_at cache and the high_water mark.
   rm raw/github/kubernetes-sigs__kueue/.sync-state.json
-  python gh_retrieve.py
+  python collect_gh.py
 
   # 7) Force a full *re-check* without re-downloading unchanged items:
   #    edit the state file and set "high_water" to "" (or delete the key).
@@ -78,7 +78,7 @@ Example usage:
   #    updated_at is newer than what's recorded per-item.
 
   # 8) Import and drive it from another Python script:
-  #    from gh_retrieve import sync, OUTPUT_ROOT
+  #    from collect_gh import sync, OUTPUT_ROOT
   #    sync("kubernetes-sigs/kueue", OUTPUT_ROOT, state_filter="all", max_items=0)
 """
 
