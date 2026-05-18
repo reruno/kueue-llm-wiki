@@ -17,6 +17,31 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ---------------------------------------------------------------------------
+# Load .env (shell-level, so env vars are available to the script itself)
+# Python scripts do their own _load_dotenv(); this covers bash-level vars
+# like GITHUB_TOKEN that the script checks before invoking Python.
+# ---------------------------------------------------------------------------
+
+if [[ -f "$REPO_ROOT/.env" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Skip blanks and comments
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        [[ "$line" != *"="* ]] && continue
+        key="${line%%=*}"
+        value="${line#*=}"
+        # Strip surrounding quotes
+        value="${value%\"}"
+        value="${value#\"}"
+        value="${value%\'}"
+        value="${value#\'}"
+        # Only set if not already in environment
+        if [[ -z "${!key+x}" ]]; then
+            export "$key"="$value"
+        fi
+    done < "$REPO_ROOT/.env"
+fi
+
+# ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
 
