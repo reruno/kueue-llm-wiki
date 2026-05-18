@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-05).
 
-**Last updated**: 2026-05-12
+**Last updated**: 2026-05-18
 
 ---
 
@@ -101,3 +101,14 @@
 - [[reviewer-gabesaba]] — @gabesaba: scheduler invariants, preemption correctness, performance, MultiKueue edge cases.
 - [[reviewer-mbobrovskyi]] — @mbobrovskyi: test infrastructure, dependency bumps, code consolidation, SSA migration.
 - [[reviewer-pbundyra]] — @PBundyra: API design, Kubernetes versioning rules, Concurrent Admission KEP, fair sharing.
+
+## Code security
+
+- [[security]] — Threat model for Kueue and how the 515-CVE corpus in `raw/cve/` maps to its code surface.
+- [[security-code-patterns]] — Master checklist of patterns to flag in review, grouped by category and CWE.
+- [[security-denial-of-service]] — DoS patterns: unbounded loops, missing timeouts, nil-pointer crashes, invalid-spec wedges.
+- [[security-authn-authz]] — Authentication bypass, RBAC misconfiguration, privilege escalation, MultiKueue credential boundary.
+- [[security-information-disclosure]] — Log hygiene, metrics label cardinality, visibility-api scoping, credential handling.
+- [[security-injection-and-input-validation]] — Injection, input validation, path traversal, code execution, dashboard XSS/CSRF.
+- [[security-supply-chain]] — Image pinning, signature verification, `go.mod` and CI-workflow hygiene.
+- [[security-best-practices]] — Actionable Kueue-specific checklist for contributors and reviewers.

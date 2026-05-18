@@ -273,3 +273,39 @@ Grepped all 8,241 PR files for `@mimowo` comments; identified PRs with 5+ commen
 **Cross-linking**: each reviewer page links to the others, to `reviewers.md`, and to `code-quality.md`. `code-quality.md` links into the technical pages (`testing`, `feature-gates`, `scheduler-internals`, `preemption`, `cache-architecture`, `multikueue`, `job-framework-interface`, `release-process`). Pre-existing `reviewer-mimowo.md` is referenced but not modified.
 
 **Out of scope**: dedicated profile pages for the second-tier reviewers (kannon92, pajakd, olekzabl, kshalot, sohankunkerkar) — listed in `reviewers.md` only with focus areas.
+
+---
+
+## 2026-05-18 — Security ingest from CVE corpus
+
+**Source**: `raw/cve/` — 515 CVE files (2018-2026) covering Kubernetes, kubernetes-sigs, Flux, Argo, Jenkins, Red Hat, Fedora, etc. Each file has a fixed structure with a `Category` field and a `Security Code Patterns` checklist that repeats per category.
+
+**Data-collection commit**: `a5d7eec [data-collection] 736 new,219 updated items from kubernetes-sigs/kueue, kueue@a7ba93ed4` (most recent `[data-collection]` commit; the `raw/cve/` files were added in `6a83ef2 Add collect cve` / `6a3d3f6 update collect_cve`).
+
+**Operator**: Claude Code, in response to "based on these please create wiki pages dedicated to code security and best practices".
+
+**What was created**:
+
+- `wiki/security.md` — NEW: landing page. Threat model for Kueue, CVE corpus shape (counts by Category and severity), and pointer index to the six topic pages.
+- `wiki/security-code-patterns.md` — NEW: master checklist of patterns to flag in code review, grouped by Category and cross-referenced by CWE. Single-pane reference distilling the `Security Code Patterns` block that repeats across the corpus.
+- `wiki/security-denial-of-service.md` — NEW: DoS-class patterns from 83 CVEs. CWE-400/770/476/1284 with Kueue-specific mappings to the scheduler, webhooks, cache, and workqueue.
+- `wiki/security-authn-authz.md` — NEW: combined Authentication Bypass (23), RBAC Misconfiguration (7), Privilege Escalation (48), Unauthorized Write Access (30). Covers Kueue controller SA, webhook handlers, and MultiKueue manager→worker credential boundary.
+- `wiki/security-information-disclosure.md` — NEW: 110 Info-Disclosure CVEs. Log hygiene (CWE-532), exposure (CWE-200), credentials (CWE-522), file/dir access (CWE-552). Concrete `git grep` checks for review.
+- `wiki/security-injection-and-input-validation.md` — NEW: combined Injection (11), Path Traversal (7), Code Execution (139). CWE-20/22/74/77/78/89/94/502/918/79/352/601. Kueue surface is narrow (no `os/exec`) but constructed API requests and dashboard XSS apply.
+- `wiki/security-supply-chain.md` — NEW: 6 Supply-Chain CVEs plus CWE-295/494. Image digest pinning, signature verification, `go.mod` hygiene, CI action SHA pinning.
+- `wiki/security-best-practices.md` — NEW: actionable checklist for Kueue contributors and reviewers, organized by topic (input handling, resource bounds, errors/logs, authn/RBAC, nil-safety, supply chain) with suggested `git grep` commands.
+
+**Index updates**:
+
+- Added new "Code security" section in `index.md` after "Reviewers and code quality" with one-line blurbs for all eight new pages.
+- Bumped `Last updated` to 2026-05-18.
+
+**Method**: read a stratified sample of CVEs across all 11 categories to confirm the corpus is template-driven (per-category `Security Code Patterns` and `Mitigation` blocks repeat verbatim). The eight pages are therefore organized by *vulnerability class*, not per-CVE — each page synthesizes one or more categories and grounds patterns in Kueue's actual code surface (scheduler, webhooks, controller SA, MultiKueue, dashboard).
+
+**Cross-linking**: every page links back to `security.md` and `security-code-patterns.md`; topic pages link to the relevant existing concept pages (`scheduler-internals`, `webhooks`, `admission`, `multikueue`, `metrics`, `visibility-api`, `dashboard`, `cache-architecture`, `release-process`); `security-best-practices.md` links to all six topic pages and to `code-quality.md` and `testing.md`.
+
+**Out of scope**:
+
+- No per-CVE wiki pages — 515 entries with templated content would not add information beyond the category synthesis. The `raw/cve/` files remain the authoritative per-CVE source.
+- Code-level grounding in `pkg/` requires the `raw/kueue/` Go-source submodule (not initialized at the time of this ingest, per the 2026-04-23 entry above). The new pages reference Kueue's design surface by name but do not cite specific files or line numbers. A follow-up ingest with the submodule available could resolve the suggested `git grep` checks into concrete file references.
+- No Kueue-specific CVE exists as of 2026-05; the corpus is used to teach patterns, not to document Kueue history.
