@@ -280,13 +280,16 @@ MAX_PATCH_BYTES = 8_000  # keep diffs compact; trim if larger
 
 
 def fetch_fix_patch(refs: list[dict[str, Any]]) -> str | None:
-    """Try to fetch the fix diff from the first GitHub commit URL in refs.
+    """Fetch the fix diff from references, prioritising Patch-tagged ones.
 
-    Returns a diff string (possibly truncated), or None if not found.
-    The diff is fetched as text/plain from the GitHub .diff endpoint so no
-    auth is required for public repos.
+    Tries GitHub commit URLs (.diff endpoint). Patch-tagged refs are tried
+    first; all others are tried as fallback. Returns a diff string (possibly
+    truncated), or None if nothing usable is found.
     """
-    for ref in refs:
+    patch_refs = [r for r in refs if "Patch" in r.get("tags", [])]
+    other_refs = [r for r in refs if "Patch" not in r.get("tags", [])]
+
+    for ref in patch_refs + other_refs:
         url = ref.get("url", "")
         m = _GH_COMMIT_RE.search(url)
         if not m:
@@ -403,25 +406,41 @@ def fetch_cves(keyword: str, since: str) -> list[dict[str, Any]]:
 # Markdown rendering
 # ---------------------------------------------------------------------------
 
-def extract_cvss(cve_item: dict[str, Any]) -> tuple[str, float, str]:
-    """Return (severity_label, score, vector_string) preferring v3.1 > v3.0 > v2."""
+def extract_cvss(cve_item: dict[str, Any]) -> dict[str, Any]:
+    """Return a dict of all available CVSS fields, preferring v3.1 > v3.0 > v2."""
     metrics = cve_item.get("metrics", {})
     for key in ("cvssMetricV31", "cvssMetricV30"):
         entries = metrics.get(key, [])
         if entries:
-            m = entries[0]["cvssData"]
-            return (
-                CVSS_SEVERITY_MAP.get(m.get("baseSeverity", ""), "Unknown"),
-                m.get("baseScore", 0.0),
-                m.get("vectorString", ""),
-            )
+            e = entries[0]
+            m = e["cvssData"]
+            return {
+                "version":             key[-3:].replace("V", "").replace("31", "3.1").replace("30", "3.0"),
+                "severity":            CVSS_SEVERITY_MAP.get(m.get("baseSeverity", ""), "Unknown"),
+                "score":               m.get("baseScore", 0.0),
+                "vector":              m.get("vectorString", ""),
+                "exploitability":      e.get("exploitabilityScore"),
+                "impact":              e.get("impactScore"),
+                "scope":               m.get("scope", ""),
+            }
     entries = metrics.get("cvssMetricV2", [])
     if entries:
-        m = entries[0]["cvssData"]
+        e = entries[0]
+        m = e["cvssData"]
         score = m.get("baseScore", 0.0)
-        severity = "High" if score >= 7 else "Medium" if score >= 4 else "Low"
-        return severity, score, m.get("vectorString", "")
-    return "Unknown", 0.0, ""
+        return {
+            "version":         "2.0",
+            "severity":        "High" if score >= 7 else "Medium" if score >= 4 else "Low",
+            "score":           score,
+            "vector":          m.get("vectorString", ""),
+            "exploitability":  e.get("exploitabilityScore"),
+            "impact":          e.get("impactScore"),
+            "obtain_all":      e.get("obtainAllPrivilege"),
+            "obtain_user":     e.get("obtainUserPrivilege"),
+            "user_interaction": e.get("userInteractionRequired"),
+            "scope":           "",
+        }
+    return {"severity": "Unknown", "score": 0.0, "vector": "", "version": ""}
 
 
 def cve_to_markdown(vuln: dict[str, Any]) -> str:
@@ -435,12 +454,17 @@ def cve_to_markdown(vuln: dict[str, Any]) -> str:
         descriptions[0]["value"] if descriptions else "No description available.",
     )
 
-    # Dates
-    published  = cve.get("published", "")[:10]
-    modified   = cve.get("lastModified", "")[:10]
+    # Dates and status
+    published   = cve.get("published", "")[:10]
+    modified    = cve.get("lastModified", "")[:10]
+    vuln_status = cve.get("vulnStatus", "")
+    source_id   = cve.get("sourceIdentifier", "")
 
-    # CVSS
-    severity, score, vector = extract_cvss(cve)
+    # CVSS (all available fields)
+    cvss = extract_cvss(cve)
+    vector   = cvss.get("vector", "")
+    severity = cvss.get("severity", "Unknown")
+    score    = cvss.get("score", 0.0)
     human_vector = cvss_to_human(vector) if vector else "N/A"
 
     # Inferred fields
@@ -448,34 +472,52 @@ def cve_to_markdown(vuln: dict[str, Any]) -> str:
     root_cause = infer_root_cause(description)
     patterns   = code_pattern_hints(category)
 
-    # Affected products (CPE)
+    # Affected products (CPE): cpe:2.3:a:vendor:product:version:...
     affected: list[str] = []
+    vendors: list[str] = []
     for config in cve.get("configurations", []):
         for node in config.get("nodes", []):
             for cpe_match in node.get("cpeMatch", []):
                 if cpe_match.get("vulnerable"):
                     uri = cpe_match.get("criteria", "")
-                    # cpe:2.3:a:vendor:product:version:...
                     parts = uri.split(":")
                     if len(parts) >= 6:
-                        product = f"{parts[3]}/{parts[4]}"
+                        vendor = parts[3]
+                        product = f"{vendor}/{parts[4]}"
                         ver = parts[5] if parts[5] != "*" else "all"
-                        entry = f"{product} {ver}"
+                        ver_end = cpe_match.get("versionEndIncluding") or cpe_match.get("versionEndExcluding")
+                        entry = f"{product} {ver}" + (f" (up to {ver_end})" if ver_end else "")
                         if entry not in affected:
                             affected.append(entry)
+                        if vendor not in vendors:
+                            vendors.append(vendor)
 
-    # References (keep all; we'll probe them for fix patches)
+    # References — deduplicate, then group by tag
     all_refs: list[dict[str, Any]] = cve.get("references", [])
-    refs: list[str] = [r["url"] for r in all_refs[:8]]
+    seen: set[str] = set()
+    unique_refs: list[dict[str, Any]] = []
+    for r in all_refs:
+        if r["url"] not in seen:
+            seen.add(r["url"])
+            unique_refs.append(r)
+    all_refs = unique_refs
+
+    # Group by first tag for display
+    ref_groups: dict[str, list[str]] = {}
+    for r in all_refs:
+        tags = r.get("tags", [])
+        label = tags[0] if tags else "Other"
+        ref_groups.setdefault(label, []).append(r["url"])
 
     # Weaknesses (CWE)
     cwes: list[str] = []
     for w in cve.get("weaknesses", []):
         for desc in w.get("description", []):
             if desc.get("lang") == "en" and desc.get("value", "").startswith("CWE-"):
-                cwes.append(desc["value"])
+                if desc["value"] not in cwes:
+                    cwes.append(desc["value"])
 
-    # Fix patch (best-effort; probes GitHub commit refs)
+    # Fix patch (best-effort; prioritises Patch-tagged GitHub commit refs)
     fix_patch: str | None = fetch_fix_patch(all_refs)
 
     # ---- Render ----
@@ -483,24 +525,39 @@ def cve_to_markdown(vuln: dict[str, Any]) -> str:
 
     lines.append(f"# {cve_id}")
     lines.append("")
+
+    # --- Metadata block ---
     lines.append(f"**CVE ID**: {cve_id}  ")
     lines.append(f"**Published**: {published}  ")
     lines.append(f"**Last Modified**: {modified}  ")
+    if vuln_status:
+        lines.append(f"**Status**: {vuln_status}  ")
+    if source_id:
+        lines.append(f"**Reporter**: {source_id}  ")
+    if vendors:
+        lines.append(f"**Vendor**: {', '.join(vendors)}  ")
     lines.append(f"**Severity**: {severity} ({score})  ")
     if vector:
+        lines.append(f"**CVSS Version**: {cvss.get('version', '')}  ")
         lines.append(f"**CVSS Vector**: `{vector}`  ")
     lines.append(f"**Attack Summary**: {human_vector}  ")
+    if cvss.get("exploitability") is not None:
+        lines.append(f"**Exploitability Score**: {cvss['exploitability']}  ")
+    if cvss.get("impact") is not None:
+        lines.append(f"**Impact Score**: {cvss['impact']}  ")
     lines.append(f"**Category**: {category}  ")
     lines.append(f"**Root Cause Class**: {root_cause}  ")
     if cwes:
         lines.append(f"**CWE**: {', '.join(cwes)}  ")
     lines.append("")
 
+    # --- Description ---
     lines.append("## Description")
     lines.append("")
     lines.append(description)
     lines.append("")
 
+    # --- Affected Products ---
     if affected:
         lines.append("## Affected Products")
         lines.append("")
@@ -508,58 +565,62 @@ def cve_to_markdown(vuln: dict[str, Any]) -> str:
             lines.append(f"- {a}")
         lines.append("")
 
+    # --- Root Cause Analysis ---
     lines.append("## Root Cause Analysis")
     lines.append("")
-    lines.append(
-        f"This vulnerability is classified as **{root_cause}**. "
-        f"The CVSS vector indicates the attack can be launched from the "
-        f"{AV_LABELS.get(parse_cvss_vector(vector).get('AV', '?'), 'unknown')} "
-        f"attack surface with "
-        f"{AC_LABELS.get(parse_cvss_vector(vector).get('AC', '?'), 'unknown').lower()} "
-        f"complexity and "
-        f"{PR_LABELS.get(parse_cvss_vector(vector).get('PR', '?'), 'unknown').lower()} "
-        f"privileges required."
-        if vector else
-        f"This vulnerability is classified as **{root_cause}**. See description for details."
-    )
+    if vector:
+        p = parse_cvss_vector(vector)
+        lines.append(
+            f"This vulnerability is classified as **{root_cause}**. "
+            f"The CVSS vector indicates the attack can be launched from the "
+            f"**{AV_LABELS.get(p.get('AV', ''), 'unknown')}** attack surface "
+            f"with **{AC_LABELS.get(p.get('AC', ''), 'unknown').lower()}** complexity "
+            f"and **{PR_LABELS.get(p.get('PR', ''), 'unknown').lower()}** privileges required. "
+            f"User interaction: **{UI_LABELS.get(p.get('UI', ''), 'unknown').lower()}**."
+        )
+    else:
+        lines.append(f"This vulnerability is classified as **{root_cause}**. See description for details.")
     lines.append("")
 
+    # --- Security Code Patterns ---
     lines.append("## Security Code Patterns")
     lines.append("")
     lines.append(
-        "The following patterns in Go/Kubernetes controller code are associated "
-        f"with this vulnerability class (**{category}**). Reviewers should flag "
-        "these during code evaluation:"
+        f"Patterns in Go/Kubernetes controller code associated with **{category}** "
+        "that reviewers should flag during code evaluation:"
     )
     lines.append("")
     for p in patterns:
         lines.append(f"- {p}")
     lines.append("")
 
+    # --- Mitigation ---
     lines.append("## Mitigation")
     lines.append("")
     lines.append(_mitigation_text(category))
     lines.append("")
 
+    # --- Fix Patch ---
     if fix_patch:
         lines.append("## Fix Patch")
         lines.append("")
-        lines.append(
-            "The following diff was extracted from a referenced commit and shows "
-            "the upstream fix:"
-        )
+        lines.append("Diff extracted from a referenced commit showing the upstream fix:")
         lines.append("")
         lines.append("```diff")
         lines.append(fix_patch.rstrip())
         lines.append("```")
         lines.append("")
 
-    if refs:
+    # --- References grouped by tag ---
+    if ref_groups:
         lines.append("## References")
         lines.append("")
-        for ref in refs:
-            lines.append(f"- {ref}")
-        lines.append("")
+        for label in sorted(ref_groups):
+            lines.append(f"**{label}**")
+            lines.append("")
+            for url in ref_groups[label][:5]:
+                lines.append(f"- {url}")
+            lines.append("")
 
     return "\n".join(lines)
 
