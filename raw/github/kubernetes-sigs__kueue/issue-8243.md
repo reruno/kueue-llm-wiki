@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8243
 
-**Last updated**: 2026-04-02T12:23:53Z
+**Last updated**: 2026-05-18T03:17:29Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@sohankunkerkar](https://github.com/sohankunkerkar)
 - **Created**: 2025-12-15T13:55:44Z
-- **Updated**: 2026-04-02T12:23:53Z
+- **Updated**: 2026-05-18T03:17:29Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `priority/important-soon`
 - **Assignees**: [@sohankunkerkar](https://github.com/sohankunkerkar)
-- **Comments**: 20
+- **Comments**: 22
 
 ## Description
 
@@ -196,3 +196,29 @@ wdyt?
 >   wdyt?
 
 Yup, that makes sense!  This is next item on my radar.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-15T16:40:47Z
+
+I think we need to also solve this issue before Beta: https://github.com/kubernetes-sigs/kueue/issues/11248
+
+### Comment by [@sohankunkerkar](https://github.com/sohankunkerkar) — 2026-05-18T03:17:29Z
+
+  ## DRA Beta Graduation Checklist                                                                                                                                           
+                                                                                                                                                                             
+  ### Prerequisites (must land before beta)                                                                                                                                  
+                                                                                                                                                                             
+  - [ ] Feature gate rename (#11255) — avoid collision with upstream K8s gates
+  - [ ] Graduate KueueDRAIntegration to beta (#10996)                                                                                          
+  - [ ] Partitionable devices KEP (#10283) + implementation (#10320)
+  - [ ] Extended resources beta graduation (#10973)                                                                                                                     
+  - [ ] DRA reconcile channel blocking fix (#10785)
+  - [ ] Gate-off quota bypass fix (#10964)                                                                                                                          
+                                                                                                                                                                             
+                                                                                                                                                                             
+  ### Already done
+                                                                                                                                                                             
+  - [x] CEL selectors (#9742)                                                                                                                                                
+  - [x] Documentation — concepts + tasks pages
+  - [x] E2E tests (#8421)                                                                                                                                                    
+  - [x] MultiKueue + DRA integration (#8775)
+  - [x] Extended resource support (#8597)

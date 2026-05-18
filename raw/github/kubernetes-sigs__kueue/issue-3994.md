@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/3994
 
-**Last updated**: 2026-03-05T17:19:52Z
+**Last updated**: 2026-05-08T21:50:29Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: closed (not_planned)
 - **Author**: [@kevin85421](https://github.com/kevin85421)
 - **Created**: 2025-01-17T06:34:10Z
-- **Updated**: 2026-03-05T17:19:52Z
+- **Updated**: 2026-05-08T21:50:29Z
 - **Closed**: 2026-03-05T17:19:50Z
 - **Labels**: `kind/feature`, `lifecycle/rotten`
 - **Assignees**: _none_
-- **Comments**: 17
+- **Comments**: 18
 
 ## Description
 
@@ -253,3 +253,7 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/3994#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@khoover](https://github.com/khoover) — 2026-05-08T21:50:29Z
+
+Can this be reopened? At minimum the webhook line in https://github.com/kubernetes-sigs/kueue/issues/3994#issuecomment-2598611009 is going to need to be modified, since that setting is incompatible with the deletion policies.

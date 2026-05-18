@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7297
 
-**Last updated**: 2026-04-14T14:21:53Z
+**Last updated**: 2026-05-11T08:30:07Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-10-16T13:00:00Z
-- **Updated**: 2026-04-14T14:21:53Z
-- **Closed**: —
+- **Updated**: 2026-05-11T08:30:07Z
+- **Closed**: 2026-05-11T08:30:07Z
 - **Labels**: `lifecycle/stale`, `kind/cleanup`, `priority/important-longterm`
-- **Assignees**: _none_
-- **Comments**: 5
+- **Assignees**: [@kaisoz](https://github.com/kaisoz)
+- **Comments**: 6
 
 ## Description
 
@@ -89,3 +89,9 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle stale
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@kaisoz](https://github.com/kaisoz) — 2026-04-24T20:41:02Z
+
+/assign 
+
+I can do this one ☺️

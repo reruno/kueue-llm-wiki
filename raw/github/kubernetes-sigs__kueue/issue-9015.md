@@ -4,17 +4,17 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9015
 
-**Last updated**: 2026-05-01T06:16:02Z
+**Last updated**: 2026-05-18T09:39:53Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2026-02-05T20:47:31Z
-- **Updated**: 2026-05-01T06:16:02Z
-- **Closed**: —
+- **Updated**: 2026-05-18T09:39:53Z
+- **Closed**: 2026-05-18T09:39:53Z
 - **Labels**: `kind/bug`
 - **Assignees**: _none_
 - **Comments**: 23

@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/6334
 
-**Last updated**: 2026-04-13T16:22:36Z
+**Last updated**: 2026-05-13T17:19:18Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2025-07-31T16:23:50Z
-- **Updated**: 2026-04-13T16:22:36Z
+- **Updated**: 2026-05-13T17:19:18Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `lifecycle/stale`, `priority/important-longterm`
+- **Labels**: `kind/feature`, `priority/important-longterm`, `lifecycle/rotten`
 - **Assignees**: [@ichekrygin](https://github.com/ichekrygin)
-- **Comments**: 29
+- **Comments**: 30
 
 ## Description
 
@@ -1084,3 +1084,23 @@ Folks, one more thought I had recently. While we should proceed with KEP for mak
 This would let us unblock some immediate use cases, while addressing my concerns about leaking the integration to core webhooks and Config API. Then we could have all the time in the world to collect use cases and properly design the integration before incorporating into the core Kueue.
 
 For the technical level pointers, I imagine the closest would be [kueue-populator](https://github.com/kubernetes-sigs/kueue/tree/main/cmd/experimental/kueue-populator). Also in the past we had such addon integration for [tains&tolerations](https://github.com/kubernetes-sigs/kueue/tree/release-0.9/cmd/experimental/podtaintstolerations). This could also serve as an example to how to write an in-house integration which we currently don't have.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-13T17:19:15Z
+
+The Kubernetes project currently lacks enough active contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle rotten`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle rotten
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

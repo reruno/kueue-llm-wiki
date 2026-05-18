@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5699
 
-**Last updated**: 2026-02-15T19:58:22Z
+**Last updated**: 2026-05-16T20:06:19Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open (reopened)
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2025-06-20T14:32:45Z
-- **Updated**: 2026-02-15T19:58:22Z
+- **Updated**: 2026-05-16T20:06:19Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 14
+- **Comments**: 15
 
 ## Description
 
@@ -222,3 +222,23 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/5699#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-16T20:06:17Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

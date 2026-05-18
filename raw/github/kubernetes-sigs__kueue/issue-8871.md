@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8871
 
-**Last updated**: 2026-04-14T09:17:58Z
+**Last updated**: 2026-05-15T16:34:32Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-01-29T13:42:58Z
-- **Updated**: 2026-04-14T09:17:58Z
+- **Updated**: 2026-05-15T16:34:32Z
 - **Closed**: —
 - **Labels**: `kind/feature`
-- **Assignees**: _none_
-- **Comments**: 7
+- **Assignees**: [@kshalot](https://github.com/kshalot)
+- **Comments**: 8
 
 ## Description
 
@@ -82,3 +82,8 @@ cc @tenzen-y @gabesaba @kannon92 @sohankunkerkar ptal
 Here is the discussion doc, including the integration with Kueue: https://docs.google.com/document/d/1MASczp_dvKXjrbhExePxMZfasZN8ukaHopP7y_bNom4
 
 And we already have the scheduler-library: https://github.com/kubernetes-sigs/scheduler-library
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-15T16:34:30Z
+
+/assign @kshalot 
+who is already working on the integration

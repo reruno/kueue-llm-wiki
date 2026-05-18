@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9094
 
-**Last updated**: 2026-02-10T14:28:03Z
+**Last updated**: 2026-05-11T14:45:23Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-02-10T13:10:31Z
-- **Updated**: 2026-02-10T14:28:03Z
-- **Closed**: —
+- **Updated**: 2026-05-11T14:45:23Z
+- **Closed**: 2026-05-11T14:45:22Z
 - **Labels**: `kind/feature`
 - **Assignees**: [@mbobrovskyi](https://github.com/mbobrovskyi)
-- **Comments**: 8
+- **Comments**: 10
 
 ## Description
 
@@ -89,3 +89,28 @@ So, I believe that batch processing would be worth it.
 ### Comment by [@mwielgus](https://github.com/mwielgus) — 2026-02-10T14:28:03Z
 
 The underlying problem is that conversion webhook needs to process the whole batch in 150 seconds. If the processing takes more, the list is dropped. How much Kueue can process and send back within these 150 seconds depends on the network and node performance but with workloads counted in XX k it definitely fails.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-11T14:45:16Z
+
+/close
+I think at this point we have already converted most of the users to 0.16 with the script we have, using the approach of sharing batches by namespace.
+
+We may revisit this topic of optimizing the script when we upgrade to v1beta3.
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-11T14:45:23Z
+
+@mimowo: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/9094#issuecomment-4421766106):
+
+>/close
+>I think at this point we have already converted most of the users to 0.16 with the script we have, using the approach of sharing batches by namespace.
+>
+>We may revisit this topic of optimizing the script when we upgrade to v1beta3.
+>
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

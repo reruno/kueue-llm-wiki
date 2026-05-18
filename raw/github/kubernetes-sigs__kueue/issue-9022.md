@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9022
 
-**Last updated**: 2026-02-11T18:31:59Z
+**Last updated**: 2026-05-12T22:13:32Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-02-06T08:44:35Z
-- **Updated**: 2026-02-11T18:31:59Z
+- **Updated**: 2026-05-12T22:13:32Z
 - **Closed**: —
 - **Labels**: `kind/cleanup`
 - **Assignees**: _none_
-- **Comments**: 10
+- **Comments**: 12
 
 ## Description
 
@@ -95,3 +95,27 @@ I meant to just change the existing interface, having two functions `PodSets` an
 ### Comment by [@hiboyang](https://github.com/hiboyang) — 2026-02-11T18:31:59Z
 
 Sounds good, let me just change the existing interface.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-12T19:03:37Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@kaisoz](https://github.com/kaisoz) — 2026-05-12T22:13:30Z
+
+/remove-lifecycle stale

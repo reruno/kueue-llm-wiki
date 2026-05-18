@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8902
 
-**Last updated**: 2026-02-16T17:51:58Z
+**Last updated**: 2026-05-17T18:27:52Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@monabil08](https://github.com/monabil08)
 - **Created**: 2026-01-30T10:32:43Z
-- **Updated**: 2026-02-16T17:51:58Z
+- **Updated**: 2026-05-17T18:27:52Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 6
+- **Comments**: 7
 
 ## Description
 
@@ -92,3 +92,23 @@ Yes, I could see this being useful. Is this the same proposal as https://github.
 ### Comment by [@mukund-wayve](https://github.com/mukund-wayve) — 2026-02-16T17:51:57Z
 
 @gabesaba I've raised [a KEP](https://github.com/kubernetes-sigs/kueue/pull/9251). Can you review when you can please?
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-17T18:27:50Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

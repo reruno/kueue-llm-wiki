@@ -4,17 +4,17 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7298
 
-**Last updated**: 2026-03-08T20:08:50Z
+**Last updated**: 2026-05-12T07:35:35Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@harche](https://github.com/harche)
 - **Created**: 2025-10-16T13:41:17Z
-- **Updated**: 2026-03-08T20:08:50Z
-- **Closed**: —
+- **Updated**: 2026-05-12T07:35:35Z
+- **Closed**: 2026-05-12T07:35:35Z
 - **Labels**: `kind/feature`
 - **Assignees**: [@harche](https://github.com/harche), [@sohankunkerkar](https://github.com/sohankunkerkar)
 - **Comments**: 8

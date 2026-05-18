@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/2867
 
-**Last updated**: 2026-04-10T07:31:21Z
+**Last updated**: 2026-05-10T08:26:47Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@romilbhardwaj](https://github.com/romilbhardwaj)
 - **Created**: 2024-08-21T00:59:53Z
-- **Updated**: 2026-04-10T07:31:21Z
+- **Updated**: 2026-05-10T08:26:47Z
 - **Closed**: —
-- **Labels**: `kind/support`, `lifecycle/stale`
+- **Labels**: `kind/support`, `lifecycle/rotten`
 - **Assignees**: [@PBundyra](https://github.com/PBundyra)
-- **Comments**: 23
+- **Comments**: 24
 
 ## Description
 
@@ -325,3 +325,23 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@mimowo](https://github.com/mimowo) — 2026-04-10T07:31:21Z
 
 I don't know - I haven't seen this issue reported in any other channels yet, and this issue refers to a very old Kueue, also a lot could have changed at the DWS side, so before we start working on it I would like to see a repro on the latest Kueue, and new DWS.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-10T08:26:44Z
+
+The Kubernetes project currently lacks enough active contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle rotten`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle rotten
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

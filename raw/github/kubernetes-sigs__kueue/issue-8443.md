@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8443
 
-**Last updated**: 2026-03-13T11:05:40Z
+**Last updated**: 2026-05-12T14:37:56Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ns-sundar](https://github.com/ns-sundar)
 - **Created**: 2026-01-05T23:11:46Z
-- **Updated**: 2026-03-13T11:05:40Z
+- **Updated**: 2026-05-12T14:37:56Z
 - **Closed**: —
 - **Labels**: `kind/bug`, `priority/important-soon`
 - **Assignees**: [@ns-sundar](https://github.com/ns-sundar)
-- **Comments**: 5
+- **Comments**: 8
 
 ## Description
 
@@ -102,3 +102,21 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/8443#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-04-23T15:45:09Z
+
+We synced on the issue with  @yaroslava-serdiuk and @andrewsykim and it seems this issue could be workaround by using foreground deletion on the RayService, --cascade=foreground, so that the RayService is kept around before the Redis cleanup is done. Wondering if this is a feasible workaround before fixed, wdyt @ns-sundar ? 
+
+As for the fix, one approach would be to use a dedicated finalizer on the RayService to only delete it once the Redis cleanup job is done.
+
+### Comment by [@yaroslava-serdiuk](https://github.com/yaroslava-serdiuk) — 2026-05-12T12:45:50Z
+
+I run the test https://github.com/kubernetes-sigs/kueue/pull/11131 using the kind cluster with custom kuberay that includes the https://github.com/kubernetes-sigs/kueue/issues/10795 (using `KIND_CLUSTER_NAME="kind" GINKGO_ARGS="--label-filter=feature:kuberay --focus=redis-cleanup" E2E_MODE=dev make kind-image-build test-e2e-sequential-extended`. 
+My observation is that scheduling gates were added to redis cleanup pod, but then scheduling gates were immediately removed and the pod run and cleaned up the RayCluster. 
+So seems the original issue is not present in the latest Kueue version.
+
+### Comment by [@ns-sundar](https://github.com/ns-sundar) — 2026-05-12T14:37:56Z
+
+Hi @yaroslava-serdiuk , I [responded](https://github.com/kubernetes-sigs/kueue/pull/11131/changes#r3227286883) in #11131 too, but that test case is not quite the same, because we are creating a dummy pod that we call redis-cleanup, rather than KubeRay creating a pod in its own specific way. 
+
+The [conditions when KubeRay creates a redis-cleanuo pod are listed here](https://github.com/kubernetes-sigs/kueue/pull/8579#issuecomment-4264729052).

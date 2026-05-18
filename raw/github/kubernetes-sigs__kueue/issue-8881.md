@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8881
 
-**Last updated**: 2026-02-12T12:18:47Z
+**Last updated**: 2026-05-13T13:15:20Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@Ladicle](https://github.com/Ladicle)
 - **Created**: 2026-01-30T02:41:13Z
-- **Updated**: 2026-02-12T12:18:47Z
+- **Updated**: 2026-05-13T13:15:20Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 2
+- **Comments**: 3
 
 ## Description
 
@@ -70,3 +70,23 @@ It would be great to present this proposal at wg-batch: https://github.com/kuber
 
 However, regarding hierarchical GPU management, I feel that the credits approach alone might be challenging for our specific use cases. We manage a wide variety of accelerators (including custom in-house chips), so mapping them all to credits could be quite complex.
 I'll try to write up a document exploring the "Hierarchical Resource Flavor Support" solution as a potential long-term approach.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-13T13:15:16Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

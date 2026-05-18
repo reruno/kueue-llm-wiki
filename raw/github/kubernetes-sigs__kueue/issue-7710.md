@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7710
 
-**Last updated**: 2026-03-31T14:04:18Z
+**Last updated**: 2026-05-18T09:03:02Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@MichalZylinski](https://github.com/MichalZylinski)
 - **Created**: 2025-11-17T14:18:32Z
-- **Updated**: 2026-03-31T14:04:18Z
+- **Updated**: 2026-05-18T09:03:02Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `priority/important-longterm`
 - **Assignees**: [@andrewseif](https://github.com/andrewseif)
-- **Comments**: 4
+- **Comments**: 6
 
 ## Description
 
@@ -79,3 +79,13 @@ I would like to work on this, if that's ok 😄
 I commented on #10244 but changing the API is a breaking change.
 
 We could consider this for v1 but I don't think we should make this change in v1beta1 or v1beta2.
+
+### Comment by [@PBundyra](https://github.com/PBundyra) — 2026-05-18T09:02:48Z
+
+IIRC after the PR: https://github.com/kubernetes-sigs/kueue/pull/7793 AFS status is not reported in the CQ at all. Currently the only place it's reported is LQ status. 
+
+I think we need more discussion on what's our desired state. On the one hand, currently both AFS and preemption-based FS use `fairSharing.weight` API in LQ's/CQ/'s spec. So there's some existing overlap. On the other hand, I'm not fully convinced we should pursue having config/status in one place for both AFS and preemption-based FS. Those features can work independently and (at least currently) have little in common since one works on the LQ level, and the other one works on CQ/Cohort level. Maybe we should have aim for a clear distinction on the API level to hint admin, those are two separate features
+
+### Comment by [@PBundyra](https://github.com/PBundyra) — 2026-05-18T09:03:02Z
+
+/cc @mimowo @MichalZylinski @mwielgus

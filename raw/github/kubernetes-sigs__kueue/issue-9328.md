@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9328
 
-**Last updated**: 2026-02-17T18:19:38Z
+**Last updated**: 2026-05-11T07:29:06Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-02-17T17:53:48Z
-- **Updated**: 2026-02-17T18:19:38Z
-- **Closed**: —
+- **Updated**: 2026-05-11T07:29:06Z
+- **Closed**: 2026-05-11T07:29:05Z
 - **Labels**: `kind/bug`, `kind/flake`
 - **Assignees**: _none_
-- **Comments**: 4
+- **Comments**: 6
 
 ## Description
 
@@ -124,3 +124,23 @@ Feb 17 17:30:08 kind-worker containerd[112]: time="2026-02-17T17:30:08.471361940
 ### Comment by [@mimowo](https://github.com/mimowo) — 2026-02-17T18:19:38Z
 
 Ok, so it seems like starting the Pod failed due to a timeout as we have "context deadline exceeded", at ` 17:30:08 ` when the step "Wait for the workload to finish" started at `17:29:32.674` so before 45s timeout elapsed, suggesting this is some other timeout than the test's.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-11T07:28:59Z
+
+/close
+Closing stale tickets which haven't re-occur in 2 months, because maybe some of them are already fixed along the way. We will re-open when they re-occur again.
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-11T07:29:06Z
+
+@mimowo: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/9328#issuecomment-4418433656):
+
+>/close
+>Closing stale tickets which haven't re-occur in 2 months, because maybe some of them are already fixed along the way. We will re-open when they re-occur again.
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

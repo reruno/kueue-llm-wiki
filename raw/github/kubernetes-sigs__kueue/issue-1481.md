@@ -4,17 +4,17 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/1481
 
-**Last updated**: 2026-05-05T07:20:53Z
+**Last updated**: 2026-05-13T17:47:50Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@achernevskii](https://github.com/achernevskii)
 - **Created**: 2023-12-18T15:19:48Z
-- **Updated**: 2026-05-05T07:20:53Z
-- **Closed**: —
+- **Updated**: 2026-05-13T17:47:50Z
+- **Closed**: 2026-05-13T17:47:50Z
 - **Labels**: `kind/feature`
 - **Assignees**: [@vladikkuzn](https://github.com/vladikkuzn)
 - **Comments**: 11

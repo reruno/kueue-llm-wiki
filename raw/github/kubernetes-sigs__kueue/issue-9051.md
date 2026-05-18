@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9051
 
-**Last updated**: 2026-02-09T06:43:35Z
+**Last updated**: 2026-05-10T15:06:23Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mpsanj](https://github.com/mpsanj)
 - **Created**: 2026-02-09T06:39:01Z
-- **Updated**: 2026-02-09T06:43:35Z
-- **Closed**: —
-- **Labels**: `kind/bug`
+- **Updated**: 2026-05-10T15:06:23Z
+- **Closed**: 2026-05-10T15:06:14Z
+- **Labels**: `kind/bug`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 2
+- **Comments**: 5
 
 ## Description
 
@@ -90,3 +90,42 @@ cc @mbobrovskyi @vladikkuzn
 Hi, thank you for reporting this issue. This is duplicated with https://github.com/kubernetes-sigs/kueue/issues/8873.
 
 Please check the comment. This fix patch will be released in this week.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-10T07:32:44Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@vladikkuzn](https://github.com/vladikkuzn) — 2026-05-10T15:05:37Z
+
+/close
+As duplicate of https://github.com/kubernetes-sigs/kueue/issues/8873
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-10T15:06:15Z
+
+@vladikkuzn: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/9051#issuecomment-4415603929):
+
+>/close
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

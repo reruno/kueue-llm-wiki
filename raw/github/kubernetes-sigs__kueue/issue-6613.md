@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/6613
 
-**Last updated**: 2026-04-16T10:47:54Z
+**Last updated**: 2026-05-15T07:08:30Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@phoenix1712](https://github.com/phoenix1712)
 - **Created**: 2025-08-18T22:59:48Z
-- **Updated**: 2026-04-16T10:47:54Z
-- **Closed**: —
-- **Labels**: `kind/bug`, `lifecycle/rotten`, `area/dashboard`
-- **Assignees**: _none_
-- **Comments**: 7
+- **Updated**: 2026-05-15T07:08:30Z
+- **Closed**: 2026-05-15T07:08:30Z
+- **Labels**: `kind/bug`, `area/dashboard`
+- **Assignees**: [@ManthanNimodiya](https://github.com/ManthanNimodiya)
+- **Comments**: 9
 
 ## Description
 
@@ -150,3 +150,11 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@ManthanNimodiya](https://github.com/ManthanNimodiya) — 2026-05-14T16:16:53Z
+
+/remove-lifecycle rotten
+
+### Comment by [@ManthanNimodiya](https://github.com/ManthanNimodiya) — 2026-05-14T16:17:02Z
+
+/assign

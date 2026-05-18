@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8463
 
-**Last updated**: 2026-04-09T08:16:26Z
+**Last updated**: 2026-05-11T07:25:57Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-01-08T08:09:16Z
-- **Updated**: 2026-04-09T08:16:26Z
-- **Closed**: —
-- **Labels**: `kind/bug`, `priority/important-soon`, `lifecycle/stale`, `kind/flake`
+- **Updated**: 2026-05-11T07:25:57Z
+- **Closed**: 2026-05-11T07:25:56Z
+- **Labels**: `kind/bug`, `priority/important-soon`, `kind/flake`, `lifecycle/rotten`
 - **Assignees**: [@skools-here](https://github.com/skools-here)
-- **Comments**: 9
+- **Comments**: 12
 
 ## Description
 
@@ -118,3 +118,43 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle stale
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-09T09:12:44Z
+
+The Kubernetes project currently lacks enough active contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle rotten`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle rotten
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-11T07:25:50Z
+
+/close
+Closing stale tickets which haven't re-occur in 2 months, because maybe some of them are already fixed along the way. We will re-open when they re-occur again.
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-11T07:25:57Z
+
+@mimowo: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/8463#issuecomment-4418412850):
+
+>/close
+>Closing stale tickets which haven't re-occur in 2 months, because maybe some of them are already fixed along the way. We will re-open when they re-occur again.
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8834
 
-**Last updated**: 2026-02-16T10:49:29Z
+**Last updated**: 2026-05-11T07:26:29Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mbobrovskyi](https://github.com/mbobrovskyi)
 - **Created**: 2026-01-27T16:39:23Z
-- **Updated**: 2026-02-16T10:49:29Z
-- **Closed**: —
+- **Updated**: 2026-05-11T07:26:29Z
+- **Closed**: 2026-05-11T07:26:28Z
 - **Labels**: `kind/bug`, `kind/flake`, `area/multikueue`
 - **Assignees**: _none_
-- **Comments**: 1
+- **Comments**: 3
 
 ## Description
 
@@ -72,3 +72,23 @@ https://prow.k8s.io/view/gs/kubernetes-ci-logs/pr-logs/pull/kubernetes-sigs_kueu
 ### Comment by [@olekzabl](https://github.com/olekzabl) — 2026-02-16T10:49:27Z
 
 /area multikueue
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-11T07:26:22Z
+
+/close
+Closing stale tickets which haven't re-occur in 2 months, because maybe some of them are already fixed along the way. We will re-open when they re-occur again.
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-11T07:26:29Z
+
+@mimowo: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/8834#issuecomment-4418416390):
+
+>/close
+>Closing stale tickets which haven't re-occur in 2 months, because maybe some of them are already fixed along the way. We will re-open when they re-occur again.
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

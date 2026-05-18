@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7193
 
-**Last updated**: 2026-04-18T13:17:56Z
+**Last updated**: 2026-05-11T07:24:32Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-10-07T13:21:14Z
-- **Updated**: 2026-04-18T13:17:56Z
-- **Closed**: —
+- **Updated**: 2026-05-11T07:24:32Z
+- **Closed**: 2026-05-11T07:24:31Z
 - **Labels**: `kind/bug`, `kind/flake`, `priority/important-longterm`, `lifecycle/rotten`
 - **Assignees**: _none_
-- **Comments**: 3
+- **Comments**: 5
 
 ## Description
 
@@ -90,3 +90,23 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-11T07:24:26Z
+
+/close
+I haven't seen this re-occur since the time of creation. Let's open if this re-occurs.
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-11T07:24:32Z
+
+@mimowo: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/7193#issuecomment-4418403828):
+
+>/close
+>I haven't seen this re-occur since the time of creation. Let's open if this re-occurs. 
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

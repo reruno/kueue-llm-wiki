@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9301
 
-**Last updated**: 2026-02-17T03:48:32Z
+**Last updated**: 2026-05-11T07:27:51Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mbobrovskyi](https://github.com/mbobrovskyi)
 - **Created**: 2026-02-17T03:48:32Z
-- **Updated**: 2026-02-17T03:48:32Z
-- **Closed**: —
+- **Updated**: 2026-05-11T07:27:51Z
+- **Closed**: 2026-05-11T07:27:49Z
 - **Labels**: `kind/bug`, `kind/flake`
 - **Assignees**: _none_
-- **Comments**: 0
+- **Comments**: 2
 
 ## Description
 
@@ -76,3 +76,25 @@ In [AfterEach] at: /home/prow/go/src/kubernetes-sigs/kueue/test/e2e/customconfig
 ```
 
 **Anything else we need to know?**:
+
+## Discussion
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-11T07:27:45Z
+
+/close
+Closing stale tickets which haven't re-occur in 2 months, because maybe some of them are already fixed along the way. We will re-open when they re-occur again.
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-11T07:27:50Z
+
+@mimowo: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/9301#issuecomment-4418425443):
+
+>/close
+>Closing stale tickets which haven't re-occur in 2 months, because maybe some of them are already fixed along the way. We will re-open when they re-occur again.
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

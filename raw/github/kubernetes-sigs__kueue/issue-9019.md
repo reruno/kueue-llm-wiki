@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9019
 
-**Last updated**: 2026-02-09T16:05:58Z
+**Last updated**: 2026-05-10T16:38:47Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2026-02-06T07:57:24Z
-- **Updated**: 2026-02-09T16:05:58Z
+- **Updated**: 2026-05-10T16:38:47Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 4
+- **Comments**: 5
 
 ## Description
 
@@ -141,3 +141,23 @@ The limitation is not the taint or label mechanism itself, but the fact that tai
 The core of the proposal is therefore not “domain taints vs node taints”, but introducing an explicit domain-level signal that Kueue can reason about directly. If a domain is represented as a first-class object, Kueue TAS can observe its spec and status to determine whether a workload is suitable for that domain (globally or for a given workload class), without descending to per-node inspection.
 
 The key benefit is atomicity and clarity: a domain is either eligible or not eligible, rather than transiently and partially eligible depending on the progress of node-level updates. Achieving that level of precision is difficult with node taints and labels alone, especially at larger scales.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-10T16:38:45Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

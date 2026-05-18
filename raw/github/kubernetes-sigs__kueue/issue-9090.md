@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9090
 
-**Last updated**: 2026-02-11T08:36:22Z
+**Last updated**: 2026-05-12T08:55:40Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mwielgus](https://github.com/mwielgus)
 - **Created**: 2026-02-10T12:00:25Z
-- **Updated**: 2026-02-11T08:36:22Z
+- **Updated**: 2026-05-12T08:55:40Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 2
+- **Comments**: 3
 
 ## Description
 
@@ -48,3 +48,23 @@ It might be that controller-runtime is already logging the received conversion w
 ### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-02-11T08:36:22Z
 
 If we want to fully handle conversion loggings, we need to stop relying on auto-generation. Fully scratch conversion webhook could control everything, but implementation and maintaining costs will be huge...
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-12T08:55:37Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9821
 
-**Last updated**: 2026-03-20T20:48:40Z
+**Last updated**: 2026-05-11T07:29:10Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-03-12T08:20:08Z
-- **Updated**: 2026-03-20T20:48:40Z
-- **Closed**: —
+- **Updated**: 2026-05-11T07:29:10Z
+- **Closed**: 2026-05-11T07:29:09Z
 - **Labels**: `kind/bug`, `kind/flake`
 - **Assignees**: [@PannagaRao](https://github.com/PannagaRao)
-- **Comments**: 4
+- **Comments**: 6
 
 ## Description
 
@@ -80,3 +80,23 @@ On the related topic I think we could do better also retrying connections to ext
 ### Comment by [@PannagaRao](https://github.com/PannagaRao) — 2026-03-20T20:48:37Z
 
 /assign @PannagaRao
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-11T07:29:04Z
+
+/close
+Closing stale tickets which haven't re-occur in 2 months, because maybe some of them are already fixed along the way. We will re-open when they re-occur again.
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-11T07:29:10Z
+
+@mimowo: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/9821#issuecomment-4418434301):
+
+>/close
+>Closing stale tickets which haven't re-occur in 2 months, because maybe some of them are already fixed along the way. We will re-open when they re-occur again.
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

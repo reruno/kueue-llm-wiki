@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/4803
 
-**Last updated**: 2026-05-06T16:34:07Z
+**Last updated**: 2026-05-14T13:44:16Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open (reopened)
 - **Author**: [@KPostOffice](https://github.com/KPostOffice)
 - **Created**: 2025-03-26T20:01:24Z
-- **Updated**: 2026-05-06T16:34:07Z
+- **Updated**: 2026-05-14T13:44:16Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `lifecycle/rotten`
-- **Assignees**: _none_
-- **Comments**: 11
+- **Assignees**: [@MaysaMacedo](https://github.com/MaysaMacedo)
+- **Comments**: 17
 
 ## Description
 
@@ -202,3 +202,41 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/4803#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-05-13T13:52:48Z
+
+@mimowo @tenzen-y @PBundyra @amy 
+
+WDYT of this? This came up as a feature request recently for us.
+
+### Comment by [@amy](https://github.com/amy) — 2026-05-13T13:56:13Z
+
+Not opposed. Probably also means you need a default number configured for the cluster though and not rely on users to remember to configure the number.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-13T14:45:18Z
+
+I'm supportive for that 👍 
+
+However, we need to iron out the details in the KEP. Some questions which come up to my mind:
+1. should we enable that even if the global waitForPodsReady is disabled?
+2. the API - probably a JSON-based annotation
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-05-13T14:52:50Z
+
+cc @MaysaMacedo 
+I followed up offline and she is interested in looking into this.
+
+### Comment by [@MaysaMacedo](https://github.com/MaysaMacedo) — 2026-05-13T19:33:27Z
+
+/assign
+
+### Comment by [@PBundyra](https://github.com/PBundyra) — 2026-05-14T13:44:16Z
+
+> I'm supportive for that 👍
+> 
+> However, we need to iron out the details in the KEP. Some questions which come up to my mind:
+> 
+> 1. should we enable that even if the global waitForPodsReady is disabled?
+> 2. the API - probably a JSON-based annotation
+
++1 to all the above

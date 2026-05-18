@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8937
 
-**Last updated**: 2026-02-16T10:49:22Z
+**Last updated**: 2026-05-11T07:28:34Z
 
 ---
 
 ## Metadata
 
-- **State**: open (reopened)
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-02-02T15:15:23Z
-- **Updated**: 2026-02-16T10:49:22Z
-- **Closed**: —
+- **Updated**: 2026-05-11T07:28:34Z
+- **Closed**: 2026-05-11T07:28:33Z
 - **Labels**: `kind/bug`, `kind/flake`, `area/multikueue`
 - **Assignees**: _none_
-- **Comments**: 9
+- **Comments**: 11
 
 ## Description
 
@@ -224,3 +224,23 @@ Wdyt @mbobrovskyi , to introduce the wait for the deployment available before co
 ### Comment by [@olekzabl](https://github.com/olekzabl) — 2026-02-16T10:49:20Z
 
 /area multikueue
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-11T07:28:27Z
+
+/close
+Closing stale tickets which haven't re-occur in 2 months, because maybe some of them are already fixed along the way. We will re-open when they re-occur again.
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-11T07:28:34Z
+
+@mimowo: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/8937#issuecomment-4418430132):
+
+>/close
+>Closing stale tickets which haven't re-occur in 2 months, because maybe some of them are already fixed along the way. We will re-open when they re-occur again.
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5220
 
-**Last updated**: 2026-04-03T20:55:21Z
+**Last updated**: 2026-05-14T16:13:12Z
 
 ---
 
 ## Metadata
 
-- **State**: closed (not_planned)
+- **State**: open (reopened)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-05-09T16:44:15Z
-- **Updated**: 2026-04-03T20:55:21Z
-- **Closed**: 2026-04-03T20:55:20Z
-- **Labels**: `lifecycle/rotten`, `kind/documentation`
+- **Updated**: 2026-05-14T16:13:12Z
+- **Closed**: —
+- **Labels**: `kind/documentation`
 - **Assignees**: _none_
-- **Comments**: 14
+- **Comments**: 16
 
 ## Description
 
@@ -255,6 +255,26 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/5220#issue
 >/close not-planned
 >
 >[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-05-14T16:13:04Z
+
+/reopen
+/remove-lifecycle rotten
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-14T16:13:11Z
+
+@kannon92: Reopened this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/5220#issuecomment-4452452889):
+
+>/reopen
+>/remove-lifecycle rotten
 
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
