@@ -97,6 +97,28 @@ from pathlib import Path
 from typing import Any, Iterator
 
 
+def _load_dotenv() -> None:
+    """Load KEY=VALUE pairs from .env in the script's directory into os.environ.
+
+    Existing env vars are never overwritten — shell/CLI values always win.
+    Supports inline comments (#), quoted values, and blank lines.
+    """
+    env_path = Path(__file__).parent / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, raw = line.partition("=")
+        key = key.strip()
+        value = raw.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_dotenv()
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
