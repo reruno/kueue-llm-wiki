@@ -1,6 +1,6 @@
 ---
 name: code-eval
-description: Evaluate the quality of a git diff between two commits. Scores the changes across four domains — Code Style, Buggy Behavior, Comments, and Small Architectural Decisions — then provides actionable recommendations for improvement. Use this skill when user wants to perform code quality evaluation.
+description: Evaluate the quality of a git diff between two commits by delegating per-skill analysis (Code Style, Buggy Behavior, Comments, Architectural Decisions, Security) to subagents, then aggregating their findings and recommendations into a scored report.
 argument-hint: <BaseCommit> <HeadCommit>
 license: Apache-2.0
 metadata:
@@ -9,9 +9,14 @@ metadata:
 
 # Code Evaluation Skill
 
-Evaluate the quality of a git diff between two commits. Scores the changes across four domains — Code Style, Buggy Behavior, Comments, and Small Architectural Decisions — then provides actionable recommendations for improvement.
+Evaluate the quality of a git diff between two commits. Each evaluation skill listed
+below contributes findings and recommendations for one domain of concern; this skill's
+job is to fan out to each one in parallel, then assemble the results into a single
+scored report.
 
-Use this when user wants to perform code quality evaluation. When user expresses a need for code quality review, but didn't provide the **BaseCommit** and **HeadCommit** arguments, remind user what arguments need to be provided for code evaluation
+Use this when the user wants a code-quality evaluation. If the user expresses the need
+without providing **BaseCommit** and **HeadCommit**, ask them for both before
+proceeding.
 
 ## Arguments
 
@@ -23,11 +28,12 @@ Parse two positional arguments from `$ARGUMENTS`:
 
 ## Principles
 
-- Ground every deduction in a specific line or pattern from the diff. No vague criticism.
+- Ground every penalty in a specific line or pattern from the diff. No vague criticism.
 - Do not penalize stylistic choices that are consistent with the surrounding code, even if you personally prefer something else.
 - Do not invent bugs that aren't there. If the code looks correct, say so.
-- Reward simplicity. If the diff is clean and well-structured, say so explicitly.
-- Severity matters: backwards-compatibility violations and logic errors on the hot path are more serious than naming nits. Reflect this in point deductions.
+- Reward simplicity. If the diff is clean and well-structured, say so explicitly — a clean diff scores 0 in every domain.
+- Severity matters: backwards-compatibility violations and logic errors on the hot path are more serious than naming nits. Reflect this in point weights.
+- **Higher score = worse code.** Every finding adds points; nothing subtracts. There is no upper cap.
 
 ## Step 1 — Retrieve the diff
 
@@ -36,51 +42,88 @@ Run:
 git diff <BaseCommit> <HeadCommit>
 ```
 
-Read the full output. This is the **Diff Code** you will evaluate.
+Read the full output. This is the **Diff Code** that the subagent evaluators will work
+against.
 
 Also run:
 ```
 git diff <BaseCommit> <HeadCommit> --stat
 ```
 
-to get a high-level overview of changed files.
+to get a high-level overview of changed files for the final report.
 
-## Step 2 — Understand context
+## Step 2 — Fan out to per-domain subagents
 
-For each changed file in the diff, read enough of the surrounding code (unchanged lines, nearby functions, imports) to understand:
-- The existing code style and naming conventions
-- Util/helper functions already available in the package or nearby packages
-- The overall structure and architecture of the file
-- What patterns exist for similar operations (e.g. how existing builder methods are named)
+For each **domain** in the table below, spawn one subagent **in parallel** (single
+message, multiple Agent tool calls). One subagent per domain — not one per sub-skill.
+Each domain SKILL.md is a table-of-contents over many small rule sub-skills and
+inlines them via `@<rule>/SKILL.md` references. Each subagent must:
 
-Use `git show <BaseCommit>:<filepath>` or read the file at HEAD if it gives better context.
+1. Read the domain SKILL.md end-to-end. That file pulls in every rule sub-skill in the
+   domain plus the shared "How to report" instructions.
+2. Read the diff between `<BaseCommit>` and `<HeadCommit>` and load enough surrounding
+   context (unchanged lines, nearby functions, imports, existing helpers, log-verbosity
+   conventions in the package) to make grounded judgments.
+3. Identify every violation of any rule sub-skill in the domain.
+4. Classify each violation as **high**, **medium**, or **low**.
+5. Return findings AND recommendations in the format defined in the domain SKILL.md.
 
-Pay particular attention to:
-- How existing functions/methods in the same package are named (builder pattern vs verb-noun, etc.)
-- Whether shared helper logic already exists for the same operation across other types/adapters
-- Log verbosity conventions (what V-level is used for recurring vs lifecycle events)
-- Whether any deleted code might be needed during a rolling upgrade or version skew
-
-## Step 3 — Evaluate across domains
-
-Score the Diff Code on each domain below. Be strict but fair. Every point deduction must be noted so the user understands what happened.
-
-Each domain file is independent and can be checked in parallel with the others. When reviewing a Diff Code, spawn all relevant domains as concurrent agents rather than running them sequentially. Domain contains defined rules, and each agent must check for violations of these rules. Also each finding must be clasified as high, medium, or low finding. 
-
-Domains: 
-| Skill | Max score |
+Domains:
+| Domain | Domain weight |
 |---|---|
-| @architectural_decisions.md | 20 |
-| @code_style.md | 40 |
-| @buggy_behavior.md | 20 |
-| @comments.md | 5 |
-| @security.md | 20 |
+| [../architectural-decisions/SKILL.md](../architectural-decisions/SKILL.md) | 1.5 |
+| [../code-style/SKILL.md](../code-style/SKILL.md) | 1.0 |
+| [../buggy-behavior/SKILL.md](../buggy-behavior/SKILL.md) | 2.0 |
+| [../comments/SKILL.md](../comments/SKILL.md) | 0.5 |
+| [../security/SKILL.md](../security/SKILL.md) | 2.0 |
 
+The domain weight is a multiplier applied to every finding in that domain — bugs and
+security defects cost more than style issues, comments cost less.
 
+This skill does **not** perform the rule-checking itself. Its job is to dispatch,
+gather, score, and format.
+
+## Step 3 — Reclassify and Score each skill
+
+Each skill starts at **0** points. Every finding **adds** points based on its severity,
+multiplied by the domain weight. There is no cap — the more findings (and the worse
+they are), the higher the score. **A higher score means worse code quality.** A clean
+domain with no findings scores 0.
+
+Base severity weights (before domain multiplier):
+
+- **High** = 15 pt
+- **Medium** = 4 pt
+- **Low** = 1 pt
+
+Per-finding points = base severity weight × domain weight.
+
+Per-domain score = sum of points across all findings in that domain.
+
+Final score = sum of all per-domain scores. No floor, no ceiling.
+
+Use these severity definitions when reviewing or reclassifying subagent findings:
+
+- **High** — the finding describes a concrete defect or design problem with serious impact,
+  such as a hot-path panic, data corruption or loss, broken backward compatibility,
+  incorrect admission or scheduling behavior, security boundary violation, or a public/API
+  semantic mismatch that is likely to mislead maintainers or users.
+- **Medium** — the finding describes a real issue with meaningful but narrower impact,
+  such as a realistic edge-case bug, feature-gate behavior leak, maintainability problem
+  likely to cause follow-up bugs, wrong high-volume log verbosity, or misleading naming or
+  comments that materially reduce readability.
+- **Low** — the finding describes a real but minor issue with limited impact, such as a
+  small convention drift, low-risk structural noise, isolated typo in important text, or
+  minor comment/style issue that is still worth cleaning up.
+
+Each finding could be mislabeled or misclassified, so you must reclassify each finding
+based on the actual impact shown by the diff and surrounding code, not only on the label
+returned by the subagent.
 
 ## Step 4 — Produce the report
 
-Output the evaluation in this exact structure (Domains and score are example, there could be more domains added in the future):
+Output the evaluation in this exact structure (skills and scores are examples; the set
+of skills is whatever appears in the table above):
 
 ```
 ## Code Evaluation Report
@@ -88,51 +131,61 @@ Output the evaluation in this exact structure (Domains and score are example, th
 **Commits**: <BaseCommit>..<HeadCommit>
 **Files changed**: (from --stat output)
 
----
-
-### Domain: Code Style
-**Score**: X/<num of points for this domain defined in Step 3>
-**Findings**: (bullet list of specific observations, in accordance with the specified rules for findings)
-  - <High/Medium/Low> | -x pt | <Finding Title>: <Explanation>
-
-### Domain: Buggy Behavior
-**Score**: X/<num of points for this domain defined in Step 3>
-**Findings**: (bullet list of specific observations, in accordance with the specified rules for findings)
-  - No findings
-
-### Domain: Comments
-**Score**: X/<num of points for this domain defined in Step 3>
-**Findings**: (bullet list of specific observations, in accordance with the specified rules for findings)
-  - No findings
-
-### Domain: Architectural Decisions
-**Score**: X/<num of points for this domain defined in Step 3>
-**Findings**: (bullet list of specific observations, in accordance with the specified rules for findings)
-  - <High/Medium/Low> | -x pt | <Finding Title>: <Explanation>
-
-### Domain: Security
-**Score**: X/<num of points for this domain defined in Step 3>
-**Findings**: (bullet list of specific observations, in accordance with the specified rules for findings)
-  - <High/Medium/Low> | -x pt | <Finding Title>: <Explanation>
+**Note**: Higher score = worse code. 0 means no findings in that domain.
 
 ---
 
-### Final Score: 
-X% / 100%
-<Points after deduction>pt / <Sum of all max points>pt
+### Skill: Code Style (weight <weight defined in Skills table>)
+**Domain score**: X pt  (sum of all findings below)
+**Findings**: (bullet list of specific observations, in accordance with the rules in the skill file)
+  - <High/Medium/Low> | +x pt | <Finding Title>: <Explanation>
+
+### Skill: Buggy Behavior (weight <weight defined in Skills table>)
+**Domain score**: 0 pt
+**Findings**:
+  - No findings
+
+### Skill: Comments (weight <weight defined in Skills table>)
+**Domain score**: 0 pt
+**Findings**:
+  - No findings
+
+### Skill: Architectural Decisions (weight <weight defined in Skills table>)
+**Domain score**: X pt
+**Findings**:
+  - <High/Medium/Low> | +x pt | <Finding Title>: <Explanation>
+
+### Skill: Security (weight <weight defined in Skills table>)
+**Domain score**: X pt
+**Findings**:
+  - <High/Medium/Low> | +x pt | <Finding Title>: <Explanation>
+
+---
+
+### Final Score: X pt
+(sum of all domain scores — higher is worse; 0 is a clean diff)
 
 ---
 
 ## Recommendations
 
-(One recommendation per issue found. Only include recommendations where the score was reduced. Each recommendation must have all three sections below.)
+(One recommendation per issue found. Only include recommendations whose corresponding finding contributed points. Each recommendation must have all sections below. Recommendations MUST be ordered by severity: all **High** first, then all **Medium**, then all **Low**. Within the same severity, order by the skill order in the table above. Number recommendations sequentially across all skills after sorting by severity.)
 
 ### Recommendation N: <short title>
 
+**Severity**: High | Medium | Low
+**Domain**: The skill domain this recommendation came from (e.g., Code Style, Buggy Behavior, Comments, Architectural Decisions, Security).
+**Findings**: The exact finding title(s) this recommendation addresses, copied from the Findings section above.
 **Problem**: Describe the specific issue in the diff.
 **Reason**: Explain why this is a problem — what goes wrong or degrades over time.
 **Solution**: Give a concrete, actionable fix. Where possible, show a before/after code snippet.
+**Locations**: List every place this issue occurs, one per line, in `filepath:line` form.
 ```
 
-Rules for findings: assume max score is already achieved, when you find violation of the rules, deduct points from the score and denote it. Points deduction depends on severity of a violation. Possible severities: high, medium, low. High=15pt, Medium=7pt, Low=3pt. Report format rules MUST NOT be broken, ensure that report abide by defined formating rules. Remember code evaluation MUST promote these principles: Maintainability, Simplicity, Backward Compatibility. 
-
+Rules:
+- The report format above MUST NOT be broken. Headings, ordering, and the four-section
+  recommendation layout are normative.
+- Recommendations come from the subagents — this skill aggregates them, renumbers them
+  globally, and omits any whose corresponding finding added 0 points.
+- Code evaluation MUST promote these principles: **Maintainability, Simplicity,
+  Backward Compatibility**.
