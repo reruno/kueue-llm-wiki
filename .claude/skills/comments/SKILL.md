@@ -18,17 +18,17 @@ rule below.
 
 | Rule | Triggers on |
 |---|---|
-| [over-commenting](../over-commenting/SKILL.md) | comments that explain what self-documenting code already says |
-| [wrong-kind-of-comment](../wrong-kind-of-comment/SKILL.md) | comments describing *what* instead of *why* |
-| [inaccurate-comments](../inaccurate-comments/SKILL.md) | comments or docstrings that no longer match the code |
-| [missing-deferred-removal-markers](../missing-deferred-removal-markers/SKILL.md) | compatibility shim kept without a deferred-removal comment |
-| [comment-typos](../comment-typos/SKILL.md) | typos and obvious errors in comment text |
+| [over-commenting](./over-commenting/SKILL.md) | comments that explain what self-documenting code already says |
+| [wrong-kind-of-comment](./wrong-kind-of-comment/SKILL.md) | comments describing *what* instead of *why* |
+| [inaccurate-comments](./inaccurate-comments/SKILL.md) | comments or docstrings that no longer match the code |
+| [missing-deferred-removal-markers](./missing-deferred-removal-markers/SKILL.md) | compatibility shim kept without a deferred-removal comment |
+| [comment-typos](./comment-typos/SKILL.md) | typos and obvious errors in comment text |
 
-@../over-commenting/SKILL.md
-@../wrong-kind-of-comment/SKILL.md
-@../inaccurate-comments/SKILL.md
-@../missing-deferred-removal-markers/SKILL.md
-@../comment-typos/SKILL.md
+@./over-commenting/SKILL.md
+@./wrong-kind-of-comment/SKILL.md
+@./inaccurate-comments/SKILL.md
+@./missing-deferred-removal-markers/SKILL.md
+@./comment-typos/SKILL.md
 
 ## How to report
 

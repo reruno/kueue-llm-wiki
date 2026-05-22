@@ -22,31 +22,31 @@ rule below.
 
 | Rule | Triggers on |
 |---|---|
-| [input-validation](../input-validation/SKILL.md) | missing validation on user-settable CR fields, webhook payloads, labels, annotations, or untrusted deserialization |
-| [injection](../injection/SKILL.md) | exec/SSRF/template/query/selector built from user-supplied strings |
-| [path-traversal](../path-traversal/SKILL.md) | file paths or archive extraction without root containment |
-| [resource-bounds-dos](../resource-bounds-dos/SKILL.md) | uncapped loops/allocations, missing timeouts, reconciler-wedging input, unbounded metric labels |
-| [nil-safety](../nil-safety/SKILL.md) | unguarded dereferences from malformed CRs; goroutines without recover |
-| [authn-authz-relaxation](../authn-authz-relaxation/SKILL.md) | webhook token skipping, failurePolicy Ignore, wildcard RBAC, privileged pod specs |
-| [information-disclosure](../information-disclosure/SKILL.md) | full-object logging, request echoing, credentials in status/annotations, kubeconfig logging |
-| [supply-chain-hygiene](../supply-chain-hygiene/SKILL.md) | unpinned images, TLS bypass, unjustified replace directives, curl\|sh, moving-tag Actions |
-| [annotation-label-namespace-abuse](../annotation-label-namespace-abuse/SKILL.md) | generic annotation/label loops that copy or forward values |
-| [feature-gated-insecure-paths](../feature-gated-insecure-paths/SKILL.md) | gated behavior whose security assumptions fail when accidentally enabled |
-| [integration-adapter-trust-boundary](../integration-adapter-trust-boundary/SKILL.md) | adapters reading credential-like fields from third-party CRDs without treating them as untrusted |
-| [webhook-safety-regressions](../webhook-safety-regressions/SKILL.md) | loosened failurePolicy, shortened timeouts, TLS bypass, non-idempotent mutating webhooks |
+| [input-validation](./input-validation/SKILL.md) | missing validation on user-settable CR fields, webhook payloads, labels, annotations, or untrusted deserialization |
+| [injection](./injection/SKILL.md) | exec/SSRF/template/query/selector built from user-supplied strings |
+| [path-traversal](./path-traversal/SKILL.md) | file paths or archive extraction without root containment |
+| [resource-bounds-dos](./resource-bounds-dos/SKILL.md) | uncapped loops/allocations, missing timeouts, reconciler-wedging input, unbounded metric labels |
+| [nil-safety](./nil-safety/SKILL.md) | unguarded dereferences from malformed CRs; goroutines without recover |
+| [authn-authz-relaxation](./authn-authz-relaxation/SKILL.md) | webhook token skipping, failurePolicy Ignore, wildcard RBAC, privileged pod specs |
+| [information-disclosure](./information-disclosure/SKILL.md) | full-object logging, request echoing, credentials in status/annotations, kubeconfig logging |
+| [supply-chain-hygiene](./supply-chain-hygiene/SKILL.md) | unpinned images, TLS bypass, unjustified replace directives, curl\|sh, moving-tag Actions |
+| [annotation-label-namespace-abuse](./annotation-label-namespace-abuse/SKILL.md) | generic annotation/label loops that copy or forward values |
+| [feature-gated-insecure-paths](./feature-gated-insecure-paths/SKILL.md) | gated behavior whose security assumptions fail when accidentally enabled |
+| [integration-adapter-trust-boundary](./integration-adapter-trust-boundary/SKILL.md) | adapters reading credential-like fields from third-party CRDs without treating them as untrusted |
+| [webhook-safety-regressions](./webhook-safety-regressions/SKILL.md) | loosened failurePolicy, shortened timeouts, TLS bypass, non-idempotent mutating webhooks |
 
-@../input-validation/SKILL.md
-@../injection/SKILL.md
-@../path-traversal/SKILL.md
-@../resource-bounds-dos/SKILL.md
-@../nil-safety/SKILL.md
-@../authn-authz-relaxation/SKILL.md
-@../information-disclosure/SKILL.md
-@../supply-chain-hygiene/SKILL.md
-@../annotation-label-namespace-abuse/SKILL.md
-@../feature-gated-insecure-paths/SKILL.md
-@../integration-adapter-trust-boundary/SKILL.md
-@../webhook-safety-regressions/SKILL.md
+@./input-validation/SKILL.md
+@./injection/SKILL.md
+@./path-traversal/SKILL.md
+@./resource-bounds-dos/SKILL.md
+@./nil-safety/SKILL.md
+@./authn-authz-relaxation/SKILL.md
+@./information-disclosure/SKILL.md
+@./supply-chain-hygiene/SKILL.md
+@./annotation-label-namespace-abuse/SKILL.md
+@./feature-gated-insecure-paths/SKILL.md
+@./integration-adapter-trust-boundary/SKILL.md
+@./webhook-safety-regressions/SKILL.md
 
 ## How to report
 

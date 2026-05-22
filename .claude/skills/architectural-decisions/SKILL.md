@@ -19,21 +19,21 @@ rule below.
 
 | Rule | Triggers on |
 |---|---|
-| [illogical-structure](../illogical-structure/SKILL.md) | code a future maintainer will struggle to follow, modify, or extend |
-| [nonsensical-decisions](../nonsensical-decisions/SKILL.md) | unnecessary indirection, mismatched abstractions, confusing data flow |
-| [avoidable-complexity](../avoidable-complexity/SKILL.md) | solutions more elaborate than the problem requires |
-| [pointless-intermediate-variables](../pointless-intermediate-variables/SKILL.md) | redundant local variables that add noise without clarity |
-| [duplicated-logic](../duplicated-logic/SKILL.md) | identical blocks across types/adapters/call sites that should be shared — or new helpers with one caller |
-| [scope-creep](../scope-creep/SKILL.md) | diffs bundling a bugfix with an unrelated refactor, or over-generalizing a change |
-| [misplaced-logic](../misplaced-logic/SKILL.md) | code placed somewhere a reader would not expect to find it |
+| [illogical-structure](./illogical-structure/SKILL.md) | code a future maintainer will struggle to follow, modify, or extend |
+| [nonsensical-decisions](./nonsensical-decisions/SKILL.md) | unnecessary indirection, mismatched abstractions, confusing data flow |
+| [avoidable-complexity](./avoidable-complexity/SKILL.md) | solutions more elaborate than the problem requires |
+| [pointless-intermediate-variables](./pointless-intermediate-variables/SKILL.md) | redundant local variables that add noise without clarity |
+| [duplicated-logic](./duplicated-logic/SKILL.md) | identical blocks across types/adapters/call sites that should be shared — or new helpers with one caller |
+| [scope-creep](./scope-creep/SKILL.md) | diffs bundling a bugfix with an unrelated refactor, or over-generalizing a change |
+| [misplaced-logic](./misplaced-logic/SKILL.md) | code placed somewhere a reader would not expect to find it |
 
-@../illogical-structure/SKILL.md
-@../nonsensical-decisions/SKILL.md
-@../avoidable-complexity/SKILL.md
-@../pointless-intermediate-variables/SKILL.md
-@../duplicated-logic/SKILL.md
-@../scope-creep/SKILL.md
-@../misplaced-logic/SKILL.md
+@./illogical-structure/SKILL.md
+@./nonsensical-decisions/SKILL.md
+@./avoidable-complexity/SKILL.md
+@./pointless-intermediate-variables/SKILL.md
+@./duplicated-logic/SKILL.md
+@./scope-creep/SKILL.md
+@./misplaced-logic/SKILL.md
 
 ## What not to include
 

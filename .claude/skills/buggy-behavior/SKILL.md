@@ -19,15 +19,15 @@ rule below.
 
 | Rule | Triggers on |
 |---|---|
-| [logic-errors](../logic-errors/SKILL.md) | incorrect conditionals, inverted checks, off-by-one, unhandled edge cases, races, mishandled errors |
-| [deleted-backwards-compatibility-code](../deleted-backwards-compatibility-code/SKILL.md) | removal or relocation of code that reconciles state owned by previous controller versions |
-| [feature-gate-interaction-bugs](../feature-gate-interaction-bugs/SKILL.md) | gated behavior whose gate-off path is untested or incorrect |
-| [unnecessary-guard-conditions](../unnecessary-guard-conditions/SKILL.md) | extra checks that are logically unreachable at the call site |
+| [logic-errors](./logic-errors/SKILL.md) | incorrect conditionals, inverted checks, off-by-one, unhandled edge cases, races, mishandled errors |
+| [deleted-backwards-compatibility-code](./deleted-backwards-compatibility-code/SKILL.md) | removal or relocation of code that reconciles state owned by previous controller versions |
+| [feature-gate-interaction-bugs](./feature-gate-interaction-bugs/SKILL.md) | gated behavior whose gate-off path is untested or incorrect |
+| [unnecessary-guard-conditions](./unnecessary-guard-conditions/SKILL.md) | extra checks that are logically unreachable at the call site |
 
-@../logic-errors/SKILL.md
-@../deleted-backwards-compatibility-code/SKILL.md
-@../feature-gate-interaction-bugs/SKILL.md
-@../unnecessary-guard-conditions/SKILL.md
+@./logic-errors/SKILL.md
+@./deleted-backwards-compatibility-code/SKILL.md
+@./feature-gate-interaction-bugs/SKILL.md
+@./unnecessary-guard-conditions/SKILL.md
 
 ## How to report
 
