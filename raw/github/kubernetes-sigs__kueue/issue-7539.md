@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7539
 
-**Last updated**: 2026-03-30T09:39:27Z
+**Last updated**: 2026-05-18T15:47:55Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@varunsyal](https://github.com/varunsyal)
 - **Created**: 2025-11-05T09:14:56Z
-- **Updated**: 2026-03-30T09:39:27Z
+- **Updated**: 2026-05-18T15:47:55Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `priority/important-soon`
 - **Assignees**: [@mszadkow](https://github.com/mszadkow), [@mbobrovskyi](https://github.com/mbobrovskyi)
-- **Comments**: 26
+- **Comments**: 27
 
 ## Description
 
@@ -231,3 +231,11 @@ Having said that, I totally agree with additional tracking in Cohort status, but
 ### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-03-18T11:29:53Z
 
 /assign
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-18T15:47:12Z
+
+Seeing the complexity associated with some of the Cohort metrics I think it would be great to have a feature gate, could be Beta by default to guard the code so that we can easily disable them on prod if something goes wrong. Some scenarios which may go wrong: excessive memory usage, or excessive cpu usage due to frequent hierarchy traversal.
+
+Additionally, this will give a clear singnal the metrics are still evolving, because I imagine we may be updating them in the future.
+
+@mszadkow could you follow up on this ask? Maybe we could call the FG MetricsForCohorts

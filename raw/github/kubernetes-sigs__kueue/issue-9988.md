@@ -4,17 +4,17 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9988
 
-**Last updated**: 2026-03-25T13:50:05Z
+**Last updated**: 2026-05-20T09:37:59Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@olekzabl](https://github.com/olekzabl)
 - **Created**: 2026-03-18T18:41:54Z
-- **Updated**: 2026-03-25T13:50:05Z
-- **Closed**: —
+- **Updated**: 2026-05-20T09:37:59Z
+- **Closed**: 2026-05-20T09:37:59Z
 - **Labels**: `kind/feature`, `area/multikueue`
 - **Assignees**: [@olekzabl](https://github.com/olekzabl)
 - **Comments**: 2

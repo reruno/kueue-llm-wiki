@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8691
 
-**Last updated**: 2026-04-28T17:44:38Z
+**Last updated**: 2026-05-20T09:46:30Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@PBundyra](https://github.com/PBundyra)
 - **Created**: 2026-01-20T11:16:04Z
-- **Updated**: 2026-04-28T17:44:38Z
-- **Closed**: —
+- **Updated**: 2026-05-20T09:46:30Z
+- **Closed**: 2026-05-20T09:46:30Z
 - **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: [@PBundyra](https://github.com/PBundyra)
-- **Comments**: 3
+- **Comments**: 4
 
 ## Description
 
@@ -77,3 +77,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle stale
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@PBundyra](https://github.com/PBundyra) — 2026-05-20T09:46:30Z
+
+Closing based on https://github.com/kubernetes-sigs/kueue/pull/10610 and follow-ups

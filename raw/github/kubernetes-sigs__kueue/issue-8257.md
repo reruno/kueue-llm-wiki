@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8257
 
-**Last updated**: 2026-03-19T09:53:14Z
+**Last updated**: 2026-05-20T10:53:25Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-12-16T10:02:04Z
-- **Updated**: 2026-03-19T09:53:14Z
+- **Updated**: 2026-05-20T10:53:25Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `priority/important-longterm`
-- **Assignees**: _none_
-- **Comments**: 4
+- **Assignees**: [@ShaanveerS](https://github.com/ShaanveerS)
+- **Comments**: 5
 
 ## Description
 
@@ -72,3 +72,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@mimowo](https://github.com/mimowo) — 2026-03-19T09:53:11Z
 
 /remove-lifecycle stale
+
+### Comment by [@ShaanveerS](https://github.com/ShaanveerS) — 2026-05-20T10:53:22Z
+
+/assign

@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8522
 
-**Last updated**: 2026-03-23T08:39:41Z
+**Last updated**: 2026-05-20T01:39:26Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@dddwsd](https://github.com/dddwsd)
 - **Created**: 2026-01-10T09:16:26Z
-- **Updated**: 2026-03-23T08:39:41Z
-- **Closed**: —
+- **Updated**: 2026-05-20T01:39:26Z
+- **Closed**: 2026-05-20T01:39:26Z
 - **Labels**: `kind/feature`
 - **Assignees**: [@sohankunkerkar](https://github.com/sohankunkerkar)
-- **Comments**: 15
+- **Comments**: 16
 
 ## Description
 
@@ -159,3 +159,7 @@ I think we can continue the collaboration on [PR](https://github.com/kubernetes-
 @mimowo  @vladikkuzn 
 Thanks for the great suggestion — this appears to align very closely with what I was looking for.
 I’ve left my review as a comment on the [PR](https://github.com/kubernetes-sigs/kueue/pull/9959).
+
+### Comment by [@dddwsd](https://github.com/dddwsd) — 2026-05-20T01:39:26Z
+
+Issue will be closed as MR(https://github.com/kubernetes-sigs/kueue/pull/9959) has been merged.

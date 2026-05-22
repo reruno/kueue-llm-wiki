@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8654
 
-**Last updated**: 2026-02-18T09:00:56Z
+**Last updated**: 2026-05-19T09:50:54Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@saza-ku](https://github.com/saza-ku)
 - **Created**: 2026-01-19T10:01:13Z
-- **Updated**: 2026-02-18T09:00:56Z
+- **Updated**: 2026-05-19T09:50:54Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `priority/important-longterm`
+- **Labels**: `kind/feature`, `lifecycle/stale`, `priority/important-longterm`
 - **Assignees**: _none_
-- **Comments**: 14
+- **Comments**: 15
 
 ## Description
 
@@ -222,3 +222,23 @@ I believe this new mechanism is necessary because other concepts, such as Uber C
 | :---: | :---: |
 |<img width="960" height="540" alt="Image" src="https://github.com/user-attachments/assets/32262a34-1155-4a6b-9508-66730663dd60" />|<img width="960" height="540" alt="Image" src="https://github.com/user-attachments/assets/d7eb42ba-d1fc-462e-939c-d551ae4a47be" />|
 |<img width="960" height="540" alt="Image" src="https://github.com/user-attachments/assets/05b6e01c-bd24-4774-8b92-68de9a4e4484" />|<img width="960" height="540" alt="Image" src="https://github.com/user-attachments/assets/c35f326b-9a87-496a-a060-982a54572baa" />|
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-19T09:50:52Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

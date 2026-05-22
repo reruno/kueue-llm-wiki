@@ -4,17 +4,17 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7852
 
-**Last updated**: 2026-05-14T08:04:36Z
+**Last updated**: 2026-05-19T09:17:10Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@j-skiba](https://github.com/j-skiba)
 - **Created**: 2025-11-24T14:18:50Z
-- **Updated**: 2026-05-14T08:04:36Z
-- **Closed**: —
+- **Updated**: 2026-05-19T09:17:10Z
+- **Closed**: 2026-05-19T09:17:10Z
 - **Labels**: `kind/feature`, `priority/important-longterm`
 - **Assignees**: [@MatteoFari](https://github.com/MatteoFari)
 - **Comments**: 6

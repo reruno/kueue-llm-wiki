@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9329
 
-**Last updated**: 2026-02-17T18:43:26Z
+**Last updated**: 2026-05-18T19:37:54Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2026-02-17T18:43:26Z
-- **Updated**: 2026-02-17T18:43:26Z
+- **Updated**: 2026-05-18T19:37:54Z
 - **Closed**: —
-- **Labels**: `kind/bug`
+- **Labels**: `kind/bug`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 0
+- **Comments**: 1
 
 ## Description
 
@@ -187,3 +187,25 @@ ElasticJobsViaWorkloadSlices assumes directional scaling semantics and admission
 - Kernel (e.g. `uname -a`):
 - Install tools:
 - Others:
+
+## Discussion
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-18T19:37:51Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

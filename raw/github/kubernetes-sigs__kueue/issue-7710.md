@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7710
 
-**Last updated**: 2026-05-18T09:03:02Z
+**Last updated**: 2026-05-21T14:55:59Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@MichalZylinski](https://github.com/MichalZylinski)
 - **Created**: 2025-11-17T14:18:32Z
-- **Updated**: 2026-05-18T09:03:02Z
-- **Closed**: —
+- **Updated**: 2026-05-21T14:55:59Z
+- **Closed**: 2026-05-21T14:55:58Z
 - **Labels**: `kind/feature`, `priority/important-longterm`
 - **Assignees**: [@andrewseif](https://github.com/andrewseif)
-- **Comments**: 6
+- **Comments**: 8
 
 ## Description
 
@@ -89,3 +89,29 @@ I think we need more discussion on what's our desired state. On the one hand, cu
 ### Comment by [@PBundyra](https://github.com/PBundyra) — 2026-05-18T09:03:02Z
 
 /cc @mimowo @MichalZylinski @mwielgus
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-05-21T14:55:52Z
+
+In our community meeting, we realize that we are not ready to take this change on. There is discussion needed on AFS at scale and there are other features that may change this API.
+
+We are going to close this issue for now until we figure out the long term plan for AFS.
+
+/close
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-21T14:55:59Z
+
+@kannon92: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/7710#issuecomment-4509488680):
+
+>In our community meeting, we realize that we are not ready to take this change on. There is discussion needed on AFS at scale and there are other features that may change this API.
+>
+>We are going to close this issue for now until we figure out the long term plan for AFS.
+>
+>/close
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

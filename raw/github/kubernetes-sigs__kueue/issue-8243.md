@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8243
 
-**Last updated**: 2026-05-18T03:17:29Z
+**Last updated**: 2026-05-22T03:34:29Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: open (reopened)
 - **Author**: [@sohankunkerkar](https://github.com/sohankunkerkar)
 - **Created**: 2025-12-15T13:55:44Z
-- **Updated**: 2026-05-18T03:17:29Z
+- **Updated**: 2026-05-22T03:34:29Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `priority/important-soon`
 - **Assignees**: [@sohankunkerkar](https://github.com/sohankunkerkar)
-- **Comments**: 22
+- **Comments**: 24
 
 ## Description
 
@@ -207,12 +207,12 @@ I think we need to also solve this issue before Beta: https://github.com/kuberne
                                                                                                                                                                              
   ### Prerequisites (must land before beta)                                                                                                                                  
                                                                                                                                                                              
-  - [ ] Feature gate rename (#11255) — avoid collision with upstream K8s gates
-  - [ ] Graduate KueueDRAIntegration to beta (#10996)                                                                                          
+  - [x] Feature gate rename (#11255) — avoid collision with upstream K8s gates
+  - [x] Graduate KueueDRAIntegration to beta (#10996)                                                                                          
   - [ ] Partitionable devices KEP (#10283) + implementation (#10320)
   - [ ] Extended resources beta graduation (#10973)                                                                                                                     
-  - [ ] DRA reconcile channel blocking fix (#10785)
-  - [ ] Gate-off quota bypass fix (#10964)                                                                                                                          
+  - [x] DRA reconcile channel blocking fix (#10785)
+  - [x] Gate-off quota bypass fix (#10964)                                                                                                                          
                                                                                                                                                                              
                                                                                                                                                                              
   ### Already done
@@ -222,3 +222,21 @@ I think we need to also solve this issue before Beta: https://github.com/kuberne
   - [x] E2E tests (#8421)                                                                                                                                                    
   - [x] MultiKueue + DRA integration (#8775)
   - [x] Extended resource support (#8597)
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-05-20T16:21:04Z
+
+/reopen
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-20T16:21:10Z
+
+@tenzen-y: Reopened this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/8243#issuecomment-4500417482):
+
+>/reopen
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

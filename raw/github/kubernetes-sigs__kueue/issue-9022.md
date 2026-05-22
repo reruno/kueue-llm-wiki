@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9022
 
-**Last updated**: 2026-05-12T22:13:32Z
+**Last updated**: 2026-05-20T15:31:51Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-02-06T08:44:35Z
-- **Updated**: 2026-05-12T22:13:32Z
-- **Closed**: —
+- **Updated**: 2026-05-20T15:31:51Z
+- **Closed**: 2026-05-20T15:31:51Z
 - **Labels**: `kind/cleanup`
-- **Assignees**: _none_
-- **Comments**: 12
+- **Assignees**: [@kaisoz](https://github.com/kaisoz)
+- **Comments**: 13
 
 ## Description
 
@@ -119,3 +119,8 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@kaisoz](https://github.com/kaisoz) — 2026-05-12T22:13:30Z
 
 /remove-lifecycle stale
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-19T10:44:25Z
+
+/assign @kaisoz 
+As I synced with Tomas on slack and he is going to follow up on this work for TrainJob: https://github.com/kubernetes-sigs/kueue/pull/11310

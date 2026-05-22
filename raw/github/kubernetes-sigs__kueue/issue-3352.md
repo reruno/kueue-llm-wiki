@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/3352
 
-**Last updated**: 2025-01-29T20:51:35Z
+**Last updated**: 2026-05-21T14:18:11Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: closed (completed)
 - **Author**: [@varshaprasad96](https://github.com/varshaprasad96)
 - **Created**: 2024-10-28T22:59:07Z
-- **Updated**: 2025-01-29T20:51:35Z
+- **Updated**: 2026-05-21T14:18:11Z
 - **Closed**: 2024-12-18T06:18:54Z
 - **Labels**: `kind/feature`
 - **Assignees**: _none_
-- **Comments**: 59
+- **Comments**: 60
 
 ## Description
 
@@ -523,3 +523,13 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/3352#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-05-21T14:18:11Z
+
+So this integration has an interesting backstory.
+
+Kubeflow has notebooks v1 which is essentially maintance mode at this point. 
+
+https://github.com/kubeflow/notebooks/pull/788
+
+Notebooks v2 is where the community is focusing their efforts.

@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9021
 
-**Last updated**: 2026-05-17T23:28:01Z
+**Last updated**: 2026-05-19T07:01:07Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-02-06T08:40:24Z
-- **Updated**: 2026-05-17T23:28:01Z
-- **Closed**: —
-- **Labels**: `lifecycle/stale`, `kind/cleanup`
+- **Updated**: 2026-05-19T07:01:07Z
+- **Closed**: 2026-05-19T07:01:07Z
+- **Labels**: `kind/cleanup`
 - **Assignees**: [@kaisoz](https://github.com/kaisoz)
-- **Comments**: 5
+- **Comments**: 6
 
 ## Description
 
@@ -82,3 +82,9 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle stale
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@kaisoz](https://github.com/kaisoz) — 2026-05-18T14:57:37Z
+
+/remove-lifecycle stale
+
+will have a PR shortly 👍🏻
