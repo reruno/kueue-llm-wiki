@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5697
 
-**Last updated**: 2026-04-16T18:18:55Z
+**Last updated**: 2026-06-03T09:43:00Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2025-06-20T13:02:03Z
-- **Updated**: 2026-04-16T18:18:55Z
+- **Updated**: 2026-06-03T09:43:00Z
 - **Closed**: —
 - **Labels**: `kind/documentation`
 - **Assignees**: _none_
-- **Comments**: 15
+- **Comments**: 16
 
 ## Description
 
@@ -194,3 +194,9 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-04-16T18:18:55Z
 
 /remove-lifecycle stale
+
+### Comment by [@krabiswabbie](https://github.com/krabiswabbie) — 2026-06-03T09:43:00Z
+
+  /assign
+  
+  Picking this up - will add a section to the Workload concepts page per the discussion above.

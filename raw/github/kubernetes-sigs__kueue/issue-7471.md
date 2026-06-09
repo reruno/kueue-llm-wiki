@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7471
 
-**Last updated**: 2025-11-14T18:26:15Z
+**Last updated**: 2026-05-29T05:12:58Z
 
 ---
 
@@ -13,7 +13,7 @@
 - **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-10-31T08:02:32Z
-- **Updated**: 2025-11-14T18:26:15Z
+- **Updated**: 2026-05-29T05:12:58Z
 - **Closed**: 2025-11-14T18:26:14Z
 - **Labels**: `kind/bug`, `kind/flake`
 - **Assignees**: _none_

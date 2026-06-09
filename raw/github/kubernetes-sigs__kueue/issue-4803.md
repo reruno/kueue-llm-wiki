@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/4803
 
-**Last updated**: 2026-05-14T13:44:16Z
+**Last updated**: 2026-06-05T12:32:50Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open (reopened)
 - **Author**: [@KPostOffice](https://github.com/KPostOffice)
 - **Created**: 2025-03-26T20:01:24Z
-- **Updated**: 2026-05-14T13:44:16Z
+- **Updated**: 2026-06-05T12:32:50Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `lifecycle/rotten`
 - **Assignees**: [@MaysaMacedo](https://github.com/MaysaMacedo)
-- **Comments**: 17
+- **Comments**: 19
 
 ## Description
 
@@ -240,3 +240,11 @@ I followed up offline and she is interested in looking into this.
 > 2. the API - probably a JSON-based annotation
 
 +1 to all the above
+
+### Comment by [@edmund-shi-arm](https://github.com/edmund-shi-arm) — 2026-06-03T15:34:03Z
+
+really looking forward to this feature!!! what is the progress?
+
+### Comment by [@kimminw00](https://github.com/kimminw00) — 2026-06-05T06:55:01Z
+
+Heterogeneous workloads have very different readiness characteristics—large distributed jobs take much longer to become ready, while smaller jobs complete quickly. With `waitForPodsReady` configured globally, it is difficult to find a single value that fits all workloads in a congested, multi-tenant cluster. Short timeouts can cause premature eviction for large jobs, while long timeouts can delay smaller workloads and reduce overall efficiency. As a result, a one-size-fits-all configuration often leads to suboptimal scheduling behavior. For this reason, supporting `waitForPodsReady` at the Workload level is highly desirable and necessary to achieve efficient and reliable scheduling across diverse workloads.

@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8653
 
-**Last updated**: 2026-05-20T22:07:42Z
+**Last updated**: 2026-05-27T14:46:02Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@gabesaba](https://github.com/gabesaba)
 - **Created**: 2026-01-19T09:50:57Z
-- **Updated**: 2026-05-20T22:07:42Z
+- **Updated**: 2026-05-27T14:46:02Z
 - **Closed**: —
-- **Labels**: `kind/bug`, `priority/important-longterm`, `lifecycle/rotten`
+- **Labels**: `kind/bug`, `priority/important-longterm`
 - **Assignees**: [@sohankunkerkar](https://github.com/sohankunkerkar)
-- **Comments**: 4
+- **Comments**: 5
 
 ## Description
 
@@ -84,3 +84,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@sohankunkerkar](https://github.com/sohankunkerkar) — 2026-05-27T14:45:59Z
+
+/remove-lifecycle rotten

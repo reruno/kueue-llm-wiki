@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8869
 
-**Last updated**: 2026-05-05T20:22:45Z
+**Last updated**: 2026-06-03T18:59:36Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2026-01-29T01:55:29Z
-- **Updated**: 2026-05-05T20:22:45Z
+- **Updated**: 2026-06-03T18:59:36Z
 - **Closed**: —
-- **Labels**: `lifecycle/stale`
+- **Labels**: _none_
 - **Assignees**: _none_
-- **Comments**: 12
+- **Comments**: 13
 
 ## Description
 
@@ -308,3 +308,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle stale
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@sohankunkerkar](https://github.com/sohankunkerkar) — 2026-06-03T18:59:33Z
+
+/remove-lifecycle stale

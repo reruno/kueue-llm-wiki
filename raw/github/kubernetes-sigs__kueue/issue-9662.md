@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9662
 
-**Last updated**: 2026-03-16T11:20:24Z
+**Last updated**: 2026-05-29T14:07:17Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@DerekFrank](https://github.com/DerekFrank)
 - **Created**: 2026-03-03T22:04:32Z
-- **Updated**: 2026-03-16T11:20:24Z
+- **Updated**: 2026-05-29T14:07:17Z
 - **Closed**: —
 - **Labels**: `kind/feature`
 - **Assignees**: _none_
-- **Comments**: 4
+- **Comments**: 5
 
 ## Description
 
@@ -87,3 +87,7 @@ What I am concerned about is the part where this issue suggests that the existin
 ### Comment by [@mimowo](https://github.com/mimowo) — 2026-03-16T11:09:34Z
 
 Indeed, I'm happy to accept the integration for CapacityBuffers API, analogously as for ProvisioningRequests. However, dropping ProvisioningRequests integration is very long way off, if ever.
+
+### Comment by [@jbtk](https://github.com/jbtk) — 2026-05-29T14:07:16Z
+
+Capacity buffers do not offer capacity check nor atomic scale up. At the moment they do not even support being ”filled in"so as soon as workload takes their place they will trigger another scale up (though there are discussions to support that)

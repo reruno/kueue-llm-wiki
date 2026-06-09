@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9046
 
-**Last updated**: 2026-03-06T10:55:44Z
+**Last updated**: 2026-06-08T10:52:42Z
 
 ---
 
 ## Metadata
 
-- **State**: open (reopened)
+- **State**: closed (completed)
 - **Author**: [@Huang-Wei](https://github.com/Huang-Wei)
 - **Created**: 2026-02-07T08:41:54Z
-- **Updated**: 2026-03-06T10:55:44Z
-- **Closed**: —
-- **Labels**: `kind/feature`
+- **Updated**: 2026-06-08T10:52:42Z
+- **Closed**: 2026-06-08T10:49:54Z
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 6
+- **Comments**: 9
 
 ## Description
 
@@ -196,6 +196,50 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/9046#issue
 >To track the remaining effort:
 >- make sure NodeHotSwap is supported
 >- documentation
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-06-04T11:22:58Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-08T10:49:49Z
+
+/close 
+As this is already done in alpha and documented. 
+
+I will open a dedicated issue to graduate to beta: https://github.com/kubernetes-sigs/kueue/issues/11991
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-06-08T10:49:55Z
+
+@mimowo: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/9046#issuecomment-4648097368):
+
+>/close 
+>As this is already done in alpha and documented. 
+>
+>I will open a dedicated issue to graduate to beta.
 
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.

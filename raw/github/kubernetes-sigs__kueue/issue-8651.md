@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8651
 
-**Last updated**: 2026-05-05T16:13:31Z
+**Last updated**: 2026-05-26T05:55:17Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@sohankunkerkar](https://github.com/sohankunkerkar)
 - **Created**: 2026-01-17T17:13:45Z
-- **Updated**: 2026-05-05T16:13:31Z
-- **Closed**: —
+- **Updated**: 2026-05-26T05:55:17Z
+- **Closed**: 2026-05-26T05:55:17Z
 - **Labels**: `kind/feature`, `priority/important-soon`
 - **Assignees**: [@sohankunkerkar](https://github.com/sohankunkerkar)
-- **Comments**: 23
+- **Comments**: 25
 
 ## Description
 
@@ -273,3 +273,21 @@ sgtm
 ### Comment by [@hiboyang](https://github.com/hiboyang) — 2026-05-05T16:13:31Z
 
 So far, we tested RayJob/RayService autoscaling in a light to moderate load, it is working. There may be still some race condition as mentioned in https://github.com/kubernetes-sigs/kueue/issues/9015. It would be better to add some stress test to tigger autoscaling heavily/frequently and evaluate the result.
+
+### Comment by [@sohankunkerkar](https://github.com/sohankunkerkar) — 2026-05-22T17:23:23Z
+
+/reopen
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-22T17:23:29Z
+
+@sohankunkerkar: Reopened this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/8651#issuecomment-4521129619):
+
+>/reopen
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

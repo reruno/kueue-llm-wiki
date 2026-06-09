@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7539
 
-**Last updated**: 2026-05-18T15:47:55Z
+**Last updated**: 2026-05-29T16:07:18Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@varunsyal](https://github.com/varunsyal)
 - **Created**: 2025-11-05T09:14:56Z
-- **Updated**: 2026-05-18T15:47:55Z
-- **Closed**: —
+- **Updated**: 2026-05-29T16:07:18Z
+- **Closed**: 2026-05-29T16:07:18Z
 - **Labels**: `kind/feature`, `priority/important-soon`
 - **Assignees**: [@mszadkow](https://github.com/mszadkow), [@mbobrovskyi](https://github.com/mbobrovskyi)
-- **Comments**: 27
+- **Comments**: 28
 
 ## Description
 
@@ -239,3 +239,7 @@ Seeing the complexity associated with some of the Cohort metrics I think it woul
 Additionally, this will give a clear singnal the metrics are still evolving, because I imagine we may be updating them in the future.
 
 @mszadkow could you follow up on this ask? Maybe we could call the FG MetricsForCohorts
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-29T16:07:18Z
+
+@mszadkow @mbobrovskyi closing. I think all is done except for kueue_cohort_borrowing_limit, but this metric has some issues. Let me open a dedicated issue to track the searching for solution

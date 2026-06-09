@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5494
 
-**Last updated**: 2026-02-22T20:45:32Z
+**Last updated**: 2026-05-23T21:01:45Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-06-04T08:15:28Z
-- **Updated**: 2026-02-22T20:45:32Z
+- **Updated**: 2026-05-23T21:01:45Z
 - **Closed**: —
-- **Labels**: `kind/cleanup`
+- **Labels**: `lifecycle/stale`, `kind/cleanup`
 - **Assignees**: [@kaisoz](https://github.com/kaisoz)
-- **Comments**: 13
+- **Comments**: 14
 
 ## Description
 
@@ -144,3 +144,23 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 > Hi [@tenzen-y](https://github.com/tenzen-y) ! sorry for the late reply. I think it can be closed. The only thing missing was [this comment](https://github.com/kubernetes-sigs/kueue/pull/5252#discussion_r2092279627), but as [@mimowo](https://github.com/mimowo) answers [here](https://github.com/kubernetes-sigs/kueue/pull/5252#discussion_r2409949365), it seems that it would require a new issue on its own because of the complexity. WDYT?
 
 @tenzen-y I think we could close this issue. WDYT?
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-23T21:01:42Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

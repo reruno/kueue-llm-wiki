@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/3762
 
-**Last updated**: 2026-03-24T13:55:30Z
+**Last updated**: 2026-06-04T19:22:30Z
 
 ---
 
 ## Metadata
 
-- **State**: closed (not_planned)
+- **State**: open (reopened)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2024-12-06T16:26:30Z
-- **Updated**: 2026-03-24T13:55:30Z
-- **Closed**: 2026-03-24T13:55:29Z
+- **Updated**: 2026-06-04T19:22:30Z
+- **Closed**: —
 - **Labels**: `kind/feature`, `lifecycle/rotten`
 - **Assignees**: _none_
-- **Comments**: 26
+- **Comments**: 28
 
 ## Description
 
@@ -442,6 +442,24 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/3762#issue
 >/close not-planned
 >
 >[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
+
+### Comment by [@sohankunkerkar](https://github.com/sohankunkerkar) — 2026-06-04T19:22:24Z
+
+/reopen
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-06-04T19:22:30Z
+
+@sohankunkerkar: Reopened this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/3762#issuecomment-4625382968):
+
+>/reopen
 
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.

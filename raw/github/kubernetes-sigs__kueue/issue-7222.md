@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7222
 
-**Last updated**: 2026-02-26T15:01:40Z
+**Last updated**: 2026-05-27T15:44:46Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2025-10-10T11:04:16Z
-- **Updated**: 2026-02-26T15:01:40Z
+- **Updated**: 2026-05-27T15:44:46Z
 - **Closed**: —
-- **Labels**: `kind/bug`, `priority/important-longterm`
+- **Labels**: `kind/bug`, `lifecycle/stale`, `priority/important-longterm`
 - **Assignees**: _none_
-- **Comments**: 11
+- **Comments**: 12
 
 ## Description
 
@@ -214,3 +214,23 @@ I ran into this issue on 2024-03-27. Copying a comment of mine to an internal bu
 
 comment from 2024-03-27:
 [controller-runtime/metrics/workqueue.go](https://github.com/kubernetes-sigs/controller-runtime/blob/v0.17.2/pkg/metrics/workqueue.go#L99) transitively calls [client-go/util/workqueue/metrics.go](https://github.com/kubernetes/client-go/blob/v0.29.3/util/workqueue/metrics.go#L223-L227), which is also transitively called by [component-base/metrics/prometheus/workqueue/metrics.go](https://github.com/kubernetes/component-base/blob/release-1.29/metrics/prometheus/workqueue/metrics.go#L108). Component base is imported by apiserver twice ([loc1](https://github.com/kubernetes/apiserver/blob/release-1.29/pkg/storageversion/manager.go#L30), [loc2](https://github.com/kubernetes/apiserver/blob/release-1.29/pkg/endpoints/filters/storageversion.go#L32)), which triggers the init call. Kueue depends on apiserver. If I comment out those two lines in apiserver, workqueue metrics start flowing for kueue.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-27T15:44:43Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

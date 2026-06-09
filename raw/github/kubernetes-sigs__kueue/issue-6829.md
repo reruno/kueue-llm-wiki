@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/6829
 
-**Last updated**: 2026-05-13T11:15:10Z
+**Last updated**: 2026-05-22T17:02:47Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-09-15T09:02:50Z
-- **Updated**: 2026-05-13T11:15:10Z
+- **Updated**: 2026-05-22T17:02:47Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `lifecycle/rotten`
+- **Labels**: `kind/feature`
 - **Assignees**: [@yaroslava-serdiuk](https://github.com/yaroslava-serdiuk)
-- **Comments**: 6
+- **Comments**: 7
 
 ## Description
 
@@ -140,3 +140,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-05-22T17:02:44Z
+
+/remove-lifecycle rotten

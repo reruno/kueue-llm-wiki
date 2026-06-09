@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/3755
 
-**Last updated**: 2026-04-14T09:21:31Z
+**Last updated**: 2026-06-04T18:28:45Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2024-12-06T14:55:56Z
-- **Updated**: 2026-04-14T09:21:31Z
+- **Updated**: 2026-06-04T18:28:45Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `wg/workload-aware-scheduling`
 - **Assignees**: [@sohankunkerkar](https://github.com/sohankunkerkar)
-- **Comments**: 12
+- **Comments**: 13
 
 ## Description
 
@@ -170,3 +170,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@mimowo](https://github.com/mimowo) — 2026-04-14T09:21:00Z
 
 FYI as in the umbrella issue: https://github.com/kubernetes-sigs/kueue/issues/8871#issuecomment-4242735567. We already have the [scheduler-library](https://github.com/kubernetes-sigs/scheduler-library). I think the plan here is to do the Alpha integration of with kube-scheduler, for now using our Kueue TAS, but delegating Pod scheduling / preempting simulation to the library.
+
+### Comment by [@helayoty](https://github.com/helayoty) — 2026-06-04T18:28:42Z
+
+/wg workload-aware-scheduling

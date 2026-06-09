@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/1471
 
-**Last updated**: 2024-09-17T13:39:00Z
+**Last updated**: 2026-05-23T04:26:52Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@psschwei](https://github.com/psschwei)
 - **Created**: 2023-12-15T21:23:08Z
-- **Updated**: 2024-09-17T13:39:00Z
+- **Updated**: 2026-05-23T04:26:52Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `help wanted`, `sig/release`
-- **Assignees**: _none_
-- **Comments**: 8
+- **Assignees**: [@iasolanki](https://github.com/iasolanki)
+- **Comments**: 9
 
 ## Description
 
@@ -149,3 +149,7 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/1471):
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@iasolanki](https://github.com/iasolanki) — 2026-05-23T04:26:50Z
+
+/assign

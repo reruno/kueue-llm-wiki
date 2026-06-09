@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8729
 
-**Last updated**: 2026-04-28T18:45:39Z
+**Last updated**: 2026-06-08T17:03:57Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2026-01-22T03:24:02Z
-- **Updated**: 2026-04-28T18:45:39Z
+- **Updated**: 2026-06-08T17:03:57Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `lifecycle/stale`
+- **Labels**: `kind/feature`, `lifecycle/rotten`
 - **Assignees**: [@ichekrygin](https://github.com/ichekrygin)
-- **Comments**: 15
+- **Comments**: 19
 
 ## Description
 
@@ -383,3 +383,83 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle stale
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-28T18:51:44Z
+
+The Kubernetes project currently lacks enough active contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle rotten`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle rotten
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@hentt30](https://github.com/hentt30) — 2026-05-29T15:02:40Z
+
+Hello @ichekrygin  @mimowo @tenzen-y :) 
+This issue bundles three things:
+
+1. per-workload `placementPolicy.borrowing: Forbidden`
+2. per-workload `placementPolicy.preemption: Forbidden`
+3. MultiKueue preference-aware dispatch
+
+Item 1 is useful on its own (SLA / budget-bound jobs on shared CQs) and mirrors `Workload.Spec.PreemptionGates` introduced by KEP-8303. Items 2 and 3 can be added in later as sibling fields.
+
+I'd like to help here and already have a working prototype on my fork. What's the best way to move this along: a small KEP at that path covering only item 1 (alpha feature gate, items 2 and 3 left for later), or open a separate narrower issue first?
+
+### Comment by [@olekzabl](https://github.com/olekzabl) — 2026-06-05T08:04:00Z
+
+@ichekrygin 
+
+While I understand your "hard constraints" proposal (in particular, I've lgtm-ed your [KEP-8729](https://github.com/kubernetes-sigs/kueue/pull/8844)), I don't clearly understand what implications you're envisioning for MultiKueue?
+
+1. Besides "hard constraints" on workload level, are you considering any "softer preferences"?
+    * If yes, how would they look in more detail?
+    * If not, am I right that in your "dispatching pseudocode"
+
+      > For preference tier P1: Try all clusters; If none accept: Move to P2; Repeat
+
+      the `P2` tier is effectively void (because if "none accept", scheduling is blocked on hard constraints)?
+
+2. When you say:
+
+   > Once workload-level constraints exist, MultiKueue dispatching can **move away from races. Instead of “first admission wins”**, MultiKueue should:
+   > 
+   > For preference tier P1: Try all clusters; (...)
+
+   isn't the part which I marked bold a bit of overstatement?
+
+   AFAIU "races" like "first admission wins" are going still to exist; we'd just reduce their scope from "all existing workers" to "all workers in the `P1` tier".
+   We'd also eliminate some *worst effects* of races, like unnecessary preemptions or borrowings as you noted, though the races themselves would continue to exist in this model.
+
+   Or am I missing sth?
+
+3. As long as we consider only "hard constraints", would you agree that the key benefits of this model
+
+   > For preference tier P1: Try all clusters; If none accept: Move to P2; Repeat
+
+   will be obtained automatically, out of the box, even without MultiKueue-specific changes?
+
+   I mean: even with the old simplistic `AllAtOnce` dispatcher, we'd dispatch to *all* workers; however, those in which the "hard constraints" are violated would reject the workloads ASAP (effectively "withdrawing" from the "race", with no undesired borrowing / preemptions).
+
+   I understand this could be considered suboptimal in that dispatching formally happened to all workers rather than only to the "promising" `P1` ones, meaning extra network traffic, somewhat worse visibility into the dispatching process etc.
+   However, these suboptimalities feel minor; the main gain of "no harmful race" seems achieved.
+   WDYT?
+
+### Comment by [@ichekrygin](https://github.com/ichekrygin) — 2026-06-08T17:03:57Z
+
+@olekzabl + @hentt30, there is an (outdated) https://github.com/kubernetes-sigs/kueue/pull/8844 which should be a better place to continue discussing this issue.
+
+Granted, I have somewhat lost interest in pursuing this KEP and moved on to other tasks, so I'll leave it up to you to either pick up where I left off or close it altogether.
+
++ @mimowo + @tenzen-y  + @amy (for visibility)

@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5610
 
-**Last updated**: 2026-01-22T18:40:37Z
+**Last updated**: 2026-05-22T19:39:44Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@xiongzubiao](https://github.com/xiongzubiao)
 - **Created**: 2025-06-10T17:11:49Z
-- **Updated**: 2026-01-22T18:40:37Z
+- **Updated**: 2026-05-22T19:39:44Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/rotten`
 - **Assignees**: _none_
-- **Comments**: 15
+- **Comments**: 17
 
 ## Description
 
@@ -206,3 +206,43 @@ Ideally we can enhance this so that it is useful for your use case.
 > Ideally we can enhance this so that it is useful for your use case.
 
 Yes we are still disabling VisibilityOnDemand feature gate because of the reason I described at https://github.com/kubernetes-sigs/kueue/issues/5610#issuecomment-2997072220.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-04-22T19:26:37Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-22T19:39:41Z
+
+The Kubernetes project currently lacks enough active contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle rotten`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle rotten
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

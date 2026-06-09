@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9952
 
-**Last updated**: 2026-04-03T04:44:04Z
+**Last updated**: 2026-06-01T05:29:33Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-03-17T16:27:29Z
-- **Updated**: 2026-04-03T04:44:04Z
+- **Updated**: 2026-06-01T05:29:33Z
 - **Closed**: —
 - **Labels**: `kind/bug`, `kind/flake`
 - **Assignees**: _none_
-- **Comments**: 4
+- **Comments**: 7
 
 ## Description
 
@@ -94,3 +94,15 @@ Can we try and move forward with this approach ? cc @nerdeveloper please correct
 ### Comment by [@TapanManu](https://github.com/TapanManu) — 2026-04-03T04:44:03Z
 
 Hi @mimowo @nerdeveloper just checking if you had a chance to look onto the above analysis ?
+
+### Comment by [@andrewseif](https://github.com/andrewseif) — 2026-05-27T06:36:18Z
+
+@TapanManu maybe open a PR with the purposed fix?
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-27T06:39:38Z
+
+Let's try to go with suggestion 1, and then we can see if this issue returns.
+
+### Comment by [@TapanManu](https://github.com/TapanManu) — 2026-06-01T05:29:33Z
+
+sure, will open the PR for this, sorry for my late reply

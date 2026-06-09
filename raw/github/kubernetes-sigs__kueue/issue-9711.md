@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9711
 
-**Last updated**: 2026-03-09T18:16:59Z
+**Last updated**: 2026-06-08T00:12:52Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-03-06T12:10:09Z
-- **Updated**: 2026-03-09T18:16:59Z
+- **Updated**: 2026-06-08T00:12:52Z
 - **Closed**: —
 - **Labels**: `kind/feature`
 - **Assignees**: _none_
-- **Comments**: 2
+- **Comments**: 4
 
 ## Description
 
@@ -62,3 +62,27 @@ This is very nice way for "opportunistic" defrag, like keep bin-packing nicely w
 
 The proposed solution looks great as a starting point. But I see the future where such rescheduling has to evolve further. e.g., in some environment, moving jobs from one to another comes with a cost even if that runs at jobset restarts. That cost might be acceptable when moving enhances the bin-packing situation, but otherwise no.
 So, eventually, I would expect this feature to evict->reschedule jobsets based on the situation that the jobset is in. Like, when two mid-sized jobs fully occupy the whole rack, they don't have to be moved to somewhere else at restart as the rack is fully utilized. But, when one of them completes and now the whole rack is only partially utilized just for one mid-sized job, then it has to be moved to somewhere else possibly at restarts.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-06-07T19:07:46Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@sanposhiho](https://github.com/sanposhiho) — 2026-06-08T00:12:50Z
+
+/remove-lifecycle stale

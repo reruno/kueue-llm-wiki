@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9402
 
-**Last updated**: 2026-05-21T19:31:44Z
+**Last updated**: 2026-05-26T16:48:05Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@kannon92](https://github.com/kannon92)
 - **Created**: 2026-02-20T16:02:47Z
-- **Updated**: 2026-05-21T19:31:44Z
+- **Updated**: 2026-05-26T16:48:05Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `lifecycle/stale`
+- **Labels**: `kind/feature`, `help wanted`
 - **Assignees**: _none_
-- **Comments**: 4
+- **Comments**: 8
 
 ## Description
 
@@ -78,3 +78,50 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle stale
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-05-26T15:00:23Z
+
+/remove-lifecycle stale
+
+/help
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-26T15:00:26Z
+
+@kannon92: 
+	This request has been marked as needing help from a contributor.
+
+### Guidelines
+Please ensure that the issue body includes answers to the following questions:
+- Why are we solving this issue?
+- To address this issue, are there any code changes? If there are code changes, what needs to be done in the code and what places can the assignee treat as reference points?
+- How can the assignee reach out to you for help?
+
+
+For more details on the requirements of such an issue, please see [here](https://www.kubernetes.dev/docs/guide/help-wanted/) and ensure that they are met.
+
+If this request no longer meets these requirements, the label can be removed
+by commenting with the `/remove-help` command.
+
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/9402):
+
+>/remove-lifecycle stale
+>
+>/help
+>
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
+
+### Comment by [@atosatto](https://github.com/atosatto) — 2026-05-26T15:07:41Z
+
+Is there anywhere a list of use-cases around how to make this configurable? e.g. are we thinking about a global setting or do we have use-cases for which this should be configurable at the Cohort level?
+
+cc @Amy  / @kannon92
+
+### Comment by [@amy](https://github.com/amy) — 2026-05-26T16:48:05Z
+
+cc/ @varunsyal @rajatphull ^ PTAL and offer guidance for this issue

@@ -1,23 +1,23 @@
-# Issue #7029: [Feature]: Provide a default timeout on a job per local queue
+# Issue #7029: [Feature]: Provide a default timeout on a job
 
-**Summary**: [Feature]: Provide a default timeout on a job per local queue
+**Summary**: [Feature]: Provide a default timeout on a job
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7029
 
-**Last updated**: 2026-05-14T19:22:22Z
+**Last updated**: 2026-05-29T16:08:08Z
 
 ---
 
 ## Metadata
 
-- **State**: closed (not_planned)
+- **State**: open (reopened)
 - **Author**: [@kannon92](https://github.com/kannon92)
 - **Created**: 2025-09-28T17:28:10Z
-- **Updated**: 2026-05-14T19:22:22Z
-- **Closed**: 2026-05-14T19:22:21Z
-- **Labels**: `kind/feature`, `lifecycle/rotten`
+- **Updated**: 2026-05-29T16:08:08Z
+- **Closed**: —
+- **Labels**: `kind/feature`
 - **Assignees**: _none_
-- **Comments**: 15
+- **Comments**: 18
 
 ## Description
 
@@ -259,3 +259,25 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/7029#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-05-26T18:58:45Z
+
+/reopen
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-26T18:58:51Z
+
+@kannon92: Reopened this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/7029#issuecomment-4547635537):
+
+>/reopen
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-05-29T16:08:06Z
+
+/remove-lifecycle rotten

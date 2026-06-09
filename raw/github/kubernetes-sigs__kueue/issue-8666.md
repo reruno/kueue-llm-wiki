@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8666
 
-**Last updated**: 2026-03-06T08:23:11Z
+**Last updated**: 2026-06-04T09:21:59Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2026-01-19T15:09:12Z
-- **Updated**: 2026-03-06T08:23:11Z
+- **Updated**: 2026-06-04T09:21:59Z
 - **Closed**: —
-- **Labels**: `kind/bug`, `priority/important-soon`
+- **Labels**: `kind/bug`, `priority/important-soon`, `lifecycle/stale`
 - **Assignees**: [@mbobrovskyi](https://github.com/mbobrovskyi)
-- **Comments**: 13
+- **Comments**: 14
 
 ## Description
 
@@ -214,3 +214,23 @@ Actually, on the second thought I'm no longer sure about the change, because:
 1. as experiments by @mbobrovskyi show we would need custom code to provide backwards compatiblity
 2. when TAS is used it also requires users to change their LWS instances to add the "podset-group" annotation - so I'm worried here
 3. I see no benefit for the users to change the single Podset -> multiple PodSets model here
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-06-04T09:21:57Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

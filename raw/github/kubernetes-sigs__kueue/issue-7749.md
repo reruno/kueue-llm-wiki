@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7749
 
-**Last updated**: 2026-04-10T10:18:19Z
+**Last updated**: 2026-05-25T10:13:18Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@pajakd](https://github.com/pajakd)
 - **Created**: 2025-11-19T08:03:39Z
-- **Updated**: 2026-04-10T10:18:19Z
-- **Closed**: —
+- **Updated**: 2026-05-25T10:13:18Z
+- **Closed**: 2026-05-25T10:13:18Z
 - **Labels**: `kind/documentation`
-- **Assignees**: _none_
-- **Comments**: 5
+- **Assignees**: [@sivaramsingana](https://github.com/sivaramsingana)
+- **Comments**: 7
 
 ## Description
 
@@ -70,3 +70,11 @@ cc @pajakd
 
 /remove-kind cleanup
 /kind documentation
+
+### Comment by [@pajakd](https://github.com/pajakd) — 2026-05-22T13:09:31Z
+
+@sivaramsingana I'm so sorry for the delay. In this comment https://github.com/kubernetes-sigs/kueue/blob/baa1679761ad81ae9b21ccd36e48e334d91575da/apis/kueue/v1beta2/clusterqueue_types.go#L517-L536 there is a correct description of these possible values. I would suggest just aligning what we have on the website with that comment.
+
+### Comment by [@sivaramsingana](https://github.com/sivaramsingana) — 2026-05-24T06:11:36Z
+
+/assign

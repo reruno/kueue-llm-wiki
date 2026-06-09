@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/1789
 
-**Last updated**: 2026-04-16T07:30:02Z
+**Last updated**: 2026-05-27T11:48:41Z
 
 ---
 
 ## Metadata
 
-- **State**: open (reopened)
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2024-03-04T10:49:37Z
-- **Updated**: 2026-04-16T07:30:02Z
-- **Closed**: —
+- **Updated**: 2026-05-27T11:48:41Z
+- **Closed**: 2026-05-27T11:48:41Z
 - **Labels**: `kind/bug`
-- **Assignees**: _none_
-- **Comments**: 23
+- **Assignees**: [@mbobrovskyi](https://github.com/mbobrovskyi)
+- **Comments**: 24
 
 ## Description
 
@@ -348,3 +348,7 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/1789#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-05-25T12:15:48Z
+
+/assign

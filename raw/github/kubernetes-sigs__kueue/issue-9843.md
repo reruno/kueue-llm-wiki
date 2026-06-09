@@ -4,17 +4,17 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9843
 
-**Last updated**: 2026-05-06T07:51:51Z
+**Last updated**: 2026-05-26T21:18:10Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-03-13T09:22:05Z
-- **Updated**: 2026-05-06T07:51:51Z
-- **Closed**: —
+- **Updated**: 2026-05-26T21:18:10Z
+- **Closed**: 2026-05-26T21:18:10Z
 - **Labels**: `kind/bug`
 - **Assignees**: [@mszadkow](https://github.com/mszadkow)
 - **Comments**: 11

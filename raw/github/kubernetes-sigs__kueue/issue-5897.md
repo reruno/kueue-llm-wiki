@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5897
 
-**Last updated**: 2026-04-09T09:27:37Z
+**Last updated**: 2026-05-26T12:32:41Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-07-08T06:41:57Z
-- **Updated**: 2026-04-09T09:27:37Z
+- **Updated**: 2026-05-26T12:32:41Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `priority/important-longterm`
 - **Assignees**: [@yaroslava-serdiuk](https://github.com/yaroslava-serdiuk)
-- **Comments**: 14
+- **Comments**: 16
 
 ## Description
 
@@ -174,3 +174,17 @@ I went ahead and reported this as an issue: [https://github.com/kubernetes-sigs/
 ### Comment by [@yaroslava-serdiuk](https://github.com/yaroslava-serdiuk) — 2026-04-09T09:27:34Z
 
 /assign
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-05-22T17:05:40Z
+
+> /assign
+
+@yaroslava-serdiuk  What about progressing?
+
+### Comment by [@yaroslava-serdiuk](https://github.com/yaroslava-serdiuk) — 2026-05-26T12:32:41Z
+
+> > /assign
+> 
+> [@yaroslava-serdiuk](https://github.com/yaroslava-serdiuk) What about progressing?
+
+Hi @tenzen-y, unfortunately I haven't started this yet. I plan to come to this issue in few weeks

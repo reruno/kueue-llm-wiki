@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7462
 
-**Last updated**: 2025-11-04T14:00:13Z
+**Last updated**: 2026-05-29T05:12:57Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-10-30T17:14:18Z
-- **Updated**: 2025-11-04T14:00:13Z
-- **Closed**: 2025-11-04T14:00:13Z
+- **Updated**: 2026-05-29T05:12:57Z
+- **Closed**: 2026-05-29T05:12:57Z
 - **Labels**: `kind/bug`, `kind/flake`
 - **Assignees**: [@mszadkow](https://github.com/mszadkow)
-- **Comments**: 3
+- **Comments**: 5
 
 ## Description
 
@@ -86,3 +86,49 @@ and do a verification just once at `09:46:41.114` (9 milliseconds):
 ```
 
 I would start with the wrapper on crucial places like this.
+
+### Comment by [@olekzabl](https://github.com/olekzabl) — 2026-05-28T23:06:17Z
+
+/reopen
+
+This flaked again, [here](https://prow.k8s.io/view/gs/kubernetes-ci-logs/pr-logs/pull/kubernetes-sigs_kueue/11763/pull-kueue-test-integration-multikueue-release-0-16/2060125094218305536).
+
+```
+Operation cannot be fulfilled on jobs.batch "job": the object has been modified; please apply your changes to the latest version and try again
+```
+
+I think I see why. The improved test does this:
+
+https://github.com/kubernetes-sigs/kueue/blob/1a88745244f31d920ef3c7f60f3f5b584ac9c7ef/test/integration/multikueue/jobs_test.go#L1792-L1796
+
+so once we're unlucky enough to `getJob` in an outdated version, every subsequent attempt to update will fail the same way, no matter how many times we try.
+
+The fix is to repeat `Get` in every attempt: #11769
+
+### Comment by [@k8s-ci-robot](https://github.com/k8s-ci-robot) — 2026-05-28T23:06:23Z
+
+@olekzabl: Reopened this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/7462#issuecomment-4569050873):
+
+>/reopen
+>
+>This flaked again, [here](https://prow.k8s.io/view/gs/kubernetes-ci-logs/pr-logs/pull/kubernetes-sigs_kueue/11763/pull-kueue-test-integration-multikueue-release-0-16/2060125094218305536).
+>
+>```
+>Operation cannot be fulfilled on jobs.batch "job": the object has been modified; please apply your changes to the latest version and try again
+>```
+>
+>I think I see why. The improved test does this:
+>
+>https://github.com/kubernetes-sigs/kueue/blob/1a88745244f31d920ef3c7f60f3f5b584ac9c7ef/test/integration/multikueue/jobs_test.go#L1792-L1796
+>
+>so once we're unlucky enough to `getJob` in an outdated version, every subsequent attempt to update will fail the same way, no matter how long we wait.
+>
+>The fix is to repeat `Get` in every attempt.
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9361
 
-**Last updated**: 2026-02-25T19:21:57Z
+**Last updated**: 2026-05-26T19:40:48Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@varunsyal](https://github.com/varunsyal)
 - **Created**: 2026-02-19T08:54:08Z
-- **Updated**: 2026-02-25T19:21:57Z
+- **Updated**: 2026-05-26T19:40:48Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 1
+- **Comments**: 2
 
 ## Description
 
@@ -63,3 +63,23 @@ gke-cpu-tas-cluster-tas-pool-1-4eea6ff2-48xv   f729025594c5a515f820739576efa596 
 ```
 
 Now let's say that I have a five-node workload, and I care about performance (our general assumption in TAS is that we optimize for everyone's performance) I'd set required to block because that's my lowest acceptable bar. As a result I'll get hosts from subblock 950d4ae505c017837f05e37593181869 instead of 2 subblocks every single time, so it works as preferred subblock, required block with only the second part specified. Is this what you'd expect?
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-05-26T19:40:46Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

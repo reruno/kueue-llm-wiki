@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/4857
 
-**Last updated**: 2026-05-04T10:04:41Z
+**Last updated**: 2026-06-03T10:05:00Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@KPostOffice](https://github.com/KPostOffice)
 - **Created**: 2025-04-01T20:27:24Z
-- **Updated**: 2026-05-04T10:04:41Z
+- **Updated**: 2026-06-03T10:05:00Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `lifecycle/stale`
+- **Labels**: `kind/feature`, `lifecycle/rotten`
 - **Assignees**: _none_
-- **Comments**: 10
+- **Comments**: 11
 
 ## Description
 
@@ -156,5 +156,25 @@ You can:
 Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
 
 /lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-06-03T10:04:57Z
+
+The Kubernetes project currently lacks enough active contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle rotten`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/

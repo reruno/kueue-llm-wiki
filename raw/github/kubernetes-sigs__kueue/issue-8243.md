@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8243
 
-**Last updated**: 2026-05-22T03:34:29Z
+**Last updated**: 2026-05-28T20:00:29Z
 
 ---
 
 ## Metadata
 
-- **State**: open (reopened)
+- **State**: closed (completed)
 - **Author**: [@sohankunkerkar](https://github.com/sohankunkerkar)
 - **Created**: 2025-12-15T13:55:44Z
-- **Updated**: 2026-05-22T03:34:29Z
-- **Closed**: —
+- **Updated**: 2026-05-28T20:00:29Z
+- **Closed**: 2026-05-28T20:00:29Z
 - **Labels**: `kind/feature`, `priority/important-soon`
 - **Assignees**: [@sohankunkerkar](https://github.com/sohankunkerkar)
-- **Comments**: 24
+- **Comments**: 25
 
 ## Description
 
@@ -209,8 +209,8 @@ I think we need to also solve this issue before Beta: https://github.com/kuberne
                                                                                                                                                                              
   - [x] Feature gate rename (#11255) — avoid collision with upstream K8s gates
   - [x] Graduate KueueDRAIntegration to beta (#10996)                                                                                          
-  - [ ] Partitionable devices KEP (#10283) + implementation (#10320)
-  - [ ] Extended resources beta graduation (#10973)                                                                                                                     
+  - [x] Partitionable devices KEP (#10283) + implementation (#10320)
+  - [x] Extended resources Alpha-2 graduation (#10973)                                                                                                                     
   - [x] DRA reconcile channel blocking fix (#10785)
   - [x] Gate-off quota bypass fix (#10964)                                                                                                                          
                                                                                                                                                                              
@@ -240,3 +240,8 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/8243#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@sohankunkerkar](https://github.com/sohankunkerkar) — 2026-05-28T20:00:29Z
+
+/close
+as we accomplished everything as part  of the beta requirements.

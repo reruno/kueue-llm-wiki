@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7990
 
-**Last updated**: 2026-03-17T17:43:44Z
+**Last updated**: 2026-05-25T12:56:44Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: closed (completed)
 - **Author**: [@mwysokin](https://github.com/mwysokin)
 - **Created**: 2025-11-28T10:15:37Z
-- **Updated**: 2026-03-17T17:43:44Z
+- **Updated**: 2026-05-25T12:56:44Z
 - **Closed**: 2026-03-17T17:43:44Z
 - **Labels**: `kind/feature`, `priority/important-soon`
 - **Assignees**: [@vladikkuzn](https://github.com/vladikkuzn)
-- **Comments**: 40
+- **Comments**: 44
 
 ## Description
 
@@ -400,3 +400,37 @@ Hi 👋 referencing this https://github.com/kubernetes-sigs/kueue/issues/9596 fo
 
 That sounds typical large workload starvation problem in fair sharing. So, I fully agree with @amy use cases.
 OTOH, I also agree with @mimowo 's proposal that we will handle this FS scheduling problem as another enhancement proposal.
+
+### Comment by [@mattsu2020](https://github.com/mattsu2020) — 2026-05-25T12:21:12Z
+
+I think minimum runtime protection could be considered as one possible source of preemption cost, rather than a separate scheduling policy.
+
+For AI/ML training workloads, preempting a workload shortly after admission can be very expensive because initialization, data loading, checkpoint warm-up, or distributed setup may already have consumed significant time and GPU resources.
+
+One possible model is:
+
+- an external controller computes a preemption cost signal
+- elapsed runtime, checkpoint status, and workload phase are inputs to that signal
+- Kueue uses the signal only when sorting/selecting preemption candidates
+
+For example, a workload that has not yet reached a minimum useful runtime could receive a higher preemption cost, while a workload that has recently checkpointed could receive a lower cost.
+
+This keeps “minimum runtime” as an implementation detail of the cost signal, rather than adding a hard scheduler-level guarantee.
+
+Would this fit the intended scope of this issue?
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-25T12:41:22Z
+
+> For AI/ML training workloads, preempting a workload shortly after admission can be very expensive because initialization, data loading, checkpoint warm-up, or distributed setup may already have consumed significant time and GPU resources.
+
+This problem seems like could be addressed by this KEP https://github.com/kubernetes-sigs/kueue/pull/9877
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-05-25T12:41:30Z
+
+cc @mukund-wayve
+
+### Comment by [@mukund-wayve](https://github.com/mukund-wayve) — 2026-05-25T12:56:44Z
+
+> cc @mukund-wayve 
+
+Sorry I've not been able to get to it. I want to make progress on it this week
