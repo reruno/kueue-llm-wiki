@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-06-29
 
 ---
 
@@ -33,6 +33,14 @@ Bugs have clustered around gate removal edge cases:
 - "Kueue does not remove the scheduling gate from Ray's redis-cleanup jobs" ([[issue-8443]]).
 - "Kueue will say a workload is admitted if its scheduling gates are removed" — externally removing the gate confuses the accounting ([[issue-9482]]).
 - Kubernetes 1.30 behavior change broke gate removal temporarily ([[issue-2029]]).
+
+## WorkloadSlice replacement correctness (v0.18)
+
+Scale-up replaces the old admitted slice with a new, larger one. Two ordering/sorting bugs here caused **quota leaks**, both fixed in v0.18:
+
+- **Admit-first, finish-old-after** ([[pr-11195]], fixes #9015). The scheduler previously finished the old slice *before* the new slice's admission was confirmed. Admission is asynchronous, so if it then failed, the old slice was already `Finished` while the new one was not admitted — the job kept running unsuspended with no admitted slice holding quota. `replaceOldWorkloadSlice` now runs **inside `admit`'s success path** (after `PatchAdmissionStatus`). See [[scheduler-internals]]. Residual window: if the *finish* of the old slice fails after the new one is admitted, both slices sit admitted in the cache until the job reconciler's `EnsureWorkloadSlices` finishes the old one on the next reconcile — this is conservative **over-counting** (sum, not max), which can cause brief excessive preemptions but never over-commits.
+
+- **Sort comparator antisymmetry** ([[pr-11198]], fixes [[issue-11166]]). The `slices.SortFunc` comparator inside `FindNotFinishedWorkloads` had a one-sided tiebreaker on the `WorkloadSliceReplacementFor` annotation: when two slices had **equal `CreationTimestamp`** and neither replaced the other, `cmp(a,b)==1` *and* `cmp(b,a)==1`, violating the strict-weak-ordering contract `slices.SortFunc` requires. The undefined ordering made `EnsureWorkloadSlices` swap old/new and **finish the wrong slice**, leaking quota. The fix adds the symmetric reverse check and returns `0` for the neutral case. Repro: a `v1→v2→v3` chain where `v2` is finished but `v1` is not, so `FindNotFinishedWorkloads` returns `[v1, v3]` and `v3` points to `v2` (not `v1`).
 
 ## Interaction with TAS
 

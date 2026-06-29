@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/1618-optional-gc-of-workloads/README.md`, `raw/kueue/keps/1618-optional-gc-of-workloads/kep.yaml`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-06-29
 
 ---
 
@@ -43,6 +43,12 @@ objectRetentionPolicies:
 3. **Finalizer prerequisite**: Deletion only succeeds if the Workload has no finalizers. The job framework removes the `kueue.x-k8s.io/resource-in-use` finalizer when the Workload transitions to finished; if other finalizers exist, Kubernetes marks the object for deletion but does not actually delete it until they are removed.
 
 (source: keps/1618-optional-gc-of-workloads/README.md)
+
+## Gotcha: WorkloadSlices stuck after retention (v0.18 fix)
+
+KEP-1618 assumed finished Workloads carry no finalizers, so the GC path called `client.Delete()` directly. **WorkloadSlices** (added later, for [[elastic-jobs]]) broke that assumption: a slice is finished by the *scheduler* (`replaceWorkloadSlice → workload.Finish`), which sets the `Finished` condition but does **not** remove the `resource-in-use` finalizer (only the job-reconciler finalize path does). So when the retention window elapsed, Kubernetes set `deletionTimestamp` but the object stuck forever ([[pr-11181]], fixes [[issue-11130]]).
+
+The fix introduces a `workload.Delete(ctx, c, wl) (bool, error)` helper that **removes the finalizer first, then deletes**. If deletion is already in progress (`DeletionTimestamp` set), removing the finalizer alone lets Kubernetes finish cleanup, so it returns `false` (no second delete) and the GC path only emits the "Deleted" event when a delete was actually requested.
 
 ## Cascade deletion warning
 

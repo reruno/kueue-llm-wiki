@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-05-06
+**Last updated**: 2026-06-29
 
 ---
 
@@ -65,7 +65,32 @@ When a worker cluster's apiserver becomes unreachable, the manager's `clustersRe
 
 This is an artifact of condition-flip + reconcile-on-status-update, not two real connection attempts being deliberately scheduled in the same second.
 
-## Operational considerations
+### A hung remote watch no longer stalls all clusters
+
+The `multikueuecluster` reconciler runs a **single worker**, and `Reconcile → setRemoteClientConfig` holds the controller-wide `clustersReconciler.lock` through the whole `setConfig → establishWatch → client.Watch()` chain. So if `client.Watch()` against one unreachable worker **hung**, that single worker was blocked indefinitely: every other cluster behind it never reconciled, stayed `connecting=true`, was excluded by the dispatcher, and **admission stopped cluster-wide** ([[issue-11206]]).
+
+[[pr-11207]] (cherry-picked to 0.16/0.17) bounds the **watch-establishment** phase with a timeout (`watchWithEstablishTimeout`): on timeout it cancels the in-flight `Watch` and returns `errWatchEstablishTimeout`, falling back to the normal `failedConnAttempts`/`retryAfter` backoff. The default was set to **10 minutes** (not seconds): `client.Watch()` returns once HTTP 200 headers arrive, but a server with a cold cache + conversion-webhook warmup can legitimately block sending headers for several minutes at high workload counts, so a short timeout would cancel-and-retry forever. Successful-watch stream lifetime is unchanged.
+
+### Reconnect backoff guardrail
+
+[[pr-11275]] / [[pr-11276]] (cherry-picks of #10990) add a reconnect-backoff guardrail to the `MultiKueueCluster` reconciler that **suppresses redundant reconciles while a cluster is still inside its backoff window** (before `retryAfter` elapses). This cuts the reconcile churn caused by repeated requeues/events for a cluster that is already waiting to reconnect.
+
+### `clustersReconciler` as an event-filter predicate
+
+[[pr-11153]] (cherry-picks [[pr-11271]]/[[pr-11272]]) turns `clustersReconciler` into a `predicate.Predicate` wired via `WithEventFilter`, primarily to restore the **`replica-role`** field that was missing from this controller's logs (it now logs through `roletracker.WithReplicaRole` / a `LogConstructor`). It is also explicit prep for finer event filtering in follow-up #11001.
+
+## Manager quota automation (KEP-9988, Alpha)
+
+[[pr-11141]] implements the **Alpha1** scope of KEP-9988 behind the `MultiKueueManagerQuotaAutomation` feature gate (off by default). It keeps a manager [[cluster-queue]]'s nominal quota equal to the **sum of the corresponding worker-cluster quotas**, so administrators don't hand-maintain the manager's quota to mirror the fleet.
+
+- **Opt-in is per-config**: `MultiKueueConfig.spec.quotaAutomation.mode` is an enum (`Manual` | `Automated`); when unset the default depends on the feature gate.
+- A new `CQReconciler` (`pkg/controller/admissionchecks/multikueue/clusterqueue.go`) watches manager ClusterQueues, finds the MultiKueue AdmissionCheck, resolves the `MultiKueueConfig`, and writes the summed `nominalQuota` into the CQ's single flavor (only when changed).
+- **Constraint**: the manager CQ must have **exactly one ResourceGroup with exactly one Flavor**, else the CQ gets condition `MultiKueueManagerQuotaAutomation=False` with reason `UnsupportedConfiguration`. Worker clusters that are still `connecting` are skipped in the sum.
+- New CQ status **condition** `MultiKueueManagerQuotaAutomation` (reasons: `QuotaAutomated`, `NotRequested`, `UnsupportedConfiguration`). Remote ClusterQueue/LocalQueue reads use a new `SelectivelyCachingClient` + informers so reconciles fire only on relevant remote changes.
+
+## Incremental Dispatcher `stepSize` (KEP-9270)
+
+The `IncrementalDispatcherReconciler` nominates worker clusters for a workload in **batches per round** (rather than all candidates at once). The batch size was previously hardcoded to 3. [[pr-11208]] adds the `multiKueue.incrementalDispatcherConfig.stepSize` config field (`*int32`, default 3, minimum 1) to make it configurable, behind the `MultiKueueIncrementalDispatcherConfig` gate (Beta, on by default). Defaulting only allocates the struct and sets `stepSize=3` when `dispatcherName` is the incremental dispatcher. The field was added to `apis/config/v1beta2` (and v1beta1 was deliberately not extended further, to nudge migration to v1beta2).
 
 - **Kubeconfigs.** The manager needs credentials to each worker. These live in a Secret referenced by `MultiKueueCluster`.
 - **Version skew.** Worker clusters must run a Kueue version compatible with the manager — cross-version mirror-Workload fields can drift.

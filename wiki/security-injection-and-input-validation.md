@@ -1,10 +1,10 @@
 # Security — Injection, Input Validation, Path Traversal, and Code Execution
 
-**Summary**: Combined coverage for Injection (11), Path Traversal (7), and Code Execution (139) CVE categories — they share the same root cause (untrusted input crossing a parse/exec boundary) and the same mitigations (validate at boundary, allowlist, type-safe builders).
+**Summary**: Combined coverage for Injection (13), Path Traversal (10), and Code Execution (161) CVE categories — they share the same root cause (untrusted input crossing a parse/exec boundary) and the same mitigations (validate at boundary, allowlist, type-safe builders).
 
 **Sources**: `raw/cve/` — representative entries `CVE-2018-17450.md` (Jenkins SSRF), `CVE-2019-10165.md` (OpenShift command injection), `CVE-2019-11246.md` (kubectl cp tar extraction path traversal), `CVE-2019-1002101.md` (related path traversal), `CVE-2021-25741.md` (subpath symlink), `CVE-2022-23524-26.md` (Helm SSRF), and CWE-20/22/74/77/78/89/94/502/918/601 entries.
 
-**Last updated**: 2026-05-18
+**Last updated**: 2026-06-29
 
 ---
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-05-08
+**Last updated**: 2026-06-29
 
 ---
 
@@ -40,9 +40,13 @@ LWS with WorkloadPriorityClass had specific flakes around PodTemplate updates ([
 
 ## v0.18.0 behaviour changes
 
-### Relaxed PodSpec validation — `nodeSelector` is mutable on running LWS
+### Relaxed PodSpec validation was reverted — strict equality restored
 
-The LWS validation webhook previously rejected `PodTemplate.Spec` mutation while a Workload was admitted, which blocked operators from rolling node-selector updates onto an already-running LWS (typical when migrating between accelerator pools). v0.18.0 (#10275, with cherry-pick [[pr-10944]] and [[pr-10930]]) relaxes the validation so `nodeSelector` can be changed; other PodSpec fields remain restricted.
+An earlier change (#10275, with cherry-picks [[pr-10944]]/[[pr-10930]]) had relaxed the LWS PodSpec validation by adding `ignoreTolerations` / `ignoreNodeSelector` flags to `ComparePodSetsOptions` (`pkg/util/equality/podset.go`), so `nodeSelector`/toleration mutations on a running LWS were tolerated. This was found to be a **regression** and was **reverted** by [[pr-11214]] (net `-161` lines; cherry-picked to 0.16/0.17). Kueue again enforces **strict PodSpec equality**: the running PodSpec's tolerations and nodeSelector must match what Kueue expects, and a mutation is rejected rather than silently ignored. (The small struct cleanup of the ignore-flag fields may be re-applied later, but the behavioural relaxation is gone.) Do not rely on mutating `nodeSelector` on an admitted LWS.
+
+### Manual `queue-name` edits no longer reverted (race fix)
+
+A race in the jobframework reconciler could revert a **manual `queue-name` label change** on an LWS (or StatefulSet) at the Workload-object level. [[pr-11191]] fixes it by introducing the `JobWithCustomQueueNameChange` integration interface (see [[job-framework-interface]]); the Pod controller (which backs LWS and StatefulSet) implements it and owns queue-name-change handling for these serving workloads instead of the generic path.
 
 ### Mutating `queue-name` while idle
 

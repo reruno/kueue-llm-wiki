@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/cache/scheduler/`, `raw/kueue/pkg/cache/hierarchy/`, `raw/kueue/pkg/cache/queue/`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-06-29
 
 ---
 
@@ -78,6 +78,17 @@ There is a brief window where the in-memory cache lags behind etcd. For quota ac
 ## Snapshot vs. live cache divergence
 
 The scheduler only reads the snapshot. After a workload is admitted (`s.admit()` call), the admission is written to the live cache via `cq.AddUsage(usage)` on the snapshot — but this is a local mutation. The live cache is updated when the Workload controller processes the newly admitted workload and reconciles it back. (source: pkg/scheduler/scheduler.go)
+
+## Quota amount type and overflow safety
+
+Quota quantities stored in the scheduler cache are wrapped in **`resources.Amount`** (`pkg/resources/amount.go`, introduced by [[pr-11156]], fixes #9843) rather than raw `int64`. The shipped representation is `type Amount struct { value int64 }` with a sentinel `var Unlimited = Amount{value: math.MaxInt64}` for effectively-infinite quota; bounded amounts must never equal `math.MaxInt64`.
+
+Why it exists: a CPU quota like `1E` whose milliCPU exceeds `int64` used to **collapse to 0** (making a CQ look like it had zero quota), and cohort aggregation of huge sibling quotas could wrap **negative**. `AmountFromQuantity(name, q)` instead returns `Unlimited` at/over the boundary (`maxCPUQuantityForAmount = MaxInt64/1000` for CPU, `maxNonCPUQuantityForAmount = MaxInt64` otherwise). `Add`/`Sub` propagate `Unlimited` and **saturate** bounded overflow (delegating to the `pkg/util/math` saturating helpers); `Cmp` treats `Unlimited` as greater than any bounded amount.
+
+- **Where it's stored**: `ResourceQuota` (`pkg/cache/scheduler/resource.go`) changed `Nominal`, `BorrowingLimit`, `LendingLimit` from `int64`/`*int64` to `Amount`/`*Amount`; the `SubtreeQuota` and `Usage` maps (`FlavorResourceQuantities`) hold `Amount`. Cohort math in `resource_node.go` (`available`, `potentialAvailable`, `accumulateFromChild`, `addUsage`, `removeUsage`) is rewritten over `Amount` methods.
+- **Equality gotcha**: `Amount` has an unexported field, so Kubernetes' `equality.Semantic.DeepEqual` (a forked `reflect`) **panics** on it. The fix adds a `ResourceQuota.Equal` method (+`equalAmountPtr`) and `updateQuotasAndResourceGroups` uses `maps.EqualFunc(..., ResourceQuota.Equal)` instead of `DeepEqual`. Anyone adding a struct with unexported fields into cached types must supply an `Equal` method for the same reason.
+
+See [[scheduler-internals#Quota arithmetic and integer-overflow safety]] for the workload-request-side overflow fixes that preceded this refactor.
 
 ## Debugging cache state
 

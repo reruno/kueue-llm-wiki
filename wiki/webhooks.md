@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-06-29
 
 ---
 
@@ -42,6 +42,21 @@ Validation enforces:
 ## Integration enablement
 
 A webhook that runs unconditionally even when its integration is disabled is a bug — "batch/job webhook runs even when the integration is disabled" ([[issue-10314]]) addresses it. "Missing create verb for job webhook" ([[issue-1034]]) is the mirror: a webhook registered without enough verbs.
+
+## Namespace exclusion: `kube-system` and the install namespace (v0.18, action-required)
+
+Before v0.18 only the Pod, Deployment, and StatefulSet integration webhooks excluded `kube-system` and Kueue's own install namespace; **all other** workload integration webhooks (Job, JobSet, RayJob, the Kubeflow jobs, AppWrapper, LeaderWorkerSet, SparkApplication, etc.) ran in those namespaces. [[pr-11192]] (fixes [[issue-11006]]) makes the exclusion **consistent across every workload integration webhook** (both mutating `m*.kb.io` and validating `v*.kb.io`). Kueue's own CRD webhooks (ClusterQueue, etc.) are intentionally **not** changed — those objects aren't created by system components.
+
+The mechanism is a `namespaceSelector` on each webhook:
+
+```yaml
+matchExpressions:
+- key: kubernetes.io/metadata.name
+  operator: NotIn
+  values: [kube-system, kueue-system]   # Helm installs: kube-system + .Release.Namespace
+```
+
+For manifest installs the second value is `kueue-system`; for Helm it is the release namespace. The point is to stop Kueue suspending critical system components (e.g. kubeadm-run jobs) and to avoid a circular dependency during cluster upgrades. **Action required**: move any Kueue-managed workloads out of `kube-system` / the install namespace before upgrading, or widen `managedJobsNamespaceSelector` and the webhook `namespaceSelector`s to re-include them. See [[manage-jobs-selectively]].
 
 ## Related pages
 

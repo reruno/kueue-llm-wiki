@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/369-job-interface/README.md`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-06-29
 
 ---
 
@@ -46,8 +46,19 @@ Additional optional interfaces enable specific features:
 | `JobWithPriorityClass` | Read priority class from a job-specific field |
 | `JobWithCustomValidation` | Custom webhook create/update validation |
 | `JobWithManagedBy` | MultiKueue: the job has a `spec.managedBy` field for multi-cluster dispatch |
+| `JobWithCustomQueueNameChange` | Override the default handling when the job's `queue-name` label changes (see below) |
 
 (source: pkg/controller/jobframework/interface.go)
+
+### `JobWithCustomQueueNameChange` (serving workloads)
+
+```go
+type JobWithCustomQueueNameChange interface {
+    CustomQueueNameChange(ctx context.Context, c client.Client, wl *kueue.Workload) error
+}
+```
+
+Added in [[pr-11191]] (documented in [[pr-11215]]). The base reconciler normally syncs/reverts the Workload's `queue-name` to match the job. For **serving workloads** — long-running, non-completing integrations, specifically **LeaderWorkerSet** and **StatefulSet** (both managed through the Pod controller) — that generic handling raced with manual queue-name edits and could **revert** a deliberate label change at the Workload-object level. A job type that implements `JobWithCustomQueueNameChange` opts out of the generic path; the integration's own `CustomQueueNameChange` decides what to do. When the queue-name does change, the reconciler now also logs structured `oldQueueName`/`newQueueName` fields ([[pr-11148]]).
 
 ## The base reconciler
 

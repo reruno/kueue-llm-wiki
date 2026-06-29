@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-05-08
+**Last updated**: 2026-06-29
 
 ---
 
@@ -37,6 +37,16 @@ RayCluster's native `spec.suspend` flag controls whether the Ray head and worker
 ## Ray version pin (v0.18.0)
 
 Kueue's e2e fixtures and the RayJob submitter image were bumped from **Ray 2.41.0 → 2.53.0** in [[pr-10707]] (cherry-picks [[pr-10958]] and [[pr-10959]]). The 2.41.0 line had a SIGABRT in the opencensus dependency (`ray-project/kuberay#4760`) that destabilized the Ray submitter Pod. 2.53.0 also requires that Kueue's TAS RayJob e2e bumps the head CPU and CQ quota — see the test bump in PR #10970. Operators upgrading to v0.18 should plan for this Ray version's resource baseline.
+
+## Redis cleanup Job accounting (GCS fault tolerance, v0.19)
+
+When KubeRay **GCS fault tolerance** is enabled, KubeRay spawns a short-lived **Redis cleanup Job** during RayCluster teardown (to clear the cluster's data from the external Redis). Kueue built PodSets only from the head + worker groups, so the cleanup Job's requests were never reserved → quota **under**-accounting ([[pr-11260]], fixes [[issue-10946]]).
+
+The fix **folds** the cleanup Job's requests into the **Ray head PodSet** using max-accounting, rather than adding a separate PodSet (which would have eaten one of the 8 `MaxPodSets` slots). Details:
+
+- The cleanup Job's requests are **hardcoded in KubeRay** at **200m CPU / 256Mi memory**; `accountForRedisCleanupInHeadPodSet` merges them into the head container via `MergeResourceListKeepMax` (so the head's reservation is `max(head, cleanup)`, not a sum).
+- Gated by the **`KubeRayAccountForRedisCleanup`** feature gate (Beta, default on; introduced v0.19, GA targeted v0.21) — a bailout for clusters running the KubeRay operator with `ENABLE_GCS_FT_REDIS_CLEANUP=false`. The accounting only applies when GCS fault tolerance is actually detected (`GcsFaultToleranceOptions != nil` or the annotation).
+- `ExpectedPodSetsCount = len(workerGroupSpecs) + 1`; the PodSet count is **unchanged** because the cleanup is folded into the head. Applies to all three controllers — **RayCluster, RayJob, and RayService**.
 
 ## MultiKueue
 

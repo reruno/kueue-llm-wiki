@@ -1,10 +1,10 @@
 # Security — Denial of Service
 
-**Summary**: DoS vulnerability patterns drawn from 83 DoS-class CVEs in `raw/cve/`. The highest-relevance category for Kueue because the scheduler, webhooks, and reconcilers all process untrusted CR input on a hot path.
+**Summary**: DoS vulnerability patterns drawn from 85 DoS-class CVEs in `raw/cve/`. The highest-relevance category for Kueue because the scheduler, webhooks, and reconcilers all process untrusted CR input on a hot path.
 
-**Sources**: `raw/cve/` — 83 entries with `Category: Denial of Service`, including representative cases `CVE-2019-11253.md` (Kubernetes API server YAML/JSON CPU exhaustion), `CVE-2020-8552.md` (API server resource exhaustion via valid requests), `CVE-2020-8569.md` (CSI snapshot-controller nil-pointer crash loop), `CVE-2020-8557.md` (kubelet `/etc/hosts` disk exhaustion), `CVE-2022-39272.md` (Flux `.spec.interval` halts kind-wide reconciliation), `CVE-2022-31016.md` (Argo CD).
+**Sources**: `raw/cve/` — 85 entries with `Category: Denial of Service`, including representative cases `CVE-2019-11253.md` (Kubernetes API server YAML/JSON CPU exhaustion), `CVE-2020-8552.md` (API server resource exhaustion via valid requests), `CVE-2020-8569.md` (CSI snapshot-controller nil-pointer crash loop), `CVE-2020-8557.md` (kubelet `/etc/hosts` disk exhaustion), `CVE-2022-39272.md` (Flux `.spec.interval` halts kind-wide reconciliation), `CVE-2022-31016.md` (Argo CD).
 
-**Last updated**: 2026-05-18
+**Last updated**: 2026-06-29
 
 ---
 
@@ -39,7 +39,7 @@ The dominant pattern (15 + 10 CVEs respectively). In Kueue, the highest-risk loc
 
 ### CWE-476 — Nil-pointer dereference
 
-10 of the 83 DoS CVEs. Pattern: a reconciler dereferences a field that's optional in the schema but assumed present. CVE-2020-8569 (snapshot-controller) is the canonical case — the controller crashed on a `VolumeSnapshot` referencing a non-existent PVC and entered a crash loop because the same object kept being reprocessed.
+10 of the 85 DoS CVEs. Pattern: a reconciler dereferences a field that's optional in the schema but assumed present. CVE-2020-8569 (snapshot-controller) is the canonical case — the controller crashed on a `VolumeSnapshot` referencing a non-existent PVC and entered a crash loop because the same object kept being reprocessed.
 
 **In Kueue**, the equivalents are:
 

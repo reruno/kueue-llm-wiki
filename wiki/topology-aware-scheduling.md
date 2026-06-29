@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-05-08
+**Last updated**: 2026-06-29
 
 ---
 
@@ -44,12 +44,18 @@ Not all job integrations shipped TAS support at once. "TAS: support all Job CRDs
 - **Non-ready nodes.** Excluding them at the TAS layer was an explicit ask ([[issue-3401]]) so admission doesn't promise capacity that's unavailable.
 - **Panics during reconcile.** Node reconciler has had crash bugs ([[issue-3706]], [[issue-10640]], [[issue-10033]]).
 - **Terminating pods.** TAS capacity accounting didn't track terminating Pods, so scheduling could fail until they fully disappeared ([[issue-10076]]).
-- **Oversubscription with multiple flavors on same nodes.** A Node in two TAS ResourceFlavors led to over-counting ([[issue-10659]]).
+- **Oversubscription with multiple flavors on same nodes.** A Node in two TAS ResourceFlavors led to over-counting ([[issue-10659]]) — **fixed in v0.18** behind the `TASHandleOverlappingFlavors` gate (see *Overlapping ResourceFlavors* below).
 - **TAS + cohorts/preemption.** Reclaiming capacity within a topology domain constrains preemption more than the cohort-level case ([[issue-3761]] — make TAS compatible with cohorts and preemption; [[issue-10497]] — preemption can under-select candidates needed to free a topology domain).
 
 ## Bin-packing quality
 
 Default placement is greedy. "Optimal bin-packing in TAS" ([[issue-10574]]) tracks algorithmic improvements; "Better accuracy of scheduling by tighter integration with kube-scheduler" ([[issue-3755]]) discusses reducing the split between Kueue's topology choice and the scheduler's node choice.
+
+### Balanced placement → BestFit fallback
+
+There are two placement algorithms in `findTopologyAssignment` (`pkg/cache/scheduler/tas_flavor_snapshot.go`): **BestFit** (pack tightly) and **Balanced Placement** (spread pods across domains to meet a per-domain `bestThreshold`). Before [[pr-11136]], if Balanced Placement could not satisfy the precomputed threshold it returned the failure reason and the assignment failed outright. Now it logs `Balanced placement threshold not met, falling back to BestFit` at V(3) and proceeds with BestFit instead of failing.
+
+The non-obvious trigger this fixed (part of #7494): `bestThreshold` is computed *earlier* in the flow while more candidate domains are still in play, then placement is narrowed (e.g. a leader pod that only fits on one node forces the assignment into a single block), at which point the original threshold can become unsatisfiable. Example: a LeaderWorkerSet leader consuming most of one node's capacity narrows the workers to a single block where the previously-computed spread threshold can no longer be met — Balanced Placement fails, BestFit succeeds.
 
 ## Snapshot internals (`tas_flavor_snapshot.go`)
 
@@ -87,11 +93,31 @@ The seed loop in `flavorassigner.assignFlavors` previously copied only the **fir
 
 ## Performance: incremental non-TAS usage cache
 
-Building the topology snapshot dominates scheduler-cycle latency on large clusters. PR #10366 (cherry-picked to release-0.17 in [[pr-11041]]) replaces the per-cycle full scan over non-TAS Pods with **incremental per-node aggregation in `nonTasUsageCache`**. The cache pre-aggregates non-TAS Pod usage per node and is updated event-by-event on Pod create/update/delete; the snapshot reads pre-computed totals instead of walking every Pod.
+Building the topology snapshot dominates scheduler-cycle latency on large clusters. PR #10366 (cherry-picked to release-0.16/0.17 in [[pr-11074]] / [[pr-11041]]) replaces the per-cycle full scan over non-TAS Pods with **incremental per-node aggregation in `nonTasUsageCache`**. The cache pre-aggregates non-TAS Pod usage per node and is updated event-by-event on Pod create/update/delete; the snapshot reads pre-computed totals instead of walking every Pod.
+
+**Terminal-Pod cache leak.** Because the cache is event-driven, a non-TAS Pod that reaches a terminal phase (`Succeeded`/`Failed`) **without Kueue observing the expected status-update event** never had its usage removed, leaving stale per-node usage in the TAS cache (the node looked busier than it was). PR #11033 (cherry-picked in [[pr-11145]] / [[pr-11146]] to 0.16/0.17) fixes the Pod controller's **delete predicate** to also reconcile terminal Pods so their usage is released.
 
 ## NodeHotSwap "late pods"
 
 When a node is marked unhealthy and a workload is partially evicted, replacement pods can land on the new healthy node before the unhealthy state is fully reconciled. The original NodeHotSwap logic added these "late pods" to `UnhealthyNodes` even though they belonged to the new topology assignment, polluting the unhealthy set on subsequent reconciles. The fix (PR #10760, cherry-picked in [[pr-10837]] / [[pr-10838]]) refines NodeHotSwap so `UnhealthyNodes` is only updated for workloads currently assigned to the node via a topology assignment — late pods from stale topologies no longer trigger inaccurate health reporting.
+
+## NodeHotSwap: node-taint relocation uses effective tolerations
+
+Behind the `TASReplaceNodeOnNodeTaints` gate, TAS NodeHotSwap relocates an admitted Workload's pods when a node it is placed on gains a `NoSchedule`/`NoExecute` taint. The classifier originally tested the taint only against `Workload.Spec.PodSets[*].Template.Spec.Tolerations` — the *raw* PodSet template. But an admitted Pod also carries tolerations injected from (1) the assigned [[resource-flavor]] and (2) AdmissionCheck `PodSetUpdates`. So a healthy tainted node that the *effective* PodSpec actually tolerates was misclassified as unhealthy and the Workload was wrongly evicted with `NodeFailures`.
+
+[[pr-11185]] (fixes [[issue-11152]]; cherry-picks [[pr-11227]]/[[pr-11228]]) fixes `nodeReconciler` (`pkg/controller/tas/node_controller.go`) to build the **effective PodSet** — spec tolerations + ResourceFlavor tolerations (via `podsetinfo.FromAssignment`) + matching `wl.Status.AdmissionChecks[*].PodSetUpdates[*].Tolerations` — before evaluating taints (`hasSchedulingTaints`). **Invariant**: taint tolerance for an *admitted* Workload must be evaluated against the post-admission effective toleration set, never the raw template.
+
+## Overlapping ResourceFlavors on shared nodes (`TASHandleOverlappingFlavors`)
+
+The TAS cache historically assumed **ResourceFlavor : Node = 1 : N** — each node belongs to exactly one ResourceFlavor, so each `TASFlavorCache` tracked its own per-domain `usage` independently. In reality, two ResourceFlavors can reference the **same Topology and overlap on the same physical nodes** (e.g. identical `nodeLabels`, differentiated only by flavor-level `nodeTaints`). Under the old model each sibling flavor counted usage separately, so a node fully consumed via flavor A still looked free to flavor B → **node over-subscription** ([[issue-10659]]).
+
+[[pr-11210]] adds the **`TASHandleOverlappingFlavors`** feature gate (Alpha, off by default in v0.18 — guarded so the old per-flavor behaviour is the default and there is no perf regression). When enabled, sibling flavors that share a Topology aggregate usage at the **hostname-leaf** level:
+
+- **Cache-write aggregation** (`TASFlavorCache.updateUsage`): each add/sub of `tr.TotalRequests()` (plus a `corev1.ResourcePods` delta) is mirrored into a shared per-Topology `SyncMap` (`topologies[T].Usage`), using an atomic read-modify-write (`SyncMap.Update`) so concurrent sibling writers serialize.
+- **Snapshot path**: `snapshotTopologyUsages()` clones each eligible Topology's usage once; every sibling-flavor snapshot for that Topology aliases the same fresh map, so in-cycle mutations (preemption, fair-sharing) propagate across flavors without leaking to the live cache.
+- **In-flight reservations** (`FindTopologyAssignmentsForWorkload`): a per-workload `sharedAssumed` map prevents a single workload's PodSets landing on different sibling flavors from self-overlapping on a shared node; flavors are iterated in deterministic sorted order so placements are reproducible.
+
+Cross-flavor overlap is only supported when both flavors reference the **same** Topology; overlapping flavors with different topologies on the same node is explicitly unsupported.
 
 ## Defaults
 

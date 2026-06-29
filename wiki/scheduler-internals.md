@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/scheduler/scheduler.go`, `raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go`, `raw/kueue/pkg/scheduler/logging.go`
 
-**Last updated**: 2026-05-08
+**Last updated**: 2026-06-29
 
 ---
 
@@ -55,14 +55,16 @@ For each entry the iterator yields, `processEntry` runs the admission pipeline:
 5. **Fits check** — verify the snapshot still accommodates this workload (earlier admissions in this cycle may have consumed quota).
 6. **Issue preemptions** (Preempt mode) — send delete requests to preemption targets; mark entry as pending.
 7. **WaitForPodsReady** — block admission if the previous workload cycle left pods not ready.
-8. **WorkloadSlice replacement** — handle elastic job slice replacement.
-9. **Admit** — write the `QuotaReservation` and `Admitted` conditions; toggle `.spec.suspend = false` on the job.
+8. **Admit** — write the `QuotaReservation` and `Admitted` conditions; toggle `.spec.suspend = false` on the job. Admission is **asynchronous** (`admissionRoutineWrapper.Run()` launches a goroutine; `admit` returns `nil` before `PatchAdmissionStatus` completes).
+9. **WorkloadSlice replacement** — for elastic jobs, finish the *old* slice. As of [[pr-11195]] (fixes #9015) this happens **inside `admit`'s success path**, after `PatchAdmissionStatus` succeeds — i.e. the old slice is finished only once the new (larger) slice is confirmed admitted. Doing it before admission could leave the old slice `Finished` while the new one failed to admit, leaking quota (the job keeps running unsuspended with no admitted slice holding quota). `admit` now takes the `oldWorkloadSlice *preemption.Target`; `replaceOldWorkloadSlice` is fire-and-forget (logs on failure). See [[elastic-jobs]].
 
 (source: pkg/scheduler/scheduler.go)
 
 ### Phase 6: Requeue
 
-All entries not `assumed` (successfully admitted) or `evicted` are re-queued with appropriate reasons: `PendingPreemption`, `PreemptionFailed`, `Inadmissible`, `PreemptionGated`. The queue manager uses these reasons to decide delay and ordering. (source: pkg/scheduler/scheduler.go)
+All entries not `assumed` (successfully admitted) or `evicted` are re-queued with appropriate reasons: `PendingPreemption`, `PreemptionFailed`, `Inadmissible`, `PreemptionGated`. The queue manager uses these reasons to decide delay and ordering.
+
+**Scheduling-equivalence bulk requeue.** When the `SchedulingEquivalenceHashing` gate is on (**Beta, default on, since v0.18** — [[pr-11097]]), a Workload requeued to the inadmissible set carries its other scheduling-equivalent Workloads (same `SchedulingHash`) with it, so they aren't re-evaluated one-by-one. v0.18 **narrows** this to two requeue reasons only — `RequeueReasonNoFit` and `RequeueReasonPreemptionNoCandidates`. The earlier broad `!immediate` condition also bulk-moved `NamespaceMismatch` and `PreemptionGated` Workloads, which was wrong: it cross-contaminated namespace-mismatched Workloads and broke MultiKueue per-item processing ([[issue-10005]]). Side effect: a single Workload that needs ~100% of a CQ's quota now waits for the requeue batch (≈1s) or a capacity event, so its time-to-admission regresses. (source: pkg/scheduler/scheduler.go)
 
 ### Inadmissible-workload requeue guard
 
@@ -106,6 +108,16 @@ The scheduler evaluates three tiers of capacity in order:
 3. **Preemption** — quota held by lower-priority workloads; requires evicting them.
 
 If a workload can fit in tier 1 → `Fit`. If it needs tier 3 → `Preempt`. If none fit → `NoFit`.
+
+## Quota arithmetic and integer-overflow safety
+
+Quota arithmetic is done in `int64` (milli-units for CPU, absolute units otherwise). Several v0.18 fixes hardened this against wraparound, which was a real **quota-limit bypass**: when a sum or product overflowed `int64` it wrapped *negative*, and a negative value silently passes the "fits within quota" comparison, so an over-large Workload got admitted.
+
+- **`flavorassigner.fitsResourceQuota`** ([[pr-11137]]): `assumedUsage + requestUsage` could overflow when two PodSets' combined requests exceed `MaxInt64`; replaced with an overflow-checked add (extracted to a `pkg/util` helper).
+- **`resources.ResourceValue`** ([[pr-11139]]): converting a near-`MaxInt64` CPU quantity to milliCPU multiplies by 1000 and overflowed; now **clamps/saturates** to `math.MaxInt64`/`MinInt64` via `SafeMilliValue` (`pkg/util/math/math.go`).
+- **`TotalRequests`** ([[pr-11182]]): per-pod-request × pod-count overflowed for a Workload with many pods; now uses a saturating multiply `SaturatingMul(a, b int64) int64` (overflow detected via `res/b != a`, returns `MaxInt64`/`MinInt64` by sign).
+
+The strategic consolidation is the **`resources.Amount`** quota type ([[pr-11156]], fixes #9843) — quota *storage* now flows through one saturating type with an `Unlimited` sentinel, so per-site clamps become a type-enforced invariant. Note `ResourceValue` (the workload-*request* path) deliberately keeps legacy truncate-on-overflow behaviour; only the quota side migrated to `Amount`. See [[cache-architecture#Quota amount type and overflow safety]].
 
 ## Fair-sharing iterator
 

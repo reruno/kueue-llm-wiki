@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-06-29
 
 ---
 
@@ -26,6 +26,10 @@ KueueViz is oriented at operational visibility, not management actions — edits
 
 - "Kueueviz backend fails to list cohorts due to missing permissions" ([[issue-10091]]) — the backend ServiceAccount needed an RBAC update when cohorts became a first-class CRD.
 - "KueueViz: add e2e tests for the resource utilization feature" ([[issue-10132]]) — test coverage catching up to features.
+
+## LocalQueue details: filter by `spec.queueName`
+
+The LocalQueue details page used to list **every** Workload in the namespace regardless of which LocalQueue was selected: the backend `fetchLocalQueueWorkloads` (`cmd/kueueviz/backend/handlers/local_queue_workloads.go`) accepted a `queueName` parameter but never applied it ([[pr-11199]], fixes [[issue-6613]]; cherry-picked to 0.16/0.17 in [[pr-11212]]/[[pr-11213]]). The fix filters `wql.Items` client-side on `item.Spec.QueueName == queueName`. A server-side field selector was rejected because `spec.queueName` is not registered as a selectable field on the Workload CRD — so client-side filtering is used, consistent with `kueuectl list workload localqueue`.
 
 ## MultiKueue stats
 

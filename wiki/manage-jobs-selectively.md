@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/3589-manage-jobs-selectively/README.md`, `raw/kueue/keps/3589-manage-jobs-selectively/kep.yaml`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-06-29
 
 ---
 
@@ -58,6 +58,14 @@ Only namespaces explicitly labeled by the admin are subject to quota enforcement
 ## Deprecation: podOptions.namespaceSelector
 
 The old `integrations.podOptions.namespaceSelector` field, which applied only to Pod/Deployment/StatefulSet integrations, is deprecated in favor of the global `managedJobsNamespaceSelector`. It was removed in the `v1beta2` API migration. (source: keps/3589-manage-jobs-selectively/README.md)
+
+## Integration webhooks default-exclude system namespaces (v0.18)
+
+As of v0.18 the integration **webhooks** themselves carry a `namespaceSelector` that excludes `kube-system` and Kueue's install namespace by default, for *all* workload integrations (previously only Pod/Deployment/StatefulSet) — see [[webhooks]] ([[pr-11192]]). For Helm installs the default webhook `namespaceSelector` is derived from `managedJobsNamespaceSelector` when set, otherwise it falls back to a `NotIn [kube-system, .Release.Namespace]` expression. This means the namespace selector now gates both *whether Kueue manages a job* (this page's knobs) and *whether the webhook even fires*.
+
+## kueue-populator inherits `managedJobsNamespaceSelector`
+
+The experimental `kueue-populator` component (`cmd/experimental/kueue-populator/`) used to take its own separate Helm value for the namespace selector. [[pr-11218]] (fixes [[issue-7852]]) makes its Helm chart read Kueue's manager config (`controllerManagerConfigYaml`) and copy `managedJobsNamespaceSelector` into the populator config, so the populator operates on the same namespaces as the controller by default. An explicit `kueuePopulator.config.managedJobsNamespaceSelector` override is still honored to restrict the populator independently.
 
 ## Common pitfall
 

@@ -309,3 +309,41 @@ Grepped all 8,241 PR files for `@mimowo` comments; identified PRs with 5+ commen
 - No per-CVE wiki pages — 515 entries with templated content would not add information beyond the category synthesis. The `raw/cve/` files remain the authoritative per-CVE source.
 - Code-level grounding in `pkg/` requires the `raw/kueue/` Go-source submodule (not initialized at the time of this ingest, per the 2026-04-23 entry above). The new pages reference Kueue's design surface by name but do not cite specific files or line numbers. A follow-up ingest with the submodule available could resolve the suggested `git grep` checks into concrete file references.
 - No Kueue-specific CVE exists as of 2026-05; the corpus is used to teach patterns, not to document Kueue history.
+
+---
+
+## 2026-06-29 — GitHub PR ingest (v0.18 behaviour) + CVE corpus refresh
+
+**Data-collection commit**: `a5d7eec57cd66cb48f85db72e9dad6a78557e706`
+
+**Operator**: Claude Code, "wiki ingest workflow" for the latest data-collection batch.
+
+**Source files analysed**:
+
+- `raw/github/kubernetes-sigs__kueue/` — issue-10761 and issues 11062–11279; PRs 11064–11281 (~220 PR files, ~50 issue files). Only **merged** PRs with shipped behaviour were used; open KEPs/proposals (e.g. pr-11064 WorkloadDependency, pr-11242), draft PRs, dependency bumps, agent-skill changes, doc reorgs, and CI/test-infra/release-bookkeeping PRs were read but excluded as out-of-scope.
+- `raw/cve/CVE-*.md` — full corpus, now **569** entries (was 515 at the 2026-05-18 ingest; ~54 new files in this batch). Templated, per-category teaching material; no new vulnerability classes. Used only to refresh the counts on the existing security pages.
+
+**Wiki pages updated** (no new pages — favoured depth on existing pages):
+
+- `feature-gates.md` — DRA gate **rename** (`DynamicResourceAllocation`→`KueueDRAIntegration`, `DRAExtendedResources`→`KueueDRAIntegrationExtendedResource`; old gates deprecated+LockToDefault in v0.18, migration helper) (pr-11255); added `SchedulingEquivalenceHashing` (Beta, v0.18, pr-11097), `TASHandleOverlappingFlavors` (Alpha, pr-11210), `TASReplaceNodeOnNodeTaints` (pr-11185), `MultiKueueManagerQuotaAutomation` (Alpha, pr-11141), `MultiKueueIncrementalDispatcherConfig` (Beta, pr-11208), `KubeRayAccountForRedisCleanup` (Beta, pr-11260).
+- `concurrent-admission.md` — new "Migration policy" section: `TryPreferredFlavors` vs new `RetainFirstAdmission` mode (pr-11236), `minPreferredFlavorName`/`lastAcceptableFlavor` flavor floor + `isMigrationAllowed` (pr-11125) and its webhook validation (pr-11126); noted SchedulingEquivalenceHashing beta graduation.
+- `topology-aware-scheduling.md` — Balanced-placement → BestFit fallback (pr-11136); NodeHotSwap node-taint relocation now uses *effective* tolerations (pr-11185); overlapping-ResourceFlavor usage aggregation behind `TASHandleOverlappingFlavors` (pr-11210, resolves issue-10659); non-TAS terminal-Pod cache-cleanup fix (pr-11145/11146).
+- `multikueue.md` — manager quota automation KEP-9988 (pr-11141); Incremental Dispatcher `stepSize` KEP-9270 (pr-11208); hung-remote-watch establish-timeout (pr-11207); reconnect-backoff guardrail (pr-11275/10990); `clustersReconciler` predicate + replica-role logging (pr-11153).
+- `scheduler-internals.md` — WorkloadSlice "admit-first, finish-old-after" ordering in processEntry (pr-11195); SchedulingEquivalenceHashing requeue-reason narrowing in Phase 6 (pr-11097); new "Quota arithmetic and integer-overflow safety" section (pr-11137/11139/11182, points to Amount).
+- `cache-architecture.md` — new "Quota amount type and overflow safety" section: `resources.Amount` + `Unlimited` sentinel, `ResourceQuota` field migration, DeepEqual panic gotcha (pr-11156).
+- `elastic-jobs.md` — WorkloadSlice replacement correctness: admit-then-finish (pr-11195) and sort-comparator antisymmetry fix (pr-11198).
+- `webhooks.md` — integration webhooks now default-exclude `kube-system` + install namespace (pr-11192, action-required).
+- `dashboard.md` — KueueViz LocalQueue page filters by `spec.queueName` (pr-11199).
+- `job-framework-interface.md` — new optional `JobWithCustomQueueNameChange` interface for serving workloads (pr-11191/11215), queue-name-change logging (pr-11148).
+- `integration-leaderworkerset.md` — **corrected**: the "relaxed PodSpec validation / mutable nodeSelector" entry was the #10275 change that pr-11214 **reverted**; strict PodSpec equality is restored. Added manual-queue-name-edit race fix (pr-11191).
+- `integration-rayjob.md` — KubeRay Redis-cleanup Job quota accounting folded into the head PodSet (pr-11260, `KubeRayAccountForRedisCleanup`).
+- `resource-flavor.md` — toleration dedup bug when `Operator:""` vs `Operator:"Equal"` (pr-11147).
+- `workload-garbage-collection.md` — WorkloadSlices stuck after retention because the scheduler-set Finished condition didn't drop the finalizer; new `workload.Delete` helper (pr-11181).
+- `manage-jobs-selectively.md` — webhook namespace-exclusion default (pr-11192) and kueue-populator inheriting `managedJobsNamespaceSelector` (pr-11218).
+- `security-authn-authz.md` — per-resource ClusterRole aggregation label `rbac.kueue.x-k8s.io/role` (pr-11205); refreshed category counts.
+- `security.md` + `security-{denial-of-service,information-disclosure,injection-and-input-validation,supply-chain}.md` — refreshed corpus totals/category counts to 569 (recomputed from `raw/cve/`).
+- `index.md` — bumped Last updated and broadened the Sources note to include the CVE corpus.
+
+**Confirmed latest patch releases** from this batch: v0.17.3 and v0.16.8 (both 2026-05-15; pr-11233/pr-11234).
+
+**Out of scope**: pr-11064 (WorkloadDependency KEP — proposal/open), pr-11242 (KEP graduation-criteria doc), pure refactors with no behaviour change (pr-11144 ClusterQueueReference wrappers, pr-11179 constants alias, pr-11217 jobframework package reorg, pr-11156's mechanics beyond the Amount summary), test-infra/e2e-split/flake-timeout PRs, dependency bumps, and agent-skill/website PRs. No per-CVE pages (templated corpus).

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-06-29
 
 ---
 
@@ -32,6 +32,12 @@ A ResourceFlavor cannot be deleted while any ClusterQueue still references it �
 ## Tolerations in integrations
 
 ResourceFlavor tolerations have to reach the Pods the underlying integration creates. For PyTorchJob this was a bug in early versions ([[issue-1407]] — nodeLabels from ResourceFlavor not added as node selectors to Kubeflow PyTorchJobs). The general pattern: the integration's mutating step must merge flavor labels/tolerations into the Pod template before the Pods become visible to `kube-scheduler`.
+
+### Toleration dedup and the default `Operator` (v0.18)
+
+When admitting a workload, `PodSetInfo.Merge` (`pkg/podset/podset.go`) appends the flavor's tolerations to the Pod template, **deduplicating** against the workload's existing tolerations. The dedup originally compared `corev1.Toleration` values with Go `==`, which treats `Operator: ""` and `Operator: "Equal"` as different — but the Kubernetes API **defaults an empty toleration `Operator` to `Equal`**, so the two forms are semantically identical. A flavor toleration written one way and a Pod toleration written the other both slipped past dedup and **both got appended**, injecting a duplicate ([[pr-11147]]).
+
+The downstream symptom is nasty: on the next Pod/Job update, if a mutating webhook collapses the duplicate between Kueue's read and write, `validateOnlyAddedTolerations` rejects the update (`existing toleration can not be modified except its tolerationSeconds`) and the Pod is stuck `scheduleGated`. The fix adds a `tolerationsEqual` helper that normalizes an empty `Operator` to `Equal` before comparing.
 
 ## Related pages
 

@@ -1,10 +1,10 @@
 # Security in Kueue
 
-**Summary**: Landing page for code-security guidance applied to Kueue. Synthesizes 515 Kubernetes-ecosystem CVEs (`raw/cve/`) into the vulnerability classes and review patterns that matter for a Kueue contributor or reviewer.
+**Summary**: Landing page for code-security guidance applied to Kueue. Synthesizes 569 Kubernetes-ecosystem CVEs (`raw/cve/`) into the vulnerability classes and review patterns that matter for a Kueue contributor or reviewer.
 
-**Sources**: `raw/cve/CVE-*.md` (515 entries spanning 2018–2026, vendors include `kubernetes`, `kubernetes-sigs`, `fluxcd`, `argoproj`, `jenkins`, `redhat`, `fedoraproject`).
+**Sources**: `raw/cve/CVE-*.md` (569 entries spanning 2018–2026, vendors include `kubernetes`, `kubernetes-sigs`, `fluxcd`, `argoproj`, `jenkins`, `redhat`, `fedoraproject`).
 
-**Last updated**: 2026-05-18
+**Last updated**: 2026-06-29
 
 ---
 
@@ -33,19 +33,19 @@ External attackers without cluster credentials are *not* a direct Kueue threat: 
 
 | Category | Count | Primary CWEs |
 | --- | --- | --- |
-| Code Execution | 139 | CWE-94, CWE-78, CWE-502 |
-| Information Disclosure | 110 | CWE-200, CWE-532, CWE-522, CWE-552 |
-| Denial of Service | 83 | CWE-400, CWE-770, CWE-476 |
-| Other | 51 | mixed |
-| Privilege Escalation | 48 | CWE-269, CWE-266, CWE-276 |
+| Code Execution | 161 | CWE-94, CWE-78, CWE-502 |
+| Information Disclosure | 119 | CWE-200, CWE-532, CWE-522, CWE-552 |
+| Denial of Service | 85 | CWE-400, CWE-770, CWE-476 |
+| Privilege Escalation | 53 | CWE-269, CWE-266, CWE-276 |
+| Other | 53 | mixed |
 | Unauthorized Write Access | 30 | CWE-863, CWE-285 |
-| Authentication Bypass | 23 | CWE-287, CWE-306, CWE-352 |
-| Injection | 11 | CWE-74, CWE-77, CWE-89, CWE-918 |
-| RBAC Misconfiguration | 7 | CWE-284, CWE-862, CWE-863 |
-| Path Traversal | 7 | CWE-22, CWE-61, CWE-363 |
-| Supply Chain | 6 | CWE-295, CWE-494 |
+| Authentication Bypass | 29 | CWE-287, CWE-306, CWE-352 |
+| Injection | 13 | CWE-74, CWE-77, CWE-89, CWE-918 |
+| Path Traversal | 10 | CWE-22, CWE-61, CWE-363 |
+| RBAC Misconfiguration | 9 | CWE-284, CWE-862, CWE-863 |
+| Supply Chain | 7 | CWE-295, CWE-494 |
 
-Severity skews High (193) and Medium (221); Critical (62); Low (17). Kueue's direct exposure is concentrated in **DoS**, **info disclosure**, and **unauthorized write access** — categories where the controller-pattern code patterns map almost one-for-one onto Kueue's reconciler, scheduler, and webhook code.
+Severity skews Medium (236) and High (216); Critical (73); Low (19); plus 22 Unknown and 3 None. Kueue's direct exposure is concentrated in **DoS**, **info disclosure**, and **unauthorized write access** — categories where the controller-pattern code patterns map almost one-for-one onto Kueue's reconciler, scheduler, and webhook code.
 
 ## Where each topic lives
 

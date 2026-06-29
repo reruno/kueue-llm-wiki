@@ -1,10 +1,10 @@
 # Security — Supply Chain
 
-**Summary**: Patterns from the 6 Supply Chain CVEs in `raw/cve/`. Smallest category in the corpus, but the one whose impact scales to every Kueue deployment because a compromised release artifact affects all downstream clusters at once.
+**Summary**: Patterns from the 7 Supply Chain CVEs in `raw/cve/`. Smallest category in the corpus, but the one whose impact scales to every Kueue deployment because a compromised release artifact affects all downstream clusters at once.
 
 **Sources**: `raw/cve/` — representative entries `CVE-2020-8564.md` and other supply-chain category CVEs; CWE-295 (improper cert validation) and CWE-494 (download of code without integrity check) entries broadly.
 
-**Last updated**: 2026-05-18
+**Last updated**: 2026-06-29
 
 ---
 

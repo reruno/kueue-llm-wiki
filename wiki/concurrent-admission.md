@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/8691-concurrent-admission/README.md`, `raw/kueue/keps/8691-concurrent-admission/kep.yaml`
 
-**Last updated**: 2026-05-08
+**Last updated**: 2026-06-29
 
 ---
 
@@ -86,11 +86,24 @@ Only one Variant per Parent may be admitted at a time. The Variant controller en
 
 (source: keps/8691-concurrent-admission/README.md)
 
+## Migration policy: how an admitted Variant moves to a better flavor
+
+The ClusterQueue's `spec.concurrentAdmissionPolicy` controls what happens once one Variant is admitted. The policy has two modes (`migration.mode`), implemented in the ConcurrentAdmission controller (`pkg/controller/concurrentadmission/controller.go`):
+
+- **`TryPreferredFlavors`** (default) — keep trying to migrate the workload toward a more-favorable flavor. When a more-preferred Variant becomes admissible, the controller activates it and deactivates the currently admitted (less-favorable) Variant, so the job migrates upward.
+- **`RetainFirstAdmission`** ([[pr-11236]], fixes [[issue-10911]]) — once **any** Variant is admitted, deactivate **every other** Variant and never migrate. The workload is pinned to its first admitted flavor permanently, even if a more-preferred flavor frees up later. Useful when migration churn (pod recreation) is more expensive than running on a sub-optimal flavor. (The mode was implemented as `HoldFirstAdmission` and renamed to `RetainFirstAdmission` just before merge.)
+
+### Flavor floor: `minPreferredFlavorName` / `lastAcceptableFlavor`
+
+`spec.concurrentAdmissionPolicy.migration.constraints.minPreferredFlavorName` (a `ResourceFlavorReference`, optional) names the **lowest-ordered flavor that is still acceptable to migrate to**. Under `TryPreferredFlavors`, when a sibling Variant is already running, the scheduler's `isMigrationAllowed` check ([[pr-11125]]) **blocks** migrating the workload to any flavor ranked *below* (higher index in `resourceGroups[0].flavors`) this floor. With the field unset (or the flavor unresolvable) migration is unconstrained. The companion field was renamed `lastAcceptableFlavor` in follow-up work.
+
+A validation webhook rule ([[pr-11126]], `validateConcurrentAdmissionPolicy` in `clusterqueue_webhook.go`) rejects a ClusterQueue whose `minPreferredFlavorName` does not name a flavor that actually exists in the ResourceGroup's flavor list. This sits alongside the pre-existing rule that a ConcurrentAdmission ResourceGroup may not exceed 16 resource flavors.
+
 ## Implementation details (v0.18 hardening)
 
 ### Variant scheduling-equivalence hash
 
-Kueue's scheduler skips re-evaluating Workloads whose **scheduling hash** matches one already determined inadmissible in the same cycle (the SchedulingEquivalenceHashing optimization). Variants of the same Parent share PodSets and most spec fields, so without an extra disambiguator they would all hash to the same value and only the first Variant's NoFit decision would matter — a pessimistic same-flavor result on Variant A would suppress Variant B even though B targets a different ResourceFlavor.
+Kueue's scheduler skips re-evaluating Workloads whose **scheduling hash** matches one already determined inadmissible in the same cycle (the `SchedulingEquivalenceHashing` optimization — graduated to **Beta, default on, in v0.18** via [[pr-11097]]; see [[feature-gates]]). Variants of the same Parent share PodSets and most spec fields, so without an extra disambiguator they would all hash to the same value and only the first Variant's NoFit decision would matter — a pessimistic same-flavor result on Variant A would suppress Variant B even though B targets a different ResourceFlavor.
 
 [[pr-10910]] adds the `kueue.x-k8s.io/allowed-resource-flavor` annotation (`WorkloadAllowedResourceFlavorAnnotation`) into the scheduling-hash computation, so each Variant gets its own bucket and is evaluated independently.
 
