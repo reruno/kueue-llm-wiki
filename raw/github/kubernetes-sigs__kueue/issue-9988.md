@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9988
 
-**Last updated**: 2026-06-04T12:00:30Z
+**Last updated**: 2026-06-19T13:41:17Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open (reopened)
 - **Author**: [@olekzabl](https://github.com/olekzabl)
 - **Created**: 2026-03-18T18:41:54Z
-- **Updated**: 2026-06-04T12:00:30Z
+- **Updated**: 2026-06-19T13:41:17Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `area/multikueue`
 - **Assignees**: [@olekzabl](https://github.com/olekzabl), [@Singularity23x0](https://github.com/Singularity23x0)
-- **Comments**: 4
+- **Comments**: 5
 
 ## Description
 
@@ -75,3 +75,7 @@ Instructions for interacting with me using PR comments are available [here](http
 ### Comment by [@michael-pryor](https://github.com/michael-pryor) — 2026-06-04T12:00:30Z
 
 +1 from a production user perspective. We're also tracking KEP-10270 (NodeQuotaPolicy) for the single-cluster side of this — the combination of auto-detecting worker capacity from nodes (#10270) and aggregating it at the manager level (#9988) would fully automate our quota management.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-19T13:41:16Z
+
+This touches the more generic problem of an API which will work across multiple use cases. I opened the umbrella issue to come up with a consistent API: https://github.com/kubernetes-sigs/kueue/issues/12382

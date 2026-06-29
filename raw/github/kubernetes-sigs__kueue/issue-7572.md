@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7572
 
-**Last updated**: 2026-04-18T12:16:56Z
+**Last updated**: 2026-06-12T22:44:17Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2025-11-07T01:41:15Z
-- **Updated**: 2026-04-18T12:16:56Z
+- **Updated**: 2026-06-12T22:44:17Z
 - **Closed**: —
-- **Labels**: `priority/important-longterm`, `lifecycle/rotten`, `kind/documentation`
-- **Assignees**: _none_
-- **Comments**: 3
+- **Labels**: `priority/important-longterm`, `kind/documentation`
+- **Assignees**: [@iasolanki](https://github.com/iasolanki)
+- **Comments**: 4
 
 ## Description
 
@@ -100,3 +100,16 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@iasolanki](https://github.com/iasolanki) — 2026-06-12T22:40:48Z
+
+/remove-lifecycle rotten
+/assign
+
+Quick note on scope: the condition set on current main differs from the list above —
+`WaitingForAdmission` and `Dequeued` don't exist as condition types; the actual set in
+apis/kueue/v1beta2/workload_types.go is: Admitted, BlockedOnPreemptionGates, QuotaReserved,
+Finished, PodsReady, Evicted, Preempted, Requeued, DeactivationTarget. I'll document those 9
+plus their reason constants and transitions. Plan: enrich the godoc on the condition
+constants (which feeds the generated API reference) and add a lifecycle section to the
+Workload concepts page. Will share a draft PR for early feedback.

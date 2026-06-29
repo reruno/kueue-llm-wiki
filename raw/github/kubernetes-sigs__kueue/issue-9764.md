@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9764
 
-**Last updated**: 2026-06-07T16:06:47Z
+**Last updated**: 2026-06-22T05:53:37Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-03-09T16:06:04Z
-- **Updated**: 2026-06-07T16:06:47Z
-- **Closed**: —
+- **Updated**: 2026-06-22T05:53:37Z
+- **Closed**: 2026-06-22T05:53:37Z
 - **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 2
+- **Comments**: 3
 
 ## Description
 
@@ -58,3 +58,8 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle stale
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-22T05:53:37Z
+
+/close
+As we already have the debugger skill: https://github.com/kubernetes-sigs/kueue/tree/main/cmd/experimental/skills/kueue-flake-debugger

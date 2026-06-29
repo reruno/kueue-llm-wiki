@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9145
 
-**Last updated**: 2026-05-19T07:11:57Z
+**Last updated**: 2026-06-09T09:54:00Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-02-12T09:09:34Z
-- **Updated**: 2026-05-19T07:11:57Z
+- **Updated**: 2026-06-09T09:54:00Z
 - **Closed**: —
 - **Labels**: `kind/feature`
-- **Assignees**: [@mykysha](https://github.com/mykysha), [@mbobrovskyi](https://github.com/mbobrovskyi)
-- **Comments**: 5
+- **Assignees**: [@mykysha](https://github.com/mykysha)
+- **Comments**: 6
 
 ## Description
 
@@ -56,3 +56,7 @@ Hey @mimowo @mykysha @mbobrovskyi, just want to ask about the current status of 
 Hi @Jefftree! I am currently working on this, have managed to reproduce the issue locally using the script that mostly follows the scenario described in the commend linked above, and have verified that enabling ConcurrentWatchObjectDecode and re-running the script resolves the problem. The main obstacle was not the script itself, but finding the right variables for kueue and workload configurations.
 
 Currently working on focusing the script on the conversion webhook only and cleaning the script up, after which will be creating a PR. Will also be making a scenario for a cloud cluster setup.
+
+### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-06-09T09:53:58Z
+
+/unassign

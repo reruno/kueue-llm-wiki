@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8257
 
-**Last updated**: 2026-05-20T10:53:25Z
+**Last updated**: 2026-06-16T23:00:19Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-12-16T10:02:04Z
-- **Updated**: 2026-05-20T10:53:25Z
+- **Updated**: 2026-06-16T23:00:19Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `priority/important-longterm`
 - **Assignees**: [@ShaanveerS](https://github.com/ShaanveerS)
-- **Comments**: 5
+- **Comments**: 10
 
 ## Description
 
@@ -76,3 +76,37 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@ShaanveerS](https://github.com/ShaanveerS) — 2026-05-20T10:53:22Z
 
 /assign
+
+### Comment by [@amy](https://github.com/amy) — 2026-06-16T17:34:13Z
+
+@mimowo Node prefix is kind of weird as a convention. Can you do something that groups labels instead?
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-16T18:32:19Z
+
+This issue is not about changing the convention just growing the number of supported nodes within the convention. 
+
+So your question is valid but I think something already designed. The motivation for using node names are two fold
+1. uniqueness ensured, no need for extra validations across cluster
+2. They are already ootb on every cloud, requiring a new label to indicate a node would cause friction for adoption of TAS
+
+### Comment by [@amy](https://github.com/amy) — 2026-06-16T22:07:28Z
+
+@mimowo specifically, I need label support within the algorithm. (we dont denote topology via node name like this) So the mechanism needs to have a swappable entrypoint for labels vs. node name when it parses topology
+
+### Comment by [@olekzabl](https://github.com/olekzabl) — 2026-06-16T22:52:43Z
+
+@amy In my eyes, this issue is _only_ about _byte-packing_ the (JSON) representation of a TopologyAssignment.
+Node names appear in TopologyAssignments, and take plenty bytes, leading to scalability bottlenecks.
+So it's beneficial to extract common prefixes, to be able to pack more nodes within a single etcd entry (1.5 MiB limit).
+
+Extracting these prefixes has _nothing to do_ with the actual topology.
+We make _no assumptions_ how "sharing a name prefix" relates to being "topologically close".
+
+So I don't see how labels would plug into this story.
+
+Also, note that `Topology` already supports defining topology in terms of arbitrarily chosen Node labels.
+Is there some extra functionality you'd need?
+
+### Comment by [@amy](https://github.com/amy) — 2026-06-16T23:00:02Z
+
+@olekzabl ah ok. Thanks for the clarification. I misinterpreted this as something more fundamental about the TAS algorithm changing based off node names. Removing my hold.

@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/4803
 
-**Last updated**: 2026-06-05T12:32:50Z
+**Last updated**: 2026-06-25T21:14:17Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open (reopened)
 - **Author**: [@KPostOffice](https://github.com/KPostOffice)
 - **Created**: 2025-03-26T20:01:24Z
-- **Updated**: 2026-06-05T12:32:50Z
+- **Updated**: 2026-06-25T21:14:17Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `lifecycle/rotten`
 - **Assignees**: [@MaysaMacedo](https://github.com/MaysaMacedo)
-- **Comments**: 19
+- **Comments**: 22
 
 ## Description
 
@@ -248,3 +248,17 @@ really looking forward to this feature!!! what is the progress?
 ### Comment by [@kimminw00](https://github.com/kimminw00) — 2026-06-05T06:55:01Z
 
 Heterogeneous workloads have very different readiness characteristics—large distributed jobs take much longer to become ready, while smaller jobs complete quickly. With `waitForPodsReady` configured globally, it is difficult to find a single value that fits all workloads in a congested, multi-tenant cluster. Short timeouts can cause premature eviction for large jobs, while long timeouts can delay smaller workloads and reduce overall efficiency. As a result, a one-size-fits-all configuration often leads to suboptimal scheduling behavior. For this reason, supporting `waitForPodsReady` at the Workload level is highly desirable and necessary to achieve efficient and reliable scheduling across diverse workloads.
+
+### Comment by [@MaysaMacedo](https://github.com/MaysaMacedo) — 2026-06-25T20:32:03Z
+
+@KPostOffice @mimowo
+Is the intent to have all the fields from the `WaitForPodsReady` like (`Timeout` , `BlockAdmission`, `RequeuingStrategy`, `RecoveryTimeout`) supported per Job/Workload level? or should only the `Timeout` be allowed at that level?
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-25T20:48:03Z
+
+One puzzle to me is the semantics of waitForPodsReady enabled by workload while disabled globally. Should we then ignore per-workload, or respect? Making sure waitForPodsReady is always enabled makes it this scenario go away, releated to this discussion: https://github.com/kubernetes-sigs/kueue/pull/11855#discussion_r3475811314
+
+### Comment by [@MaysaMacedo](https://github.com/MaysaMacedo) — 2026-06-25T21:14:16Z
+
+Good point, I'm also not sure.
+BTW, have you guys seen people configuring all the `WaitForPodsReady` fields or just `Timeout`? Perhaps if that is the one most configured we should consider only that field for MVP.

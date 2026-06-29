@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8826
 
-**Last updated**: 2026-04-30T14:29:41Z
+**Last updated**: 2026-06-19T13:42:13Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-01-27T15:22:41Z
-- **Updated**: 2026-04-30T14:29:41Z
+- **Updated**: 2026-06-19T13:42:13Z
 - **Closed**: —
 - **Labels**: `kind/feature`
 - **Assignees**: [@mwielgus](https://github.com/mwielgus)
-- **Comments**: 7
+- **Comments**: 8
 
 ## Description
 
@@ -100,3 +100,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-04-30T14:29:41Z
 
 We are planning to target v0.19 for this enhancement "for now".
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-19T13:42:13Z
+
+This touches the more generic problem of an API which will work across multiple use cases. I opened the umbrella issue to come up with a consistent API: https://github.com/kubernetes-sigs/kueue/issues/12382

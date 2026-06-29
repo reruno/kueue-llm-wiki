@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/3994
 
-**Last updated**: 2026-05-08T21:50:29Z
+**Last updated**: 2026-06-11T12:25:22Z
 
 ---
 
@@ -13,7 +13,7 @@
 - **State**: closed (not_planned)
 - **Author**: [@kevin85421](https://github.com/kevin85421)
 - **Created**: 2025-01-17T06:34:10Z
-- **Updated**: 2026-05-08T21:50:29Z
+- **Updated**: 2026-06-11T12:25:22Z
 - **Closed**: 2026-03-05T17:19:50Z
 - **Labels**: `kind/feature`, `lifecycle/rotten`
 - **Assignees**: _none_
@@ -256,4 +256,4 @@ Instructions for interacting with me using PR comments are available [here](http
 
 ### Comment by [@khoover](https://github.com/khoover) — 2026-05-08T21:50:29Z
 
-Can this be reopened? At minimum the webhook line in https://github.com/kubernetes-sigs/kueue/issues/3994#issuecomment-2598611009 is going to need to be modified, since that setting is incompatible with the deletion policies.
+Can this be reopened? At minimum the webhook line in https://github.com/kubernetes-sigs/kueue/issues/3994#issuecomment-2598611009 is going to need to be modified, since that setting is incompatible with the deletion policies. This also seems like exactly what [dynamic reclaim](https://kueue.sigs.k8s.io/docs/concepts/workload/#dynamic-reclaim) is meant for, have the RayJob integration declare the worker pods are reclaimable while the head pod continues on.

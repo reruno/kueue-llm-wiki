@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8498
 
-**Last updated**: 2026-04-13T06:22:11Z
+**Last updated**: 2026-06-15T11:07:45Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2026-01-09T14:55:24Z
-- **Updated**: 2026-04-13T06:22:11Z
-- **Closed**: —
+- **Updated**: 2026-06-15T11:07:45Z
+- **Closed**: 2026-06-15T11:07:45Z
 - **Labels**: `kind/cleanup`
-- **Assignees**: [@mbobrovskyi](https://github.com/mbobrovskyi)
-- **Comments**: 4
+- **Assignees**: [@pacoxu](https://github.com/pacoxu)
+- **Comments**: 8
 
 ## Description
 
@@ -64,3 +64,19 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-04-13T06:22:11Z
 
 @mbobrovskyi is still working on this
+
+### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-06-09T09:53:13Z
+
+/unassign
+
+### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-06-09T09:53:23Z
+
+/assign @pacoxu
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-10T18:34:01Z
+
+x-referencing the PR solving the upgrade: https://github.com/kubernetes-sigs/kueue/pull/11981
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-15T11:07:45Z
+
+This is already done here: https://github.com/kubernetes-sigs/kueue/pull/12165

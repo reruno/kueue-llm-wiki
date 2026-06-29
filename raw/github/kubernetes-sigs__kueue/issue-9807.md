@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9807
 
-**Last updated**: 2026-03-24T13:11:48Z
+**Last updated**: 2026-06-22T13:15:27Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@noammualmiw](https://github.com/noammualmiw)
 - **Created**: 2026-03-11T15:30:09Z
-- **Updated**: 2026-03-24T13:11:48Z
+- **Updated**: 2026-06-22T13:15:27Z
 - **Closed**: —
-- **Labels**: `kind/support`
+- **Labels**: `kind/support`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 2
+- **Comments**: 3
 
 ## Description
 
@@ -50,3 +50,23 @@ One mechanism you can get close to is workload deactivation - write a small exte
 We using Kueue for AI reference and GitHub runners.
 Most of the item if a runner got evicted by high priority we won't need it to be Requeued, only run it separately from GitHub again (i fear it will cause integration issues).
 Also another use-case is Kubevirt VM's (using pods resources Kueue) ,  we won't need it readmitted after preemption.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-06-22T13:15:24Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

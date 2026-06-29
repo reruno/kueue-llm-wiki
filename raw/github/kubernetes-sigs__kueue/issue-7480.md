@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7480
 
-**Last updated**: 2026-05-16T02:38:46Z
+**Last updated**: 2026-06-09T09:52:47Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-10-31T11:20:13Z
-- **Updated**: 2026-05-16T02:38:46Z
+- **Updated**: 2026-06-09T09:52:47Z
 - **Closed**: —
 - **Labels**: `priority/important-soon`, `kind/cleanup`, `lifecycle/frozen`
 - **Assignees**: [@amy](https://github.com/amy), [@mbobrovskyi](https://github.com/mbobrovskyi)
-- **Comments**: 14
+- **Comments**: 15
 
 ## Description
 
@@ -144,3 +144,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 > @amy, are you planning to finish this?
 
 yeah... eventually. But someone else can pick it up if they want.
+
+### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-06-09T09:52:47Z
+
+/uassign

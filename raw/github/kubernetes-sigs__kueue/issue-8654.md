@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8654
 
-**Last updated**: 2026-05-19T09:50:54Z
+**Last updated**: 2026-06-19T13:42:20Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@saza-ku](https://github.com/saza-ku)
 - **Created**: 2026-01-19T10:01:13Z
-- **Updated**: 2026-05-19T09:50:54Z
+- **Updated**: 2026-06-19T13:42:20Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `lifecycle/stale`, `priority/important-longterm`
+- **Labels**: `kind/feature`, `priority/important-longterm`
 - **Assignees**: _none_
-- **Comments**: 15
+- **Comments**: 18
 
 ## Description
 
@@ -242,3 +242,31 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle stale
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-06-18T10:20:31Z
+
+The Kubernetes project currently lacks enough active contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle rotten`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle rotten
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-18T10:36:42Z
+
+/remove-lifecycle rotten
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-19T13:42:20Z
+
+This touches the more generic problem of an API which will work across multiple use cases. I opened the umbrella issue to come up with a consistent API: https://github.com/kubernetes-sigs/kueue/issues/12382

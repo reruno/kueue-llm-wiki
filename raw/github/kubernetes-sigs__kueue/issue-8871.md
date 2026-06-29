@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8871
 
-**Last updated**: 2026-06-08T09:58:15Z
+**Last updated**: 2026-06-15T13:47:52Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-01-29T13:42:58Z
-- **Updated**: 2026-06-08T09:58:15Z
+- **Updated**: 2026-06-15T13:47:52Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `wg/workload-aware-scheduling`
 - **Assignees**: [@kshalot](https://github.com/kshalot)
-- **Comments**: 10
+- **Comments**: 12
 
 ## Description
 
@@ -105,3 +105,15 @@ Instructions for interacting with me using PR comments are available [here](http
 ### Comment by [@helayoty](https://github.com/helayoty) — 2026-06-02T16:32:41Z
 
 /wg workload-aware-scheduling
+
+### Comment by [@sohankunkerkar](https://github.com/sohankunkerkar) — 2026-06-10T15:50:17Z
+
+@kshalot, could you provide some updates on where we are with the scheduler library effort? I haven't seen any activity in the codebase for the last two months.
+
+### Comment by [@kshalot](https://github.com/kshalot) — 2026-06-15T13:47:38Z
+
+@sohankunkerkar I wrote a proof-of-concept minimal integration back in May before I had to temporarily drop this in favor of bigger priorities.
+
+Today I got back to this and I opened https://github.com/kubernetes-sigs/kueue/pull/12256 where the plan is to get a foot in the door with the `scheduler-library` package and do some naive state tracking to have a baseline performance reading that we can iterate on (nodes only with pods tracking and a full fit check coming next).
+
+Meanwhile, we also have to wait for https://github.com/kubernetes-sigs/scheduler-library/pull/2 to be merged so we don't merge code which relies on a fork.

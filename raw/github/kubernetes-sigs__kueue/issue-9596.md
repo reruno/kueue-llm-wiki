@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9596
 
-**Last updated**: 2026-03-20T03:30:51Z
+**Last updated**: 2026-06-18T08:33:16Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@lukasmrtvy](https://github.com/lukasmrtvy)
 - **Created**: 2026-02-28T07:25:42Z
-- **Updated**: 2026-03-20T03:30:51Z
+- **Updated**: 2026-06-18T08:33:16Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 3
+- **Comments**: 5
 
 ## Description
 
@@ -67,3 +67,27 @@ We would like to have something similar as well. The priority boost introduced i
 
 Please review https://github.com/epam/kubernetes-kueue/blob/priority-boost-controller/cmd/experimental/priority-boost-controller/README.md
 I think we can continue the collaboration on https://github.com/kubernetes-sigs/kueue/pull/9959 if it suites your needs
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-06-18T04:18:32Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@vladikkuzn](https://github.com/vladikkuzn) — 2026-06-18T08:33:16Z
+
+@lukasmrtvy please close the issue if priority booster has suited you

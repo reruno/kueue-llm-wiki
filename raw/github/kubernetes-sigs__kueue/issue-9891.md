@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9891
 
-**Last updated**: 2026-03-18T20:12:42Z
+**Last updated**: 2026-06-16T21:08:24Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@tradeqvest](https://github.com/tradeqvest)
 - **Created**: 2026-03-16T11:04:43Z
-- **Updated**: 2026-03-18T20:12:42Z
+- **Updated**: 2026-06-16T21:08:24Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 11
+- **Comments**: 12
 
 ## Description
 
@@ -138,3 +138,23 @@ Why couldn't you use KEDA with the metric that reflects how much quota is unused
 ### Comment by [@kannon92](https://github.com/kannon92) — 2026-03-18T20:12:42Z
 
 The main blocker for you is that Job does not actually support /scale subresource so you can't actually use HPA/KEDA anyway.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-06-16T21:08:22Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
