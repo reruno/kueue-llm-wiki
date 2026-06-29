@@ -28,6 +28,8 @@ snapshot, err := s.cache.Snapshot(ctx, snapshotOpts...)
 
 An immutable snapshot of all ClusterQueue/Cohort usage and quotas is taken. The scheduler works entirely against this snapshot — it does not re-read from the live cache during a cycle. If [[admission-fair-sharing]] is enabled, AFS penalties and consumed-resource data are injected into the snapshot here. (source: pkg/scheduler/scheduler.go)
 
+`Snapshot()` runs under the cache's **read lock** and must not mutate cache state. A TAS ClusterQueue whose TAS usage is not yet synced is therefore *skipped* rather than synced inline — see [[cache-architecture#Snapshot is strictly read-only]] ([[pr-11286]]). (source: pkg/scheduler/scheduler.go)
+
 ### Phase 3: Nominate
 
 ```go
@@ -70,7 +72,16 @@ All entries not `assumed` (successfully admitted) or `evicted` are re-queued wit
 
 `Manager.RequeueWorkload` is called from many places (eviction, condition flips, finished-cleanup). It must refuse to enqueue Workloads that have already become inadmissible — specifically, anything where `workload.IsAdmissible(&w)` is false (e.g. `Finished=True`, deactivated, owner gone). Without this guard, a Workload that is concurrently marked Finished can be re-added to the queue and then keep winning the fair-sharing tournament in subsequent cycles, blocking other Workloads from making progress (the scheduler skips it once it sees the Finished condition, but the head-slot is consumed). [[pr-11014]] tightens `RequeueWorkload` to drop inadmissible Workloads. Part of [[issue-10901]].
 
-The same issue motivated the [[failure-recovery]]-related FG **`FinishOrphanedWorkloads`** to be downgraded to Alpha in [[pr-11010]] (release note: "Fix the bug that Kueue may mark workloads as finished immediately after their creation, which could result in blocking the queues by such a workload"). The root cause is that `workload_controller` queries owners via `PartialObjectMetadata`, which has its own informer separate from the structured per-kind informer used by the JobReconciler — the JobReconciler can already see the JobSet and create the Workload before the metadata informer has caught up, so the workload controller sees an absent owner and finishes the Workload as orphaned. Until a structural fix lands, operators on v0.16.6+/v0.17.x can disable `FinishOrphanedWorkloads` to avoid the regression.
+The same issue motivated the [[failure-recovery]]-related FG **`FinishOrphanedWorkloads`** to be downgraded to Alpha in [[pr-11010]] (release note: "Fix the bug that Kueue may mark workloads as finished immediately after their creation, which could result in blocking the queues by such a workload"). The root cause is that `workload_controller` queries owners via `PartialObjectMetadata`, which has its own informer separate from the structured per-kind informer used by the JobReconciler — the JobReconciler can already see the JobSet and create the Workload before the metadata informer has caught up, so the workload controller sees an absent owner and finishes the Workload as orphaned. The structural fix landed in [[pr-11296]] (`ReconcileGenericJob` only *finishes* an orphaned Workload under the proper conditions instead of finishing it right after owner creation), and the gate was re-graduated to **Beta, default-on at v0.18** as part of the same PR. See [[workload-garbage-collection]] and [[feature-gates]].
+
+### Admitted workloads must leave `preemptionExpectations`
+
+When the scheduler issues preemptions for a workload, it records the targets in an in-memory `preemptionExpectations` map and refuses to re-issue the same preemption until it has *observed* the eviction (this is what produces the "Preemption already issued, waiting for observation" head-of-line behaviour). Because admission is asynchronous (Phase 8), a subtle race existed ([[issue-11480]], fixed by [[pr-11502]] on main; manual cherry-picks [[pr-11648]]/0.17, [[pr-11647]]/0.16): the admission patch for a lower-priority workload `wl1` is written with Server-Side Apply and **omits** the `Evicted` condition, so a lagging admission goroutine from an earlier cycle could overwrite a concurrent eviction of `wl1` triggered by a higher-priority `wl2`. The consequences were severe and observed in production:
+
+- **Stuck preemption / head-of-line blocking** — `wl1` keeps its quota reservation, `wl2`'s eviction is never observed in `preemptionExpectations`, so `wl2` waits indefinitely and the ClusterQueue stops admitting entirely.
+- **Quota oversubscription** — alternatively, the goroutine admits an already-evicted workload with no quota check.
+
+The fix guarantees that once a workload is Admitted it is removed from `preemptionExpectations` (a new `scheduler.WithPreemptionExpectations(...)` option wires this and is now required by the inadmissible integration suite). See [[preemption]].
 
 ## FlavorAssigner
 

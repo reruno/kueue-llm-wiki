@@ -33,6 +33,8 @@ Every integration must implement `GenericJob` (defined in `pkg/controller/jobfra
 
 (source: pkg/controller/jobframework/interface.go)
 
+> **Signature change (action-required, [[pr-11310]]).** Removing global state from the TrainJob reconciler required passing the controller-runtime `client.Client` explicitly into several `GenericJob` methods rather than capturing it in package-level state. As of this change, `RunWithPodSetsInfo`, `PodSets`, `PodsReady`, and `ReclaimablePods` (the last on `JobWithReclaimablePods`) all take the client as an argument. This is a job-framework interface change that affects **every** integration, not just TrainJob — in-house/out-of-tree integrations must update their method signatures when upgrading.
+
 ## Optional interfaces
 
 Additional optional interfaces enable specific features:

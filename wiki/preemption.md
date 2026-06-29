@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-06-29
 
 ---
 
@@ -39,6 +39,10 @@ When fair-sharing is enabled, priority-based preemption interacts non-trivially.
 ## Overadmission
 
 Preemption accounting must stay consistent with quota: if a CQ's quota is reduced while workloads are admitted, Kueue cannot retroactively evict them — they "overadmit" until they finish ([[issue-2678]] — overadmission after deleting resource from a borrowing CQ). Similarly, unexpected preemption between CQs in a cohort is usually an accounting edge case ([[issue-3210]]).
+
+## The `preemptionExpectations` store
+
+After the scheduler issues preemptions for a workload it records the targets in an in-memory `preemptionExpectations` map and will not re-issue the same preemption until it observes the eviction (this is the "Preemption already issued, waiting for observation" behaviour). Because admission is *asynchronous*, an admitted workload that was never removed from `preemptionExpectations` could wedge a whole ClusterQueue: the eviction of a lower-priority victim gets overwritten by a lagging Server-Side-Apply admission patch (which omits the `Evicted` condition), so the preemptor waits forever (head-of-line blocking) or, alternatively, the goroutine admits an already-evicted workload with no quota check (oversubscription). This was a confirmed production outage ([[issue-11480]], fixed in [[pr-11502]]; manual cherry-picks [[pr-11648]]/0.17, [[pr-11647]]/0.16, shipped in v0.17.4 / v0.16.9). The fix guarantees a workload is dropped from `preemptionExpectations` once it becomes Admitted. Full mechanics on [[scheduler-internals#Admitted workloads must leave preemptionExpectations]].
 
 ## Related pages
 

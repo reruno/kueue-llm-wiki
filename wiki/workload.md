@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-06-29
 
 ---
 
@@ -31,6 +31,8 @@ There was historical discussion about letting users supply a Workload directly v
 Each PodSet has a `count` (replica count) and a `template` (full `PodTemplateSpec`). Kueue sizes quota requests per PodSet: if PodSet A needs 8 GPUs×4 replicas, that's 32 GPUs. Total Workload quota is the sum across PodSets.
 
 The `PodSetAssignments` in `status.admission.podSetAssignments[]` mirrors the PodSet array and records the flavor chosen per PodSet ([[issue-1163]]). PodSetAssignments count must equal PodSet count.
+
+**Maximum PodSets per Workload.** `spec.podSets` is length-validated; the cap was raised from **8 to 10** in [[pr-11388]] (fixes/relates to [[issue-11379]], which requested 16). The cap is deliberately conservative rather than unbounded because [[topology-aware-scheduling]] flavor-assignment cost scales roughly as `flavors × PodSets`. The practical motivation is Ray: one PodSet is reserved for the Ray head group, so raising the cap to 10 lets a RayCluster/RayJob/RayService declare up to **9 worker groups** (was 7). See [[integration-rayjob]].
 
 For TAS-enabled flavors, each assignment also includes a `topologyAssignment` listing domain→count tuples — see [[topology-aware-scheduling]].
 

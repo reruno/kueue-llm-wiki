@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-05-08
+**Last updated**: 2026-06-29
 
 ---
 
@@ -18,6 +18,7 @@ Representative release tracking issues:
 - v0.5.0 ([[issue-1256]]), v0.5.1 ([[issue-1368]]), v0.5.2 ([[issue-1539]]).
 - v0.15.8 ([[issue-10054]]), v0.16.5 ([[issue-10053]]), v0.16.6 ([[issue-10476]]), v0.17.1 ([[issue-10477]]).
 - v0.16.7 ([[issue-10706]]), v0.17.2 ([[issue-10705]]) — paired patch releases on 2026-04-30 carrying CQ-finalizer fix ([[pr-10821]]), TAS stateWithLeader / NodeHotSwap fixes, FailureRecovery terminal-pod handling ([[pr-10853]]), and Helm/KueueViz fixes (#10977 / #10978 / #10979).
+- v0.16.9 ([[issue-11360]]), v0.17.4 ([[issue-11359]]) — paired patch releases carrying the MultiKueue connection-health fixes (per-cluster reconcile lock [[pr-11332]]/[[pr-11333]]; exponential watch-establish timeout [[pr-11328]]/[[pr-11329]]), the MultiKueue AllAtOnce eviction-race fixes ([[pr-11472]]/[[pr-11473]] and [[pr-11507]]/[[pr-11508]]), the TAS multi-PodSet pod-count fix ([[pr-11326]]/[[pr-11331]]), the finished-Workload GC finalizer fix ([[pr-11307]]/[[pr-11308]]), and the scheduler `preemptionExpectations` race fix ([[pr-11648]]/[[pr-11647]]).
 - v0.18 plan ([[issue-10261]] — "☂️ Release 0.18 plan" umbrella issue); v0.18.0 release tracking ([[issue-10861]]).
 
 ## v0.18.0 highlights (released 2026-05; RC1 on 2026-05-06)

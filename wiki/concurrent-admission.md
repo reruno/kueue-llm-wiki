@@ -93,11 +93,13 @@ The ClusterQueue's `spec.concurrentAdmissionPolicy` controls what happens once o
 - **`TryPreferredFlavors`** (default) — keep trying to migrate the workload toward a more-favorable flavor. When a more-preferred Variant becomes admissible, the controller activates it and deactivates the currently admitted (less-favorable) Variant, so the job migrates upward.
 - **`RetainFirstAdmission`** ([[pr-11236]], fixes [[issue-10911]]) — once **any** Variant is admitted, deactivate **every other** Variant and never migrate. The workload is pinned to its first admitted flavor permanently, even if a more-preferred flavor frees up later. Useful when migration churn (pod recreation) is more expensive than running on a sub-optimal flavor. (The mode was implemented as `HoldFirstAdmission` and renamed to `RetainFirstAdmission` just before merge.)
 
-### Flavor floor: `minPreferredFlavorName` / `lastAcceptableFlavor`
+### Flavor floor: `lastAcceptableFlavorName` (renamed from `minPreferredFlavorName`)
 
-`spec.concurrentAdmissionPolicy.migration.constraints.minPreferredFlavorName` (a `ResourceFlavorReference`, optional) names the **lowest-ordered flavor that is still acceptable to migrate to**. Under `TryPreferredFlavors`, when a sibling Variant is already running, the scheduler's `isMigrationAllowed` check ([[pr-11125]]) **blocks** migrating the workload to any flavor ranked *below* (higher index in `resourceGroups[0].flavors`) this floor. With the field unset (or the flavor unresolvable) migration is unconstrained. The companion field was renamed `lastAcceptableFlavor` in follow-up work.
+`spec.concurrentAdmissionPolicy.migration.constraints.lastAcceptableFlavorName` (a `ResourceFlavorReference`, optional) names the **lowest-ordered flavor that is still acceptable to migrate to**. Under `TryPreferredFlavors`, when a sibling Variant is already running, the scheduler's `isMigrationAllowed` check ([[pr-11125]]) **blocks** migrating the workload to any flavor ranked *below* (higher index in `resourceGroups[0].flavors`) this floor. With the field unset (or the flavor unresolvable) migration is unconstrained.
 
-A validation webhook rule ([[pr-11126]], `validateConcurrentAdmissionPolicy` in `clusterqueue_webhook.go`) rejects a ClusterQueue whose `minPreferredFlavorName` does not name a flavor that actually exists in the ResourceGroup's flavor list. This sits alongside the pre-existing rule that a ConcurrentAdmission ResourceGroup may not exceed 16 resource flavors.
+> **Field rename.** This field was originally introduced as `minPreferredFlavorName` and renamed to `lastAcceptableFlavorName` across the codebase in [[pr-11317]] (no remaining references to the old name). Use `lastAcceptableFlavorName`.
+
+A validation webhook rule ([[pr-11126]], `validateConcurrentAdmissionPolicy` in `clusterqueue_webhook.go`) rejects a ClusterQueue whose `lastAcceptableFlavorName` does not name a flavor that actually exists in the ResourceGroup's flavor list. This sits alongside the pre-existing rule that a ConcurrentAdmission ResourceGroup may not exceed 16 resource flavors.
 
 ## Implementation details (v0.18 hardening)
 

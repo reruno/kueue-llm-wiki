@@ -20,7 +20,7 @@ LWS supports `startupPolicy: LeaderCreated` or `LeaderReady`. Kueue's integratio
 
 ## Name length
 
-"Kueue fails for run LWS with long name" ([[issue-10032]]) — a naming-collision/derivation edge case specific to the integration.
+"Kueue fails for run LWS with long name" ([[issue-10032]]) — a naming-collision/derivation edge case specific to the integration. The concrete failure: an LWS whose name exceeded **39 characters** failed to create Pods with `metadata.labels: Invalid value`, because the integration set the PodGroup identifiers `kueue.x-k8s.io/pod-group-name` and `kueue.x-k8s.io/prebuilt-workload-name` as **labels**, whose values are capped at 63 characters. The fix ([[pr-11409]], cherry-pick of #10311) introduces the **`WorkloadIdentifierAnnotations`** feature gate (default-enabled — see [[feature-gates]]) that lets those identifiers be carried as annotations instead of labels; LWS now uses the annotation counterparts, raising the supported name length to **52 characters**. Labels remain a valid way to manually define a PodGroup (see [[integration-plain-pod]]).
 
 ## NodeSelector mutation
 

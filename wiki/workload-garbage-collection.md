@@ -48,7 +48,11 @@ objectRetentionPolicies:
 
 KEP-1618 assumed finished Workloads carry no finalizers, so the GC path called `client.Delete()` directly. **WorkloadSlices** (added later, for [[elastic-jobs]]) broke that assumption: a slice is finished by the *scheduler* (`replaceWorkloadSlice → workload.Finish`), which sets the `Finished` condition but does **not** remove the `resource-in-use` finalizer (only the job-reconciler finalize path does). So when the retention window elapsed, Kubernetes set `deletionTimestamp` but the object stuck forever ([[pr-11181]], fixes [[issue-11130]]).
 
-The fix introduces a `workload.Delete(ctx, c, wl) (bool, error)` helper that **removes the finalizer first, then deletes**. If deletion is already in progress (`DeletionTimestamp` set), removing the finalizer alone lets Kubernetes finish cleanup, so it returns `false` (no second delete) and the GC path only emits the "Deleted" event when a delete was actually requested.
+The fix introduces a `workload.Delete(ctx, c, wl) (bool, error)` helper that **removes the finalizer first, then deletes**. If deletion is already in progress (`DeletionTimestamp` set), removing the finalizer alone lets Kubernetes finish cleanup, so it returns `false` (no second delete) and the GC path only emits the "Deleted" event when a delete was actually requested. The fix was cherry-picked to the release branches as [[pr-11307]] (release-0.16) and [[pr-11308]] (release-0.17), shipping in v0.16.9 / v0.17.4.
+
+## Related: don't *finish* a Workload right after creation
+
+A sibling bug in the "finishing" path (not retention): with the **`FinishOrphanedWorkloads`** gate enabled, the workload controller could mark a Workload `Finished` within milliseconds of its owner Job/JobSet being created — a race between the JobReconciler's structured informer and the workload-controller's `PartialObjectMetadata` informer — which then blocked the queue. [[pr-11296]] makes `ReconcileGenericJob` finish an orphaned Workload only under the proper conditions and re-graduated the gate to Beta/default-on. See [[feature-gates]] and [[scheduler-internals#Admitted workloads must leave preemptionExpectations]].
 
 ## Cascade deletion warning
 

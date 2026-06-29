@@ -347,3 +347,41 @@ Grepped all 8,241 PR files for `@mimowo` comments; identified PRs with 5+ commen
 **Confirmed latest patch releases** from this batch: v0.17.3 and v0.16.8 (both 2026-05-15; pr-11233/pr-11234).
 
 **Out of scope**: pr-11064 (WorkloadDependency KEP — proposal/open), pr-11242 (KEP graduation-criteria doc), pure refactors with no behaviour change (pr-11144 ClusterQueueReference wrappers, pr-11179 constants alias, pr-11217 jobframework package reorg, pr-11156's mechanics beyond the Amount summary), test-infra/e2e-split/flake-timeout PRs, dependency bumps, and agent-skill/website PRs. No per-CVE pages (templated corpus).
+
+---
+
+## 2026-06-29 — GitHub ingest (v0.17.4 / v0.16.9 patch fixes) + CVE corpus check
+
+**Data-collection commit**: `4c9f1d12da22d98ddb568b46d6e82ee779226f40`
+
+**Operator**: Claude Code, standing wiki ingest workflow for the 224-file data-collection batch (189 PRs + 33 issues + 2 CVEs).
+
+**Source files analysed**:
+
+- `raw/github/kubernetes-sigs__kueue/` — PRs `pr-10688` and `pr-11282`–`pr-11502` (189 merged/closed PR files); issues `issue-11283`, `issue-11287`, `issue-11297`, `issue-11303`, `issue-11311`, `issue-11315`, `issue-11321`, `issue-11330`, `issue-11335`, `issue-11340`, `issue-11346`, `issue-11351`, `issue-11354`, `issue-11359`, `issue-11360`, `issue-11366`, `issue-11369`, `issue-11372`, `issue-11374`, `issue-11375`, `issue-11377`, `issue-11379`, `issue-11414`, `issue-11426`, `issue-11452`, `issue-11453`, `issue-11458`, `issue-11470`, `issue-11480`, `issue-11491`, `issue-11493`, `issue-11495`, `issue-11496` (33 issue files). All four PR chunks + the issue set were read in full by parallel sub-agents; only **merged, shipped** behaviour was carried into the wiki.
+- `raw/cve/CVE-2026-27173.md` (Apache Airflow JWT-token exposure → Information Disclosure, CWE-538) and `raw/cve/CVE-2026-45760.md` (Apache Camel K user-controlled Build resource → Authentication Bypass, CWE-610/639). Both are ecosystem CVEs with the standard templated per-category content; neither introduces a new vulnerability class.
+
+**Triage outcome**: of the 189 PRs, ~20 carry documentable merged behaviour (the rest are `ginkgo.Ordered` test-cleanup / e2e-split, flake fixes, dependency bumps, OWNERS/governance, website/docs, agent-skills, WIP/closed-unmerged, or pure refactors). Of the 33 issues, four document confirmed-fixed bugs worth invariants (`issue-11287`, `issue-11297`+`issue-11303`, `issue-11480`) plus the PodSet-limit feature (`issue-11379`); the rest are flaky-test fixes, release-tracking issues, open feature requests/proposals, or CI/tooling.
+
+**Wiki pages updated** (no new pages — depth on existing pages favoured):
+
+- `multikueue.md` — extended the hung-remote section with the **per-cluster reconcile lock** (one slow remote no longer stalls all clusters; `findOrCreateRemoteClient` + per-cluster `setConfigLock`; [[pr-11305]]/[[pr-11332]]/[[pr-11333]], issue-11297) and the **exponential watch-establish timeout** (1m→10m, detect a hung remote in 1 min; [[pr-11304]]/[[pr-11328]]/[[pr-11329]], issue-11303); new "AllAtOnce dispatcher correctness" section (wait-for-eviction-before-re-nomination [[pr-11378]]/[[pr-11472]]/[[pr-11473]]; order-insensitive `nominatedClusterSetsEqual` [[pr-11497]]/[[pr-11507]]/[[pr-11508]], issue-11453); new "RBAC: RayService on worker clusters" ([[pr-11400]]).
+- `scheduler-internals.md` — new "Admitted workloads must leave `preemptionExpectations`" subsection (the SSA-admission-overwrites-eviction race causing head-of-line blocking / quota oversubscription; [[pr-11502]]/[[pr-11648]]/[[pr-11647]], issue-11480); Phase-2 note that `Snapshot()` is read-only; updated the FinishOrphanedWorkloads paragraph to record the structural fix [[pr-11296]] (re-graduated to Beta/default-on).
+- `preemption.md` — new "The `preemptionExpectations` store" section (issue-11480 / [[pr-11502]]); bumped date.
+- `cache-architecture.md` — new "Snapshot is strictly read-only" subsection: `skipInactiveCQReason()` + `inactiveCQReasonTASUsageNotSynced`, TAS sync moved off the read-lock path ([[pr-11286]]).
+- `topology-aware-scheduling.md` — new "Cumulative Pod-count across PodSets (`addAssumedUsage`)" subsection: per-node `pods` capacity now respected across all PodSets of one Workload ([[pr-11293]]/[[pr-11326]]/[[pr-11331]], issue-11287).
+- `feature-gates.md` — `FinishOrphanedWorkloads` re-graduated to **Beta/default-on** via [[pr-11296]]; `ElasticJobsViaWorkloadSlices` Beta-graduation webhook validations ([[pr-11300]]) + slice normalization ([[pr-11327]]); new **`WorkloadIdentifierAnnotations`** gate ([[pr-11409]]); `SchedulingEquivalenceHashing` effective-requests refinement for DRA ([[pr-11399]]); new "User-specified gate parameters are validated" section ([[pr-11288]]/[[pr-11291]]).
+- `elastic-jobs.md` — annotation-keyed enablement + immutability path fix ([[pr-11342]]); third replacement-correctness bullet `normalizeActiveSlices` ([[pr-11327]]).
+- `workload.md` — max PodSets per Workload raised 8→10 ([[pr-11388]], issue-11379 requested 16); bumped date.
+- `concurrent-admission.md` — flavor-floor field renamed `minPreferredFlavorName` → `lastAcceptableFlavorName` ([[pr-11317]]).
+- `dra.md` — gate names updated to `KueueDRAIntegration` / `KueueDRAIntegrationExtendedResource`; new "Startup safety: DeviceClass index is conditional" ([[pr-11405]]) and "Scheduling-equivalence hash and DRA" ([[pr-11399]]) sections; bumped date.
+- `visibility-api.md` — new "Configuration: bind port and address" section: `--visibility-server-port` flag removed ([[pr-11309]], action-required) and `bindAddress` regression fix ([[pr-11341]]); bumped date.
+- `job-framework-interface.md` — signature-change callout: `RunWithPodSetsInfo` / `PodSets` / `PodsReady` / `ReclaimablePods` now take a `client.Client` argument ([[pr-11310]], action-required for out-of-tree integrations).
+- `integration-leaderworkerset.md` — expanded "Name length": >39-char LWS names failed because PodGroup identifiers were labels; `WorkloadIdentifierAnnotations` raises the limit to 52 ([[pr-11409]]).
+- `integration-rayjob.md` — worker-group cap up to 9 (PodSet limit 8→10, [[pr-11388]]); RayService worker RBAC ([[pr-11400]]).
+- `workload-garbage-collection.md` — patch-release delivery of the finalizer-GC fix ([[pr-11307]]/[[pr-11308]]); new "don't *finish* a Workload right after creation" note ([[pr-11296]]).
+- `release-process.md` — added paired patch releases **v0.16.9** ([[issue-11360]]) / **v0.17.4** ([[issue-11359]]) with their headline fixes; bumped date.
+
+**CVE corpus**: no security-page change. The two new CVE files are already within the 569-file corpus total recorded at the 2026-05-18 / a5d7eec ingests; both map to already-covered categories (Information Disclosure / Authentication Bypass) and add no new pattern.
+
+**Out of scope** (read, excluded): the large `ginkgo.Ordered`/e2e-split and flake-fix test-infra wave (≈100 PRs across the batch), dependency bumps (containerd, k8s.io, vite/vitest, ginkgo, gomega, appwrapper v1.2.2), Helm v3→v4 tooling, OWNERS/infra-approvers governance, website/Hugo/Netlify CI, KueueViz navbar UI, agent-skill PRs, WIP/closed-unmerged PRs, pure refactors (pr-11355 RayJob global-state, pr-11356 SetMultiKueueMeta, pr-11367 MK adapter signature, pr-11323 visibility port refactor), pr-11334 (priority-booster Helm packaging), and pr-11460/pr-11490 ("Unblock ray version update" #11184 — no release note/body in the batch; low-confidence). Open items to revisit when fixed: issue-11372 (orphaned gated Pod when Workload creation fails), issue-11366 (`waitForPodsReady` default-on proposal), issue-11375 (MultiKueue cross-cluster preemption KEP).

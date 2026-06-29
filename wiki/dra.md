@@ -4,11 +4,11 @@
 
 **Sources**: `raw/kueue/keps/2941-DRA/README.md`, `raw/kueue/keps/2941-DRA/kep.yaml`, `raw/kueue/pkg/dra/claims.go`, `raw/kueue/pkg/dra/extended_resources.go`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-06-29
 
 ---
 
-> **Stage: Alpha** — Feature gates `DynamicResourceAllocation` and `DRAExtendedResources`, both disabled by default. Not production-ready; API may change before beta.
+> **Stage: Alpha** — Feature gates `KueueDRAIntegration` (was `DynamicResourceAllocation`) and `KueueDRAIntegrationExtendedResource` (was `DRAExtendedResources`), both disabled by default. Not production-ready; API may change before beta. The gates were **renamed in v0.18** to avoid colliding with the upstream Kubernetes `DynamicResourceAllocation` gate; the old names are deprecated + `LockToDefault` and a migration helper maps old→new. See [[feature-gates]].
 
 ## What is DRA?
 
@@ -37,14 +37,22 @@ Pods use the familiar `resources.requests: {example.com/gpu: 1}` syntax. When a 
 
 ## Feature gates
 
-Two Kueue feature gates control DRA support:
+Two Kueue feature gates control DRA support (shown with their post-v0.18 names):
 
 | Gate | Purpose |
 |---|---|
-| `DynamicResourceAllocation` | Enables ResourceClaimTemplate-based quota accounting; uses `deviceClassMappings` |
-| `DRAExtendedResources` | Enables extended-resource path; requires `DynamicResourceAllocation` also enabled |
+| `KueueDRAIntegration` (was `DynamicResourceAllocation`) | Enables ResourceClaimTemplate-based quota accounting; uses `deviceClassMappings` |
+| `KueueDRAIntegrationExtendedResource` (was `DRAExtendedResources`) | Enables extended-resource path; requires `KueueDRAIntegration` also enabled |
 
 Both are alpha. (source: keps/2941-DRA/kep.yaml)
+
+## Startup safety: DeviceClass index is conditional
+
+The manager registers a field index over `DeviceClass` objects for DRA accounting. If the cluster does not expose the DRA **v1** APIs, that index registration would fail and crash `kueue-controller-manager` at startup. [[pr-11405]] makes the registration conditional — the DeviceClass index is **skipped** (disabled) when the DRA v1 API is unavailable, so the manager starts cleanly on clusters without DRA (release note: "DRA: Disable the DeviceClass indexing when DRA v1 APIs are not available"). The cherry-pick to release-0.17 was deliberately skipped due to conflicts (DRA is alpha on 0.17). **Invariant**: DRA-dependent indexers/controllers must be wired conditionally on API discovery.
+
+## Scheduling-equivalence hash and DRA
+
+DRA preprocessing rewrites a device-class resource (e.g. `example.com/gpu`) into its `deviceClassMappings`-mapped logical resource (e.g. `gpu`) in the Workload's `TotalRequests` **without** mutating the pod spec. Because the `SchedulingEquivalenceHashing` optimization originally hashed only the PodSet *spec* shape, two DRA Workloads with different effective device requests could hash identically and wrongly share an equivalence-cache result. [[pr-11399]] folds each PodSet's effective `TotalRequests.Requests` into `computeSchedulingHash`. See [[scheduler-internals]] / [[feature-gates]].
 
 ## Configuration: deviceClassMappings
 

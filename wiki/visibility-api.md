@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-06-29
 
 ---
 
@@ -27,6 +27,13 @@ Reading all Workloads to answer "where am I in line" is expensive at scale. The 
 - **Port collision.** Visibility and pprof endpoints both landed on 8082 originally ([[issue-2226]]).
 - **Staleness.** A deleted Workload could still appear as pending until the next snapshot refresh ([[issue-1555]]).
 - **Discovery failures.** "Failed to get resource list for visibility.kueue.x-k8s.io/v1alpha1" ([[issue-1519]]) is the canonical "apiserver can't reach the extension" symptom, usually a Service/Endpoints misconfiguration.
+
+## Configuration: bind port and address (`--visibility-server-port` removed)
+
+The visibility server's bind port and address are configured through the Kueue Configuration API under `visibilityServer` (`bindPort`, default `configapi.DefaultVisibilityBindPort`; `bindAddress`), read in `pkg/visibility/server.go`.
+
+- **`--visibility-server-port` flag removed (action-required).** [[pr-11309]] deletes the deprecated controller-manager flag. Installations that still pass `--visibility-server-port` must drop it and set `visibilityServer.bindPort` in the Configuration instead before upgrading.
+- **`bindAddress` regression fixed.** During the port-defaulting refactor in #11323 the `o.SecureServing.BindAddress = net.ParseIP(*cfg.VisibilityServer.BindAddress)` assignment was accidentally dropped, so a configured `visibilityServer.bindAddress` (e.g. `127.0.0.1`) was silently ignored and the server kept binding to the default `0.0.0.0`. [[pr-11341]] restores it. Gotcha: the bug only manifested when `visibilityServer.bindPort` was *also* set — with `bindPort` left default, the address was applied correctly.
 
 ## Model revisit
 

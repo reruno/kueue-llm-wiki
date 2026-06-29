@@ -91,6 +91,10 @@ The seed loop in `flavorassigner.assignFlavors` previously copied only the **fir
 
 [[pr-11005]] preserves all preexisting flavor assignments for the PodSet so the second pass correctly accounts for the workload's already-reserved resources. The TAS scheduler test framework was updated to seed reserved-but-not-admitted workloads into the `cqCache` so the regression is observable in unit tests. Fixes #9048.
 
+### Cumulative Pod-count across PodSets (`addAssumedUsage`)
+
+When a Workload has **multiple PodSets**, each PodSet is fit into the topology one at a time. The fix in [[pr-11293]] (cherry-picked as [[pr-11326]]/0.17, [[pr-11331]]/0.16, fixes [[issue-11287]]) makes the per-node `pods` capacity respected *cumulatively* across PodSets: previously the assumed-usage accounting did not include the Pods of already-placed PodSets when fitting a later PodSet, so a node whose `pods` capacity was 1 could be assigned two single-Pod PodSets from the same Workload. Previous-pod capacity accounting is now routed through a unified `addAssumedUsage()` helper backed by `utiltas.ComputeUsagePerDomain`, which folds the `pods` resource (and all others) across every PodSet per topology domain. The reproduction: a node with `pods` capacity 1 and a two-PodSet Workload (each 1 Pod) now stays pending with `topology "tas-single-level" doesn't allow to fit any of 1 pod(s). Total nodes: 1; excluded: resource "pods": 1`.
+
 ## Performance: incremental non-TAS usage cache
 
 Building the topology snapshot dominates scheduler-cycle latency on large clusters. PR #10366 (cherry-picked to release-0.16/0.17 in [[pr-11074]] / [[pr-11041]]) replaces the per-cycle full scan over non-TAS Pods with **incremental per-node aggregation in `nonTasUsageCache`**. The cache pre-aggregates non-TAS Pod usage per node and is updated event-by-event on Pod create/update/delete; the snapshot reads pre-computed totals instead of walking every Pod.

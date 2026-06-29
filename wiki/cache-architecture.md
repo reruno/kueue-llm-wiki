@@ -40,6 +40,18 @@ The snapshot contains `ClusterQueueSnapshot` and `CohortSnapshot` objects — de
 
 (source: pkg/cache/scheduler/)
 
+### Snapshot is strictly read-only
+
+`Snapshot()` is taken while holding only the cache **read lock**, so it must never mutate cache state. [[pr-11286]] (cherry-picked to release-0.16 / release-0.17) made this contract explicit after a TAS bug: the snapshot path used to call the *mutating* `ensureTASIsSynced()` while holding the read lock. The fix removes that call from the read path; the per-ClusterQueue TAS usage sync is now the exclusive responsibility of the **write-lock** paths (`Cache.AddOrUpdateTopology` / `AddOrUpdateResourceFlavor` → `updateClusterQueues` → `cq.UpdateWithFlavors` → `updateQueueStatus` → `ensureTASIsSynced`).
+
+A ClusterQueue that cannot be scheduled this cycle is *skipped* via a `skipInactiveCQReason()` helper that returns one of:
+
+- `inactiveCQReasonNotActive` — CQ is not Active.
+- `inactiveCQReasonHasCycle` — CQ's cohort hierarchy contains a cycle.
+- `inactiveCQReasonTASUsageNotSynced` — **new**; returned when `features.Enabled(features.TopologyAwareScheduling) && len(cq.tasFlavors) > 0 && !cq.isTASSynced`.
+
+Edge case: under [[multikueue]] the `Topology` object is created on the *management* cluster, so on a worker `isTASSynced` could otherwise stay false and silently exclude the CQ.
+
 ### Hierarchy manager
 
 The `pkg/cache/hierarchy` package provides a generic `Manager[CQ, C]` type that models the ClusterQueue ↔ Cohort tree. It is used by both the scheduler cache and the admission check logic. Key types:
