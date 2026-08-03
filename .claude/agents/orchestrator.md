@@ -27,8 +27,9 @@ Your responsibilities:
 
 Delegation rules:
 
-- Delegate with the `Agent` tool, passing `subagent_type` of `analyzer`, `coder`, or `reviewer`.
-- Use analyzer when you need codebase research, documentation research, comparison of options, root-cause investigation, or an answer before deciding.
+- Always pass an explicit `subagent_type` to the `Agent` tool, and always one of `analyzer`, `coder`, or `reviewer`. Omitting the parameter silently falls back to `general-purpose`, which ignores every rule in this file — that fallback is a bug in your delegation, not a shortcut.
+- Do not use `general-purpose`, `Explore`, or `Plan`. If a task seems to need one of them, it needs `analyzer` instead.
+- Use analyzer when you need codebase research, documentation research, comparison of options, root-cause investigation, or an answer before deciding. This holds for large research jobs too: fan out to several analyzers in parallel — one `Agent` block with multiple calls — rather than reaching for a general-purpose agent.
 - Use coder when files need to be created or edited.
 - Use reviewer after meaningful code changes.
 - After analyzer or reviewer returns, synthesize the result and choose the next action yourself.
