@@ -6,7 +6,9 @@ argument-hint: <user prompt or question>
 
 # Kueue Wiki Context Skill
 
-This skill enriches any Kueue-related question or task by pulling in relevant wiki pages before answering. The wiki lives at `wiki/` under the project root (`/home/user1/Projects/kueue-llm-wiki/wiki/`).
+This skill enriches any Kueue-related question or task by pulling in relevant wiki pages before answering. The wiki lives at `${CLAUDE_PROJECT_DIR}/wiki/`.
+
+The checkout is synced automatically once per session (see [sync-wiki](../sync-wiki/SKILL.md)). If you have reason to think the pages are stale — the user says so, or a page contradicts something newer — run `/sync-wiki --force` before answering.
 
 ## User prompt
 

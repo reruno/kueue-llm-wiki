@@ -36,10 +36,41 @@ wiki/log.md   -- append-only record of all operations
 ```
 
 
+## Staying in sync
+
+
+The wiki is only as good as the checkout on disk, so bring it up to date before reading or writing pages:
+
+
+```
+./sync_wiki.sh              -- fast-forward from the sync remote
+./sync_wiki.sh --status     -- report the gap, change nothing
+/sync-wiki                  -- the same thing from inside Claude Code
+```
+
+
+This also runs automatically once per session via the `SessionStart` hook in `.claude/settings.json`, and results are cached for 24 hours (the wiki moves about once a fortnight). The hook passes `--json`, which splits the output in two: a one-line `systemMessage` shown to you directly, and the full report as context for Claude. So a sync that was skipped, for a wrong branch or a dirty tree, warns you on screen instead of relying on Claude to mention it.
+
+
+The script never picks a fight with your work: it fast-forwards only when the sync branch is checked out with no uncommitted tracked changes, and otherwise just reports the gap. It exits 0 on every path, so read its output rather than its exit code.
+
+
+No remote name is baked in. `sync_wiki.sh` syncs from the sync branch's tracking remote (`branch.<branch>.remote`), so a fresh clone works with no configuration. Override per clone, without touching a tracked file:
+
+
+```
+git config wiki.syncRemote <name>    -- e.g. an internal mirror
+git config wiki.syncBranch <name>    -- if the default branch is not main
+```
+
+
+For a fork-based setup, the layout this repo expects is `upstream` for the repo you sync from, `origin` for your own fork, and `git config remote.pushDefault origin` so a bare `git push` goes to the fork.
+
+
 ## Ingest workflow
 
 
-When the user adds a new source to `raw/` and asks you to ingest it:
+When the user adds a new source to `raw/` and asks you to ingest it, start from a synced checkout, then:
 
 
 1. Read the full source document
