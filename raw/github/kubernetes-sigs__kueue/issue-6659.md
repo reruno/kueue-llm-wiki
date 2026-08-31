@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/6659
 
-**Last updated**: 2026-06-23T07:30:49Z
+**Last updated**: 2026-08-24T13:13:31Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@kannon92](https://github.com/kannon92)
 - **Created**: 2025-08-24T16:10:27Z
-- **Updated**: 2026-06-23T07:30:49Z
-- **Closed**: —
+- **Updated**: 2026-08-24T13:13:31Z
+- **Closed**: 2026-08-24T13:13:30Z
 - **Labels**: _none_
 - **Assignees**: _none_
-- **Comments**: 10
+- **Comments**: 12
 
 ## Description
 
@@ -120,3 +120,29 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-06-23T07:30:47Z
 
 /remove-lifecycle stale
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-08-24T13:13:25Z
+
+@mbobrovskyi 
+
+I see https://github.com/kubernetes-sigs/kueue/pull/13067 so I think this was actually done.
+
+/close
+
+### Comment by [@kubernetes-prow[bot]](https://github.com/apps/kubernetes-prow) — 2026-08-24T13:13:31Z
+
+@kannon92: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/6659#issuecomment-5395697908):
+
+>@mbobrovskyi 
+>
+>I see https://github.com/kubernetes-sigs/kueue/pull/13067 so I think this was actually done.
+>
+>/close
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

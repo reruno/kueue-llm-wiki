@@ -4,17 +4,17 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5697
 
-**Last updated**: 2026-06-03T09:43:00Z
+**Last updated**: 2026-08-31T08:32:11Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2025-06-20T13:02:03Z
-- **Updated**: 2026-06-03T09:43:00Z
-- **Closed**: —
+- **Updated**: 2026-08-31T08:32:11Z
+- **Closed**: 2026-08-31T08:32:11Z
 - **Labels**: `kind/documentation`
 - **Assignees**: _none_
 - **Comments**: 16

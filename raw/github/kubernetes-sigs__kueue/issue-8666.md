@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8666
 
-**Last updated**: 2026-06-04T09:21:59Z
+**Last updated**: 2026-08-30T16:39:02Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2026-01-19T15:09:12Z
-- **Updated**: 2026-06-04T09:21:59Z
+- **Updated**: 2026-08-30T16:39:02Z
 - **Closed**: —
-- **Labels**: `kind/bug`, `priority/important-soon`, `lifecycle/stale`
+- **Labels**: `kind/bug`, `priority/important-soon`, `lifecycle/rotten`
 - **Assignees**: [@mbobrovskyi](https://github.com/mbobrovskyi)
-- **Comments**: 14
+- **Comments**: 19
 
 ## Description
 
@@ -234,3 +234,49 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle stale
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-07-04T09:39:52Z
+
+The Kubernetes project currently lacks enough active contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle rotten`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle rotten
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-08-03T20:08:42Z
+
+@tenzen-y I would consider because this is risky and I cannot see a benefit to end users: https://github.com/kubernetes-sigs/kueue/issues/8666#issuecomment-4010287283. Let me know if you consider this still worth addressing.
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-08-29T22:33:47Z
+
+> [@tenzen-y](https://github.com/tenzen-y) I would consider because this is risky and I cannot see a benefit to end users: [#8666 (comment)](https://github.com/kubernetes-sigs/kueue/issues/8666#issuecomment-4010287283). Let me know if you consider this still worth addressing.
+
+@mbobrovskyi @mimowo I'm ok with closing this issue for now, and revisit here when we face use case.
+I have no strong use cases for this Workload structure changes.
+
+I just worried if we make miss consideration based on this non-standardized Workload creation way.
+Because we keep adding new features to assume the single PodSet construction way, but this case is far from that.
+
+### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-08-30T05:22:19Z
+
+I can try to create a PR that allows migrating old PodSet versions to the new one behind a feature gate as well. We already merged lws_controller and lws_pod_controller together, so I think it should be much easier to fix this now.
+
+@tenzen-y @mimowo WDYT?
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-08-30T16:39:02Z
+
+> I can try to create a PR that allows migrating old PodSet versions to the new one behind a feature gate as well. We already merged lws_controller and lws_pod_controller together, so I think it should be much easier to fix this now.
+
+Thanks @mbobrovskyi. I prefer to do that. Let us know what @mimowo thinks.
