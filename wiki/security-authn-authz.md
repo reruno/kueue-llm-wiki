@@ -1,10 +1,10 @@
 # Security — Authentication, Authorization, RBAC, and Privilege Escalation
 
-**Summary**: Patterns from Authentication Bypass (29), RBAC Misconfiguration (9), Privilege Escalation (53), and Unauthorized Write Access (30) CVE categories. Covers Kueue's controller ServiceAccount, [[webhooks|webhook]] handlers, [[multikueue]] cross-cluster credentials, and tenant isolation between [[cluster-queue|ClusterQueues]].
+**Summary**: Patterns from Authentication Bypass (34), RBAC Misconfiguration (13), Privilege Escalation (67), and Unauthorized Write Access (37) CVE categories. Covers Kueue's controller ServiceAccount, [[webhooks|webhook]] handlers, [[multikueue]] cross-cluster credentials, and tenant isolation between [[cluster-queue|ClusterQueues]].
 
 **Sources**: `raw/cve/` — representative entries `CVE-2018-18264.md` (Kubernetes Dashboard auth bypass), `CVE-2018-16886.md` (etcd RBAC), `CVE-2019-3779.md` (privilege escalation), `CVE-2019-11247.md` (cross-namespace custom resource access), `CVE-2019-11249.md`, `CVE-2020-8559.md`, `CVE-2022-23524-26.md` (Helm SSRF/auth issues).
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -63,6 +63,16 @@ The 30 Unauthorized Write CVEs map mostly to the API server's authorization laye
 ## Mitigation pattern in CVE corpus
 
 > Ensure every request handler validates the caller's identity via `SubjectAccessReview` or RBAC. Set admission webhooks to `failurePolicy: Fail`. Validate and strip forwarded-identity headers at the ingress layer. Enable audit logging for all API server requests. Apply least-privilege pod security standards: `allowPrivilegeEscalation: false`, `runAsNonRoot: true`, `readOnlyRootFilesystem: true`. Audit all ServiceAccount ClusterRoleBindings.
+
+## Namespace confusion and confused-deputy patterns (2026 corpus additions)
+
+Three shapes recur in the 2026 additions to `raw/cve/` and map directly onto Kueue's multi-tenant surface:
+
+- **Namespace confusion.** `CVE-2026-65601` (Traefik, CWE-863): the Gateway API provider resolved `HTTPRoute...backendRefs[].filters[].extensionRef` in the *backend Service*'s namespace rather than the HTTPRoute's, so a route author holding a cross-namespace ReferenceGrant for the Service could bind a Middleware from that namespace without a grant for it. Kueue's own instance of this class was the [[admission-fair-sharing]] preemption ordering that compared LocalQueues by `spec.queueName` alone, treating `team-a/default` and `team-b/default` as one queue ([[pr-14547]]). **Rule: a namespaced name is only an identity together with its namespace.**
+- **Confused deputy via annotation.** `CVE-2026-72640` (Elastic Cloud on Kubernetes, CWE-441): the operator read a list of Secret references from an **annotation** and accepted the namespace in each reference without checking it was authorized for the resource being reconciled, so a namespace-scoped user could make the operator use its cluster-wide Secret permissions to copy any Secret in the cluster into one they could read. Kueue has several annotations that name other objects (`prebuilt-workload-name`, `pod-group-name`, MultiKueue kubeconfig Secret references) and the controller ServiceAccount is cluster-wide — the same shape is available.
+- **Tenant-reachable object hijack by name.** `CVE-2026-15228` (Kong KIC, CWE-400/862): CA-certificate Secrets were collected across all watched namespaces by label selector alone, with the primary key derived from a user-supplied field, so duplicate IDs made the gateway reject the entire configuration document and halted all ingress changes cluster-wide. Kueue's pod-group Workload adoption bug ([[pr-13960]]) is the same pattern with quota release as the payload; see [[security#The first confirmed instance in Kueue's own code]].
+
+Two related RBAC-relevant entries: `CVE-2026-65835` (Capsule, CWE-269/863) is an **incomplete fix** — the cluster-scoped-resource rejection guard existed on one code path (`NamespacedItems`) but not on its siblings (`RawItems`, `Generators`) — which is precisely the shape of the pod-group gap that #13014 left and [[pr-13960]] closed. `CVE-2026-18608` and `CVE-2026-18951`/`CVE-2026-18982` are over-broad operator `ClusterRole`s in the Red Hat OpenShift AI training-operator stack; the mitigation is the same per-resource ClusterRole aggregation Kueue already uses (`rbac.kueue.x-k8s.io/role`).
 
 ## Related pages
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/cve/` — representative entries `CVE-2020-8564.md` and other supply-chain category CVEs; CWE-295 (improper cert validation) and CWE-494 (download of code without integrity check) entries broadly.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 

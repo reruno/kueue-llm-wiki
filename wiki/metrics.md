@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-05-08
+**Last updated**: 2026-09-01
 
 ---
 
@@ -57,6 +57,36 @@ Common alert patterns:
 - Admission attempt duration p99 spike → scheduler loop overload (see [[performance-and-scale]]).
 - Eviction rate by reason — per-reason deltas indicate policy misconfiguration (e.g. too much reclaim-within-cohort implies lending limits are too aggressive).
 - AdmissionCheck Ready time — high p99 signals ProvisioningRequest or MultiKueue backpressure.
+
+## Changes in v0.18.6 / v0.19.2 / v0.20
+
+### New: workload recovery wait time
+
+[[pr-14766]] (fixes [[issue-14636]]) adds two histograms measured only when `WaitForPodsReady` with `recoveryTimeout` is enabled:
+
+| Metric | Scope |
+|---|---|
+| `kueue_workload_recovery_wait_time_seconds` | per ClusterQueue |
+| `kueue_local_queue_workload_recovery_wait_time_seconds` | per LocalQueue |
+
+Both measure from the Workload entering recovery (`PodsReady=False`, `Reason=WaitForRecovery`) until it becomes ready again (`PodsReady=True`, `Reason=Recovered`). Observations are clamped to `>= 0` ([[pr-14800]], fixes [[issue-14797]]).
+
+### Readiness metrics are no longer emitted after a recovery
+
+`kueue_ready_wait_time_seconds`, `kueue_admitted_until_ready_wait_time`, `kueue_local_queue_ready_wait_time_seconds` and `kueue_local_queue_admitted_until_ready_wait_time_seconds` were being emitted again when a Workload *recovered*, not only when it first became ready — which skewed every one of them toward longer waits. [[pr-14626]] (fixes #14623) records them only on the initial readiness transition; use the recovery histograms above for the recovery path.
+
+### `kueue_pod_scheduling_gate_removal_seconds`
+
+Two independent fixes to the same metric:
+
+- **Negative observations are clamped to zero** ([[pr-14474]] / [[pr-14731]], fixes [[issue-14456]]). `pkg/util/pod.RecordPodSchedulingGateRemovalSeconds` computes `cl.Now().Sub(cond.LastTransitionTime.Time)`. `LastTransitionTime` is stamped by the **apiserver** while `Now()` reads the **controller's** clock, so skew, a leader transition, or a wall-clock adjustment can make the duration negative. A negative observation makes the classic histogram's `_sum` *decrease*, Prometheus reads the drop as a counter reset, and `rate()` over that series returns garbage. This matches the guard `ReportWorkloadEvictionLatency` already had. The timestamp-source comment was corrected in [[pr-14740]] / [[pr-14750]] ([[issue-14730]]).
+- **`replica_role` label added** ([[pr-14488]] / [[pr-14530]], fixes [[issue-14457]]). It was the only metric in the health group without it, so leader / follower / standalone observations were indistinguishable. The `RoleTracker` is threaded through the shared recording helper and all three emit paths (Pod controller via a new `WithRoleTracker` PodOption; the TAS topology ungater and the elastic-job ungater already carried a tracker); `roletracker.GetRole` yields `standalone` when the tracker is nil. The label is placed **before** the configured ClusterQueue custom labels, matching every other role-labeled metric. **Adding a label changes series identity** — existing queries on this metric must be updated.
+
+Related: the "Job controller with CustomMetricLabels" integration block widened the shared metric vectors and panicked later specs ([[issue-14744]], fixed by [[pr-14745]] / [[pr-14751]]).
+
+### Integer overflow and unlimited quota
+
+Kueue metrics could silently report incorrect quota and usage for very large resource quantities because of `int64` overflow. Large values are now preserved, and an **unlimited quota is reported as `+Inf`** ([[pr-14050]], original #13585). See [[scheduler-internals#Quota arithmetic and integer-overflow safety]].
 
 ## Related pages
 

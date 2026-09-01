@@ -4,7 +4,7 @@
 
 **Sources**: `raw/cve/CVE-*.md` mitigation blocks (which repeat per category); the category pages [[security-denial-of-service]], [[security-authn-authz]], [[security-information-disclosure]], [[security-injection-and-input-validation]], [[security-supply-chain]]; [[code-quality]] for the project's existing review bar.
 
-**Last updated**: 2026-05-18
+**Last updated**: 2026-09-01
 
 ---
 
@@ -87,7 +87,7 @@ These complement the [[testing|test pyramid]] — they don't replace integration
 
 ## When in doubt
 
-The CVE corpus has no Kueue-specific entries as of 2026-05. Use the most-similar Kubernetes CVE as a template. Two starting points:
+The CVE corpus has no Kueue-specific entries as of 2026-09. Use the most-similar Kubernetes CVE as a template. Two starting points:
 
 - For DoS-class concerns: `raw/cve/CVE-2019-11253.md` (API server YAML/JSON), `raw/cve/CVE-2022-39272.md` (Flux invalid `.spec.interval`).
 - For RBAC concerns: `raw/cve/CVE-2018-16886.md` (etcd RBAC), `raw/cve/CVE-2019-11247.md` (cross-namespace CR access).

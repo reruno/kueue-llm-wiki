@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -57,6 +57,33 @@ Elastic is almost the opposite of [[gang-scheduling]]'s all-or-nothing: one says
 ## Documentation gap
 
 Elastic Jobs documentation has lagged the implementation ([[issue-6349]] — Document the feature of Elastic Jobs / Workloads).
+
+## `PodSet.minCount` may be zero
+
+The OpenAPI `Minimum` for `PodSet.minCount` was 1 while `PodSet.count` already allowed 0, so the combination `count=0, minCount=0` — needed for partial scale-up of elastic workload slices — was rejected. [[pr-14720]] (fixes [[issue-14719]]) lowers the minimum to **0** in both `v1beta1` and `v1beta2`; the CEL rule `minCount <= count` is unchanged, as is all scheduler and controller behaviour. CRDs and Helm charts were regenerated.
+
+## The ungater counts admitted pods, not PodSet pods
+
+The elastic-job ungater used to ungate `podSet.count` Pods. [[pr-14835]] makes it read the count from **`status.admission.podSetAssignments[].count`** instead, so it never ungates more Pods than the admission actually granted. This matters once partial scale-up exists, where `admission.count` can be lower than `podSet.count`; it also fixes accounting after a scale-down. Workloads with no admission data, or with an unset count, fall back safely. Scale-down coverage was added in [[pr-14897]] / [[pr-14899]] / [[pr-14900]] ([[issue-14896]]).
+
+## Partial scale-up (Alpha, RayCluster only so far)
+
+[[pr-14909]] (part of #12100) adds the Alpha, off-by-default gate **`ElasticJobsViaWorkloadSlicesWithPartialReplicaScaleUp`** plus two annotation constants:
+
+- `kueue.x-k8s.io/elastic-job` — marks a Job as elastic (existing).
+- `kueue.x-k8s.io/elastic-job-scale-up-strategy` — `atomic` (default) or `partial`.
+
+When the gate is on, the annotation is `partial`, and the RayCluster worker group sets `minReplicas`, `BuildPodSets` sets the worker PodSet's `MinCount` to the effective minimum worker count. With the gate off there is no behaviour change.
+
+## MultiKueue rejects an autoscaling elastic RayCluster
+
+An elastic RayCluster (`ElasticJobsViaWorkloadSlices`) dispatched through [[multikueue]] with `enableInTreeAutoscaling` set is now **rejected at admission** ([[pr-14061]], original #13244). Previously it was accepted and then deleted immediately after admission, because the autoscaler sidecar was accounted for inconsistently between the manager and the worker cluster.
+
+## TAS interaction: the leader keeps its placement
+
+Resizing an elastic Workload with a leader/workers PodSet group no longer recomputes the leader's `TopologyAssignment` — see [[topology-aware-scheduling#Elastic workloads: the leader's assignment is preserved]] ([[pr-14064]], [[pr-14076]]).
+
+Open gap worth knowing: a fully reclaimed elastic Workload can switch [[resource-flavor]] when it is re-admitted at count zero ([[issue-14792]], open).
 
 ## Related pages
 

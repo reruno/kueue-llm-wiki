@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/controller/jobs/trainjob/trainjob_controller.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_webhook.go`
 
-**Last updated**: 2026-05-08
+**Last updated**: 2026-09-01
 
 ---
 
@@ -50,6 +50,14 @@ Earlier versions of the integration's mutating webhook patched the **referenced 
 ## Relationship to Kubeflow v1 integrations
 
 `TrainJob` is the successor to the v1 integrations ([[integration-kubeflow]] — PyTorchJob, TFJob, etc.). For new workloads, TrainJob is preferred; the v1 integrations remain supported for backward compatibility.
+
+## Updates use a JSON merge patch, not `Update`
+
+`RunWithPodSetsInfo` and `Stop` in the TrainJob controller called `c.Update()`, which sends a **full replace** of the object as Kueue's vendored typed struct sees it. Against a cluster running a newer Kubeflow Trainer whose TrainJob CRD has fields Kueue does not model, that replace **drops those fields** — and the observed symptom was TrainJobs stuck unadmitted, because Kueue overwrote the older TrainJob scheme with the vendored one on admission.
+
+[[pr-14836]] (cherry-picks [[pr-14841]], [[pr-14842]]; related to [[issue-14722]]) switches both call sites to `clientutil.Patch` (JSON merge patch via `client.MergeFrom`), matching the pattern `RestorePodSetsInfo` already used. A merge patch carries only the fields that actually changed, so unmodelled fields are never touched.
+
+This is the general "preserve unmodelled spec fields" hazard for any integration that vendors a third-party CRD's Go types; the MultiKueue counterpart is [[issue-14837]] (open). Validating TrainJob CRD compatibility at setup and documenting a minimum Trainer version is [[issue-14819]] (open).
 
 ## Related pages
 

@@ -2,9 +2,9 @@
 
 **Summary**: Master checklist of code patterns reviewers should flag, distilled from the `Security Code Patterns` section of every CVE in `raw/cve/`. Grouped by category and mapped to CWE.
 
-**Sources**: `raw/cve/CVE-*.md` (515 entries). Pattern text is taken verbatim from the CVE files where the same checklist repeats per category.
+**Sources**: `raw/cve/CVE-*.md` (682 entries). Pattern text is taken verbatim from the CVE files where the same checklist repeats per category.
 
-**Last updated**: 2026-05-18
+**Last updated**: 2026-09-01
 
 ---
 
@@ -123,6 +123,24 @@ This page is the single-pane reference. The category pages ([[security-denial-of
 | CWE-862 | Missing authorization | [[security-authn-authz]] |
 | CWE-863 | Incorrect authorization | [[security-authn-authz]] |
 | CWE-918 | SSRF | [[security-injection-and-input-validation]] |
+
+## Tenant-controlled identifiers as lookup keys (2026-09 additions)
+
+A cluster of ecosystem CVEs in this corpus, and a matching set of Kueue fixes, share one shape: **a controller resolves an object using a string the tenant can write, without a second condition that the tenant cannot forge.**
+
+| Pattern | Ecosystem CVE | Kueue counterpart |
+|---|---|---|
+| User-supplied field used as a cross-namespace primary key; a duplicate ID wedges or hijacks another tenant's object | `CVE-2026-15228` (Kong KIC — CA-certificate Secrets collected cluster-wide by label selector alone, primary key derived from a user-supplied field; duplicate IDs make Kong reject the whole config, halting ingress cluster-wide) | pod-group name adoption ([[pr-13960]]) |
+| Namespace confusion — a namespaced name resolved in the wrong namespace, or compared without its namespace | `CVE-2026-65601` (Traefik — `extensionRef` resolved in the *backend Service*'s namespace instead of the HTTPRoute's, letting a route author bind a Middleware without a ReferenceGrant) | AFS LocalQueue identity ([[pr-14547]]) |
+| Annotation-driven cross-namespace read performed with the controller's cluster-wide credentials (confused deputy) | `CVE-2026-72640` (ECK operator — a secret-reference list read from an annotation, namespace accepted unvalidated, so a namespace-scoped user copies any Secret in the cluster) | any Kueue annotation that names another object: `prebuilt-workload-name`, `pod-group-name`, MultiKueue kubeconfig Secret refs |
+| Name-only delete without a UID precondition, hitting a recreated object | — | `kueuectl delete workload` ([[pr-14831]]) |
+| CR-supplied endpoint dialled by the controller with no allow/deny list (SSRF to loopback / RFC1918 / `169.254.169.254`) | `CVE-2026-71208` (KubeSphere `addCluster` — `url.Parse` only, then `Discovery.ServerVersion` against the CRD-specified endpoint), `CVE-2026-73263` (Prowler — kubeconfig accepted from the connection test) | [[multikueue]] `MultiKueueCluster` kubeconfig Secrets |
+| CR field spliced into a connection string / command with inadequate quoting | `CVE-2026-53572` (KEDA `postgresql_scaler` — `escapePostgreConnectionParameter` quotes only literal spaces, so tabs/newlines/quotes forge extra key-value tokens and redirect the connection or disable TLS) | anywhere Kueue formats tenant labels/annotations into a URL or command |
+| CR field naming a **local file** that the controller reads with its own identity | `CVE-2026-75889` (Grafana Alloy — `ServiceMonitor.bearerTokenFile` reads the projected ServiceAccount token and ships it to an attacker-controlled scrape endpoint) | validate any config path that comes from a CR, not just from the Configuration file |
+| Unvalidated regex from an admin-writable config compiled with `MustCompile`, panicking the webhook | `CVE-2026-65834` (Capsule — `ForbiddenLabels.Regex` crashes the node admission webhook on every Node create/update) | Kueue's own `managedJobsNamespaceSelector` / label-selector parsing; see [[security-denial-of-service]] |
+| A guard applied on one code path but not its sibling (incomplete fix) | `CVE-2026-65835` (Capsule — `NamespacedItems` had the cluster-scoped rejection guard; `RawItems`/`Generators` did not) | #13014 guarded `FindMatchingWorkloads` but not the earlier `finalize` path — exactly the gap [[pr-13960]] closed |
+
+**Review rule that falls out of the table:** when a reconciler looks an object up, ask *who can write the key*. If the answer includes an unprivileged tenant, require a second condition that only Kueue stamps — an ownership marker such as `kueue.x-k8s.io/is-group-workload`, an owner-reference *shape* (controller vs non-controller), a UID, or a namespace qualification — and check that **every** path that reaches the lookup applies it, not just the obvious one.
 
 ## Related pages
 

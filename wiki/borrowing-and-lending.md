@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-09-01
 
 ---
 
@@ -38,6 +38,14 @@ When cohorts have parents, borrowing walks up: sibling CQs in the immediate coho
 ## Monitoring
 
 Per-CQ metrics expose `admitted_usage`, `reserved_usage`, `nominal_quota`, and borrow-specific counters; dashboards typically surface "usage / nominal" per CQ and "borrowed / lendingLimit" per pair. See [[metrics]].
+
+## The `LendingLimit` feature gate is gone
+
+`lendingLimit` is no longer gated: [[pr-13067]] removes the `LendingLimit` feature gate entirely and marks it removed in the versioned feature-gate list. The field itself is unchanged; there is simply no switch to turn it off any more.
+
+## Shrinking capacity does not evict
+
+Reparenting a cohort under a smaller root, dropping an ancestor's nominal quota below current usage, tightening a lender's `lendingLimit`, or setting `borrowingLimit: 0` on an actively-borrowing ClusterQueue all leave already-admitted Workloads running — only future admissions see the reduced capacity. Pinned by [[pr-14598]]; see [[cluster-queue#Shrinking capacity never evicts admitted Workloads]].
 
 ## Related pages
 

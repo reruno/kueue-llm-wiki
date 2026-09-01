@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-05-08
+**Last updated**: 2026-09-01
 
 ---
 
@@ -46,6 +46,37 @@ The cache stores per-ancestor `SubtreeQuota` values used to compute fair-share d
 ## Interaction with priority and preemption
 
 Fair sharing picks *which CQ* gets the next admission slot. [[queueing-strategy]] and [[workload-priority]] still pick *which workload within that CQ* goes first. When fair-share decides CQ-B should go and CQ-B's head-of-queue is lower priority than CQ-A's, the lower-priority workload wins — which is surprising if you expected global priority ordering. This is intentional: fair-share is the whole point.
+
+## Preemption strategies compare `AlmostLCA`, not the preemptor's ClusterQueue
+
+The two fair-sharing preemption strategies are named after a share comparison:
+
+- `LessThanOrEqualToFinalShare` (rule **S2-a**)
+- `LessThanInitialShare` (rule **S2-b**)
+
+The user documentation used to describe both in terms of "the share of the preempting ClusterQueue". That is only correct for a flat, two-level cohort. KEP-1714 states the rule over **`AlmostLCA(x, y)`** — the child of the lowest common ancestor of the preemptor `x` and the target `y`, on `x`'s side of the tree. In a hierarchy deeper than two levels `AlmostLCA(x, y)` is an ancestor *cohort*, not the preempting ClusterQueue, so the share being compared is a subtree share. The docs were corrected to match the KEP and the code ([[issue-14548]], fixed by #14701; branch/website ports [[pr-14741]], [[pr-14742]], [[pr-14743]]).
+
+Concretely, S2-a reads: the value of `AlmostLCA(y, x)` without target `z` is still higher than or equal to the value of `AlmostLCA(x, y)` with the incoming workload `w` admitted.
+
+## Unsatisfiable tournaments are skipped (`+Inf` dominant resource share)
+
+A preemptor whose `DominantResourceShare` is `+Inf` — it borrows while its cohort's fair weight is zero — is ranked above **every** finite-share target by `CompareDRS`, so both default strategies reject every candidate. Before [[pr-14490]] (fixes #14487) `runFirstFsStrategy` still walked the full per-candidate tournament (each walk goes to the cohort root) and `runSecondFsStrategy` iterated the same candidates again, all provably failing. On a saturated cluster this is `O(candidate workloads)` of wasted work per attempt, every cycle, and it was the dominant source of the `Evaluating FairSharing strategy` log line at `V(4)`.
+
+`fsStrategyUnsatisfiable` now detects the case and skips the per-candidate loop, **draining the candidates into `retryCandidates`** so rule S2-b still runs against a snapshot the loop may have mutated (it deliberately does not `DropQueue`).
+
+The zero-vs-zero case (target also `+Inf`) is **not** skipped: `CompareDRS` falls back to the raw ratio there and preemption can still succeed.
+
+Follow-up [[pr-14765]] (fixes [[issue-14675]]) replaced the ad-hoc `math.IsInf(PreciseWeightedShare(...))` test with the cache's own predicate, exported as `ZeroWeightBorrows()`. `PreciseWeightedShare` returns `+Inf` exactly when `isWeightZero() && !IsZero()`, which is what `zeroWeightBorrows` already checked.
+
+## Re-evaluating candidates after preempting from the preemptor's own CQ
+
+Preempting Workloads from the **preemptor's own** ClusterQueue lowers that CQ's DRS, which can make candidates in *other* CQs newly fair to preempt. The old algorithm did not notice: if the first strategy walked all candidates, found nothing fair, then reached the preemptor's own CQ and took workloads from there without fitting, it fell through to the second strategy — which might pick worse targets, or not enough of them.
+
+Under the Alpha, off-by-default `FairSharingReevaluatePreemptionCandidates` gate, the first strategy is re-run over the retry candidates in exactly that situation ([[pr-14128]], fixes [[issue-14122]]; cherry-picks [[pr-14767]], [[pr-14768]]). The release note carries an explicit caveat: enabling the gate increases exposure to the known fair-sharing infinite preemption loop, [[issue-14543]] (open).
+
+## Preemption logging volume
+
+The per-candidate fair-sharing log was collapsed into **one entry per ClusterQueue**, with the `DominantResourceShare` values serialized into that entry, cutting scheduler log volume at `V(4)` ([[pr-14531]], [[pr-14532]]; original #14348). Companion to the `+Inf` skip above.
 
 ## Related pages
 

@@ -1,10 +1,10 @@
 # Security — Injection, Input Validation, Path Traversal, and Code Execution
 
-**Summary**: Combined coverage for Injection (13), Path Traversal (10), and Code Execution (161) CVE categories — they share the same root cause (untrusted input crossing a parse/exec boundary) and the same mitigations (validate at boundary, allowlist, type-safe builders).
+**Summary**: Combined coverage for Injection (22), Path Traversal (11), and Code Execution (194) CVE categories — they share the same root cause (untrusted input crossing a parse/exec boundary) and the same mitigations (validate at boundary, allowlist, type-safe builders).
 
 **Sources**: `raw/cve/` — representative entries `CVE-2018-17450.md` (Jenkins SSRF), `CVE-2019-10165.md` (OpenShift command injection), `CVE-2019-11246.md` (kubectl cp tar extraction path traversal), `CVE-2019-1002101.md` (related path traversal), `CVE-2021-25741.md` (subpath symlink), `CVE-2022-23524-26.md` (Helm SSRF), and CWE-20/22/74/77/78/89/94/502/918/601 entries.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -70,6 +70,13 @@ For Kueue, the simplified rule is: **validate at the webhook boundary, then trus
 - `git grep -n 'os/exec' pkg/` — should be empty.
 - `git grep -n 'http\.Get\|http\.Post' pkg/` — flag every hit; verify the URL is not derived from CR content.
 - `git grep -n 'filepath\.Join' pkg/` — verify the second arg is not user-supplied.
+
+## Connection strings and file paths built from CR fields
+
+Two 2026 entries sharpen the "untrusted input crossing a parse boundary" rule for controllers that act on CR fields:
+
+- `CVE-2026-53572` (KEDA, CWE-74/89): `pkg/scalers/postgresql_scaler.go` builds libpq connection strings from tenant-controlled `host`, `port`, `userName`, `dbName`, `sslmode` and `password`, while `escapePostgreConnectionParameter()` only quotes values containing a **literal space**. Tabs, newlines, carriage returns, form feeds, vertical tabs, quotes and backslashes therefore create additional key-value tokens when `pgx` parses the string, letting an attacker who can write a `TriggerAuthentication` or `ScaledObject` redirect the connection to their own server or turn off TLS. **Escaping that enumerates "the delimiter" is almost always wrong** — use a structured builder (`url.Values`, `pgx.ConnConfig`) instead.
+- `CVE-2026-75889` (Grafana Alloy, CWE-552): `ServiceMonitor.bearerTokenFile` lets anyone with ServiceMonitor write access name an **arbitrary local file**, which Alloy reads and sends as a bearer token to an attacker-controlled scrape endpoint — including its own projected ServiceAccount token. Any CR field that names a path on the controller's filesystem is a credential-exfiltration primitive; Kueue should keep file paths confined to the operator Configuration and never accept one from a CR.
 
 ## Related pages
 

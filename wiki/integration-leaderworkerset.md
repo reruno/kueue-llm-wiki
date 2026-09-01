@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -59,6 +59,36 @@ The integration's lookup key (used to map LWS objects back to their owning Workl
 ### PodTemplate metadata propagation (#10330)
 
 Labels/annotations on the LWS PodTemplate now propagate into the Workload's PodSets so they are also visible to admission-check controllers (e.g. ProvisioningRequest). Closes the long-standing [[issue-10326]].
+
+## `queue-name` is backfilled onto adopted Pods
+
+When the `queue-name` write moved from the LWS **pod reconciler** into the LWS **webhook** (#4932), the webhook began stamping the leader and worker pod *templates* instead of the Pods. Webhooks only run on create/update, so a LeaderWorkerSet admitted **before** that change keeps templates without the label and nothing backfills it.
+
+The failure mode is silent and self-reinforcing ([[issue-13968]], fixed by [[pr-14138]]; follow-ups [[pr-14602]], [[pr-14603]]):
+
+1. a Pod recreated from such a template starts with no queue name;
+2. the Pod integration skips it (`"queue-name label is not set, ignoring the job"`), so no workload annotation is written and the Pod is missing from the `WorkloadSliceNameKey` index;
+3. the topology ungater finds no candidates, so the scheduling gates are never removed;
+4. `waitForPodsReady` eventually evicts the Workload, the Pods are recreated from the same template, and the loop repeats until `requeueState.count` hits `backoffLimitCount` and the Workload is **deactivated**.
+
+Throughout all of this the Workload reports `Admitted=True` with a valid TAS assignment, so quota looks perfectly healthy — the only symptom is permanently `SchedulingGated` Pods.
+
+`setDefault` now reads the queue name from the LeaderWorkerSet and sets it when **adopting** a Pod, and reconciles it on already-adopted gated Pods — mirroring what the StatefulSet pod reconciler already did. Guarded by `queueName != ""`, so the webhook stays authoritative and `manageJobsWithoutQueueName` behaviour is unchanged.
+
+## Operator-precedence bug in the revision guard
+
+`lwsStsHandler.enqueue` mixed `||` and `&&` without parentheses:
+
+```go
+if sts.Status.CurrentRevision == "" || sts.Status.UpdateRevision == "" &&
+    sts.Status.CurrentRevision == sts.Status.UpdateRevision {
+    return
+}
+```
+
+Go binds `&&` tighter, so this is `A || (B && C)`; `(B && C)` requires `UpdateRevision == "" && CurrentRevision == UpdateRevision`, which already implies `CurrentRevision == ""`. The whole guard therefore collapsed to `if CurrentRevision == "" { return }`, and **every** StatefulSet status update with a non-empty `CurrentRevision` enqueued a LeaderWorkerSet reconcile — including the steady state with no rollout in progress. Later guards dropped most of them, so it was over-enqueue rather than a correctness failure.
+
+[[pr-14447]] (cherry-picks [[pr-14892]], [[pr-14893]]) extracts a named `revisionChanged` helper that is true only when both revisions are set and differ. The narrowing is safe because this controller watches Pods directly, so the reconcile that removes their scheduling gates does not depend on the StatefulSet event; `Create`, `Delete` and `Generic` on the handler are already no-ops.
 
 ## Related pages
 

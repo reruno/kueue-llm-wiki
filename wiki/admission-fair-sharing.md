@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/4136-admission-fair-sharing/README.md`, `raw/kueue/keps/4136-admission-fair-sharing/kep.yaml`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-09-01
 
 ---
 
@@ -80,6 +80,18 @@ DRA logical resource names (from `deviceClassMappings`) participate in admission
 ## Combination with preemption-based fair sharing
 
 Both mechanisms can be active simultaneously. Admission fair sharing reshuffles workloads at admission; if some workloads still can't fit, preemption-based fair sharing may evict running workloads. They are complementary. (source: keps/4136-admission-fair-sharing/README.md)
+
+## LocalQueue identity is namespace-qualified
+
+Admission fair-sharing preemption orders candidate Workloads from different LocalQueues in the same [[cluster-queue]] by their LocalQueue usage. The identity check compared **only `spec.queueName`** — but LocalQueue names are namespace-scoped, so `team-a/default` and `team-b/default` were treated as the *same* LocalQueue. Their usage comparison was skipped entirely, and a lower-priority or more recently admitted Workload could be picked for preemption even though its LocalQueue had lower usage.
+
+[[pr-14547]] (cherry-picks [[pr-14875]], [[pr-14876]]) compares the full namespace-qualified reference via `utilqueue.KeyFromWorkload`. The regression test uses exactly `team-a/default` vs `team-b/default` and asserts the higher-usage LocalQueue stays first in the candidate order; it fails on the unpatched code.
+
+This is the "namespace confusion" class — see [[security-code-patterns]] and the analogous ecosystem CVE noted in [[security-authn-authz]].
+
+## Known gap
+
+Scheduling-equivalence hashing does not compose correctly with usage-based admission fair sharing ([[issue-14231]], open).
 
 ## Related pages
 

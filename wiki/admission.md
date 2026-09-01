@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-09-01
 
 ---
 
@@ -48,6 +48,17 @@ Common reasons surfaced in events:
 - The ClusterQueue is `stopPolicy: Hold`.
 
 Events are attached to the Workload for each of these cases. The [[metrics]] surface also exposes pending counts, admission attempts, and preemption counts.
+
+## When quota is released
+
+Quota release is governed by the Configuration field `scheduling.quotaReleaseStrategy` (added by [[pr-13224]], KEP-6143): `OnTermination` (default — release as soon as a Pod gets a `deletionTimestamp`) or `OnTerminalBestEffort` (hold until Pods reach `Succeeded`/`Failed`, which [[topology-aware-scheduling]] needs so new Pods are not placed on nodes that terminating Pods still occupy). Details and the current implementation scope in [[cluster-queue#Configuration: `scheduling.quotaReleaseStrategy`]].
+
+## Admission is not the same as "checks passed"
+
+Two conditions that used to be able to disagree, both now fixed:
+
+- An AdmissionCheck flipping to `Rejected` **while an eviction was in flight** was dropped, leaving `Admitted=True` beside a `Rejected` check ([[pr-14309]]). See [[admission-check#A `Rejected` check during an in-flight eviction]].
+- A Workload deactivated with a derived `DeactivatedDueTo<Cause>` reason stayed stuck after reactivation because its `WorkloadRequeued` condition was never transitioned ([[pr-14874]]). See [[workload#Reactivation matches deactivation reasons by prefix]].
 
 ## Related pages
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/2937-resource-transformer/README.md`, `raw/kueue/keps/2937-resource-transformer/kep.yaml`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-09-01
 
 ---
 
@@ -121,6 +121,10 @@ Both mechanisms allow Kueue's quota view to differ from pod requests, but:
 - [[dra]]: pod uses `ResourceClaimTemplates`; Kueue maps `DeviceClasses` to logical names via `deviceClassMappings`.
 
 They can coexist — a cluster might use resource transformers for legacy MIG resources while adopting DRA for new workloads.
+
+## `pods` is refused in every transformation position
+
+A transformation may not name `pods` in `input`, `multiplyBy`, or as an `outputs` key. An `outputs: {pods: ...}` entry collides with Kueue's own Pod-count accounting and is silently overwritten by flavor assignment; `input` and `multiplyBy` are operands and cannot denote it at all, because transformations run *before* the Pod-count request is synthesized. Refused behind the `ReservedResourceNameValidation` gate (Beta/on from v0.20, Alpha/off on the 0.18 and 0.19 branches). Renaming an `outputs` key also requires updating the matching [[cluster-queue]] resource name. Full analysis in [[dra#The reserved `pods` resource name]] ([[pr-13989]], [[pr-14756]], [[pr-14758]], [[pr-14778]]).
 
 ## Related pages
 

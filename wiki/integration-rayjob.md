@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -59,6 +59,28 @@ RayJob and RayCluster have MultiKueue adapters; cross-cluster status mirroring i
 ## TAS
 
 Rank-based ordering within TAS for Ray worker groups is tracked ([[issue-3716]] — TAS: Implement e2e tests for RayJob with TAS).
+
+## Removing the `queue-name` label is rejected
+
+Removing `kueue.x-k8s.io/queue-name` from an **unsuspended** RayJob / RayCluster / RayService / SparkApplication used to be accepted. The job then stopped being managed by Kueue while its Pods kept running, and its resources stopped counting against quota — a straightforward quota leak that any job owner could trigger.
+
+[[pr-13293]] (cherry-picks [[pr-14666]], [[pr-14676]]) rejects the removal in the validating webhook:
+
+- from an **unsuspended** job, always;
+- from a **suspended** job in a namespace that has a default LocalQueue (where the label would otherwise be re-defaulted inconsistently).
+
+Controlled by the `ValidateRayAndSparkJobUpdates` feature gate, **Beta and enabled by default**. Also covers [[integration-spark]].
+
+## KubeRay v1.7.0
+
+The bundled `github.com/ray-project/kuberay/ray-operator` dependency moved **v1.6.2 → v1.7.0** ([[pr-14669]]). `hack/make/deps.mk` derives both the e2e `KUBERAY_VERSION` and the generated `dep-crds/ray-operator` from this module version, so the operator and CRDs used by the KubeRay e2e suite move with it — no separate bump. No Kueue source changes were needed. `go mod tidy` dropped `github.com/hashicorp/golang-lru/v2` and `github.com/smallnest/chanx` from the indirect set.
+
+v1.7.0 is the first KubeRay release shipping the top-level `RayService.Spec.Suspend` field and its `Suspending`/`Suspended` lifecycle (kuberay#4841), which the RayService upgrade-gating work depends on.
+
+## Elastic RayCluster specifics
+
+- **MultiKueue + in-tree autoscaling is rejected at admission** ([[pr-14061]]) — see [[elastic-jobs#MultiKueue rejects an autoscaling elastic RayCluster]].
+- **Partial scale-up (Alpha)** — with `ElasticJobsViaWorkloadSlicesWithPartialReplicaScaleUp` on, the `kueue.x-k8s.io/elastic-job-scale-up-strategy: partial` annotation set, and `minReplicas` configured, `BuildPodSets` sets the worker PodSet's `MinCount` to the effective minimum worker count ([[pr-14909]]). No effect with the gate off.
 
 ## Related pages
 

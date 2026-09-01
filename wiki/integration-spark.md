@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_controller.go`, `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_podset.go`, `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_webhook.go`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-09-01
 
 ---
 
@@ -42,6 +42,10 @@ metadata:
 ## Node affinity injection
 
 On admission, Kueue injects the ResourceFlavor's node selector and tolerations into both the driver and executor pod specs via `RunWithPodSetsInfo`. (source: pkg/controller/jobs/sparkapplication/sparkapplication_controller.go)
+
+## Removing the `queue-name` label is rejected
+
+`SparkApplication` shares the Ray webhook validation: removing `kueue.x-k8s.io/queue-name` from an unsuspended SparkApplication — or from a suspended one in a namespace with a default LocalQueue — is rejected, behind the Beta, default-on `ValidateRayAndSparkJobUpdates` gate. Before the fix the job kept running with its Pods uncounted against quota. See [[integration-rayjob#Removing the queue-name label is rejected]] ([[pr-13293]], [[pr-14666]], [[pr-14676]]).
 
 ## Related pages
 

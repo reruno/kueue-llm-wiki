@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/369-job-interface/README.md`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -117,6 +117,16 @@ Kueue sums the resource requests across all pods in each PodSet and tracks them 
 3. Create a `BaseWebhook` wrapping your type; register it with the webhook server.
 4. Call `RegisterIntegration()` from your `init()` or setup function.
 5. Add integration tests under `test/integration/controller/jobs/yourkind/`.
+
+## Mutate third-party CRDs with a merge patch, not `Update`
+
+An integration that vendors a third-party CRD's Go types must not call `client.Update` on the job object. `Update` sends a **full replace** of the object as the *vendored* struct sees it, so any field the cluster's newer CRD has and the vendored struct lacks is silently dropped. The observed failure was TrainJobs stuck unadmitted because Kueue overwrote the older TrainJob scheme with the vendored one on admission ([[pr-14836]], [[issue-14722]]).
+
+Use `clientutil.Patch` (JSON merge patch via `client.MergeFrom`) in `RunWithPodSetsInfo` and `Stop`, matching what `RestorePodSetsInfo` already did. A merge patch carries only the fields that actually changed, so unmodelled fields are never touched. The same hazard applies to MultiKueue's remote-job creation ([[issue-14837]], open).
+
+## Ownership markers, not names
+
+When a reconciler resolves a Workload from a **client-supplied** label or annotation (pod-group name, prebuilt-workload name, slice name), the name alone is not an identity. Require a second condition Kueue stamps itself — the `kueue.x-k8s.io/is-group-workload` marker plus an owner-reference *shape* check, in the pod-group case — and apply it on **every** path that reaches the lookup, including the finalize path that runs before the queue-name and namespace-selector checks. See [[integration-plain-pod#PodGroup Workload adoption is guarded by `is-group-workload`]] ([[pr-13960]]).
 
 ## Related pages
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/cache/scheduler/`, `raw/kueue/pkg/cache/hierarchy/`, `raw/kueue/pkg/cache/queue/`
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -105,6 +105,14 @@ See [[scheduler-internals#Quota arithmetic and integer-overflow safety]] for the
 ## Debugging cache state
 
 The `pkg/debugger` package can dump the in-memory cache state. This is exposed via the Kueue manager's debug HTTP endpoint when enabled. Useful for diagnosing why the scheduler's view of quota doesn't match what you see in `kubectl get clusterqueue -o yaml`. (source: pkg/scheduler/scheduler.go)
+
+## Cached TAS topology trees
+
+With `TASCacheTopologyTree` (Beta/on from v0.20) the cache holds an **immutable topology tree per TAS flavor** and hands it to successive scheduler snapshots instead of rebuilding it each cycle. Mutable scheduling state stays in the snapshot, so concurrently created snapshots remain isolated; invalidation is driven by semantic node changes only (labels, taints, allocatable). Measured −71.7% CPU and −61.0% allocated bytes on a 2,500-node / 15-flavor benchmark. See [[topology-aware-scheduling#Cached topology trees]] ([[pr-13819]]).
+
+## `RequeueWorkload` owns the inflight cleanup
+
+Inflight bookkeeping is cleared **inside `Manager.RequeueWorkload`, before `info.Update` clears the source ClusterQueue** ([[pr-13885]]). Doing it there rather than at the call sites also fixes the `requeueAndUpdate` path and LocalQueue retargeting, where the previous ClusterQueue kept counting a moved Workload as pending. See [[scheduler-internals#Popped heads must survive a snapshot failure]].
 
 ## Related pages
 

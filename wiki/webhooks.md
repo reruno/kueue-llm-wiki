@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -57,6 +57,21 @@ matchExpressions:
 ```
 
 For manifest installs the second value is `kueue-system`; for Helm it is the release namespace. The point is to stop Kueue suspending critical system components (e.g. kubeadm-run jobs) and to avoid a circular dependency during cluster upgrades. **Action required**: move any Kueue-managed workloads out of `kube-system` / the install namespace before upgrading, or widen `managedJobsNamespaceSelector` and the webhook `namespaceSelector`s to re-include them. See [[manage-jobs-selectively]].
+
+## MutatingAdmissionPolicy (MAP), not just webhooks
+
+Since [[pr-13749]] Kueue also ships a **static `MutatingAdmissionPolicy` (MAP v1)** alongside its webhooks. It clears `status.nominatedClusterNames` on a [[workload]] inside kube-apiserver — using CEL `matchConditions` that fire when `status.clusterName` is newly set or an `Evicted: True` condition is newly added — rather than through an UPDATE mutating webhook, deliberately, to avoid the extra API-server latency and out-of-process call.
+
+- Kustomize: `config/components/map/`
+- Helm: `charts/kueue/templates/map/`, enabled by `enableMutatingAdmissionPolicy: true` in `values.yaml`
+
+The `mworkload.kb.io` mutating webhook keeps `verbs=create`; an earlier attempt to extend it to UPDATE was reverted. Full context in [[multikueue#Clearing `status.nominatedClusterNames` via MutatingAdmissionPolicy]]. Rendering the MAP templates with `helm template` in GitOps CI is still a gap ([[issue-14592]]).
+
+## Update-rejection webhooks added in v0.19/v0.20
+
+- Removing `kueue.x-k8s.io/queue-name` from a RayJob / RayCluster / RayService / SparkApplication is rejected — see [[integration-rayjob#Removing the queue-name label is rejected]] ([[pr-13293]], gate `ValidateRayAndSparkJobUpdates`, Beta/on).
+- A quota-reserved Workload's `priorityClassRef` is frozen by CRD CEL; Kueue skips writes the API server would refuse rather than retrying them forever ([[pr-14565]]). See [[workload#`priorityClassRef` is frozen once quota is reserved]].
+- Admission webhooks should return **no warnings** on the valid paths; [[pr-14688]] / [[pr-14715]] ([[issue-14665]], [[issue-14713]]) added assertions across the Ray, Spark and remaining webhook validation tests to keep it that way.
 
 ## Related pages
 

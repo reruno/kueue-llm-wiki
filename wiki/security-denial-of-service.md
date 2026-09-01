@@ -1,10 +1,10 @@
 # Security — Denial of Service
 
-**Summary**: DoS vulnerability patterns drawn from 85 DoS-class CVEs in `raw/cve/`. The highest-relevance category for Kueue because the scheduler, webhooks, and reconcilers all process untrusted CR input on a hot path.
+**Summary**: DoS vulnerability patterns drawn from 94 DoS-class CVEs in `raw/cve/`. The highest-relevance category for Kueue because the scheduler, webhooks, and reconcilers all process untrusted CR input on a hot path.
 
-**Sources**: `raw/cve/` — 85 entries with `Category: Denial of Service`, including representative cases `CVE-2019-11253.md` (Kubernetes API server YAML/JSON CPU exhaustion), `CVE-2020-8552.md` (API server resource exhaustion via valid requests), `CVE-2020-8569.md` (CSI snapshot-controller nil-pointer crash loop), `CVE-2020-8557.md` (kubelet `/etc/hosts` disk exhaustion), `CVE-2022-39272.md` (Flux `.spec.interval` halts kind-wide reconciliation), `CVE-2022-31016.md` (Argo CD).
+**Sources**: `raw/cve/` — 94 entries with `Category: Denial of Service`, including representative cases `CVE-2019-11253.md` (Kubernetes API server YAML/JSON CPU exhaustion), `CVE-2020-8552.md` (API server resource exhaustion via valid requests), `CVE-2020-8569.md` (CSI snapshot-controller nil-pointer crash loop), `CVE-2020-8557.md` (kubelet `/etc/hosts` disk exhaustion), `CVE-2022-39272.md` (Flux `.spec.interval` halts kind-wide reconciliation), `CVE-2022-31016.md` (Argo CD).
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -39,7 +39,7 @@ The dominant pattern (15 + 10 CVEs respectively). In Kueue, the highest-risk loc
 
 ### CWE-476 — Nil-pointer dereference
 
-10 of the 85 DoS CVEs. Pattern: a reconciler dereferences a field that's optional in the schema but assumed present. CVE-2020-8569 (snapshot-controller) is the canonical case — the controller crashed on a `VolumeSnapshot` referencing a non-existent PVC and entered a crash loop because the same object kept being reprocessed.
+10 of the 94 DoS CVEs. Pattern: a reconciler dereferences a field that's optional in the schema but assumed present. CVE-2020-8569 (snapshot-controller) is the canonical case — the controller crashed on a `VolumeSnapshot` referencing a non-existent PVC and entered a crash loop because the same object kept being reprocessed.
 
 **In Kueue**, the equivalents are:
 
@@ -66,6 +66,12 @@ The mitigation text is shared verbatim across the DoS CVEs:
 > Enforce `ResourceQuota` and `LimitRange` objects in every tenant namespace. Add `context.WithTimeout` to all controller-to-API-server calls. Use Kueue's own admission and borrowing limits to cap resource consumption per ClusterQueue. Implement rate limiting on webhook endpoints.
 
 For Kueue-internal mitigations, see the [[security-best-practices|best-practices checklist]].
+
+## Admin-writable regex compiled with `MustCompile`
+
+`CVE-2026-65834` (Capsule, CWE-20/248): `CapsuleConfiguration.Spec.NodeMetadata.ForbiddenLabels.Regex` was not validated by the configuration admission webhook, so a malformed pattern was stored and later reached `regexp.MustCompile` inside the **node admission webhook**, crashing it on every Node create, update or patch. One bad config string took out a cluster-wide admission path.
+
+Kueue equivalents to check: any pattern or selector that arrives from the Configuration file or from a CR and is compiled or parsed inside a webhook handler — `managedJobsNamespaceSelector`, `integrations.podOptions.namespaceSelector`, label selectors on ResourceFlavor node matching. Validate at the point the value is **accepted**, not at the point it is used, and never `MustCompile` a value that crossed a trust boundary. Also relevant to [[webhooks]]: a panic in a webhook handler is a cluster-wide DoS, not a single-request failure.
 
 ## Related pages
 

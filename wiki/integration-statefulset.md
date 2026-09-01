@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/controller/jobs/statefulset/statefulset_controller.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_webhook.go`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-09-01
 
 ---
 
@@ -35,6 +35,18 @@ The StatefulSet integration respects `managedJobsNamespaceSelector` (see [[manag
 ## Skipping other frameworks
 
 If the StatefulSet's pod template annotations indicate it is already managed by another Kueue-recognized framework, the StatefulSet integration skips defaulting to avoid double-management. (source: pkg/controller/jobs/statefulset/statefulset_controller.go)
+
+## `wlName` is resolved once per reconcile
+
+`findWorkloadName` ran **twice** per reconcile — once in `Reconcile` to list Pods matching the group name, and again inside `reconcileWorkload`. [[pr-14721]] propagates `wlName` from `Reconcile` into `reconcileWorkload(ctx, sts, wlName)`, removing the duplicate lookup and the API calls it made. Legacy (UID-less) workload naming compatibility is preserved.
+
+Note the related hazard the pod-group fix called out but deliberately left alone: `findWorkloadName` falls back to the legacy `GetWorkloadName("", sts.Name)`, but `reconcileWorkload` checks `HasOwnerReference` before mutating, so it is **not** exploitable the way the pod-group name lookup was (see [[integration-plain-pod#PodGroup Workload adoption is guarded by `is-group-workload`]]).
+
+## Same-name replacement Pods and the managed finalizer
+
+A StatefulSet-owned Pod that was evicted (not deleted) could keep the `kueue.x-k8s.io/managed` finalizer forever, and the API server refuses to create a replacement with the same ordinal name while the old object exists in etcd — a circular deadlock. Fixed for serving pod groups in [[pr-14632]]; see [[integration-plain-pod#Finalizer removal on eviction (serving pod groups)]].
+
+Open: a Pod list failure still prevents the StatefulSet Workload reconcile from starting ([[issue-14211]]).
 
 ## Related pages
 

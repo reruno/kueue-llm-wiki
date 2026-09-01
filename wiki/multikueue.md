@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -111,6 +111,46 @@ RayService has been a MultiKueue-managed integration since v0.17.0, but the work
 - **Version skew.** Worker clusters must run a Kueue version compatible with the manager — cross-version mirror-Workload fields can drift.
 - **Observability.** Metrics expose both manager-side admission and mirror-side dispatch; both should be scraped for end-to-end visibility. See [[metrics]].
 - **Plain Pods caveat.** Because plain Pods aren't owned by a controller the manager can suspend, enabling MultiKueue for plain Pods required extra glue ([[issue-2341]]).
+
+## Clearing `status.nominatedClusterNames` via MutatingAdmissionPolicy
+
+External dispatchers nominate worker clusters with their **own** Server-Side Apply field manager (e.g. `fieldManager: "my-external-dispatcher"`). SSA then tracks ownership of `.status.nominatedClusterNames` under that manager, and Kueue's attempt to clear the field to `nil` under the `kueue-admission` manager lost to a field-manager conflict, leaving a stale nomination behind.
+
+[[pr-13749]] (fixes #6185; cherry-picks [[pr-14643]], [[pr-14659]]) solves this **inside kube-apiserver** with a static **MutatingAdmissionPolicy** (MAP v1) rather than a mutating webhook — deliberately, to avoid the extra API-server latency and out-of-process call an UPDATE webhook would add:
+
+- manifests live in `config/components/map/` (Kustomize) and `charts/kueue/templates/map/` (Helm), enabled by default via `enableMutatingAdmissionPolicy: true` in `values.yaml`;
+- CEL `matchConditions` clear `status.nominatedClusterNames` when `status.clusterName` is **newly set** (the Workload was admitted) or when an `Evicted: True` condition is **newly added**;
+- the earlier attempt to extend the `mworkload.kb.io` mutating webhook to UPDATE was reverted; it keeps `verbs=create`.
+
+GitOps note: rendering the MAP templates with `helm template` is not yet supported everywhere ([[issue-14592]], open).
+
+## Preemption gates are local to each cluster
+
+MultiKueue no longer considers `spec.preemptionGates` when deciding whether a manager Workload and its remote copy are in sync ([[pr-14258]], original #12587). Preemption gates on the manager and on a worker are **independent**: they are not copied manager → worker, and a difference is not treated as out-of-sync. Before the fix, creating a MultiKueue Workload that carried a preemption gate produced an infinite sync-and-delete loop on the worker clusters. See [[multikueue-orchestrated-preemption]].
+
+## Worker Job TTL
+
+MultiKueue used to copy `spec.ttlSecondsAfterFinished` from the manager Job onto the remote worker Job. The worker's TTL controller could then delete the completed remote Job **before** MultiKueue synced its terminal status back, so the manager saw the remote as missing and dispatched the completed Job again.
+
+[[pr-14734]] omits the field when creating a remote Job, behind `MultiKueueBatchJobClearingTTLSecondsAfterFinishedOnWorkerCluster` (**Beta/on in v0.20**; **Alpha/off** in the release-0.18 / release-0.19 backports [[pr-14827]], [[pr-14828]]). Existing remote Jobs are not modified. With the gate on, the lifecycle is:
+
+1. the manager Job keeps its configured `spec.ttlSecondsAfterFinished`;
+2. the remote Job is created without it;
+3. the worker TTL controller leaves the completed remote Job alone, so MultiKueue can sync terminal status back;
+4. the manager Job completes and is deleted by its own TTL policy;
+5. MultiKueue removes the remote Job as part of manager-side cleanup.
+
+The general problem — worker-side self-cleanup policies across all MultiKueue integrations — is tracked in [[issue-14779]] (open), and preserving fields the manager's typed struct does not model is [[issue-14837]] (open).
+
+## AdmissionCheck `observedGeneration` is refreshed on config change
+
+The MultiKueue AdmissionCheck reconciler skipped the status update whenever the `Active` condition's status, reason and message were unchanged. Updating the check's parameters to a *different but equally healthy* MultiKueueConfig therefore left `observedGeneration` pointing at the old generation, even though the new configuration had been evaluated successfully. [[pr-14838]] refreshes it (cherry-picks [[pr-14914]], [[pr-14915]], [[pr-14931]], [[pr-14933]], [[pr-14934]]).
+
+`cmpConditionState` was intentionally **not** changed: event handlers use the same helper to detect meaningful health-state transitions, and broadening it would trigger extra reconciles.
+
+## Elastic RayCluster with in-tree autoscaling is rejected
+
+See [[elastic-jobs#MultiKueue rejects an autoscaling elastic RayCluster]] ([[pr-14061]]).
 
 ## Related pages
 

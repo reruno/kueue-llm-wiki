@@ -2,9 +2,9 @@
 
 **Summary**: Table of contents for the Kueue knowledge base. Each entry is one link and a one-line blurb.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-06) and `raw/cve/` (Kubernetes-ecosystem CVE corpus).
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-08) and `raw/cve/` (Kubernetes-ecosystem CVE corpus, 682 entries).
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -13,6 +13,7 @@
 - [[kueue-overview]] — What Kueue is, who uses it, and the class of problems it solves.
 - [[architecture]] — Controllers, scheduler, webhooks, manager, and how they fit together.
 - [[feature-gates]] — Feature gate lifecycle and how features graduate from alpha → beta → GA.
+- [[api-versions]] — **[Action required in v0.20]** `v1beta1` is no longer served; migrating stored objects to `v1beta2`.
 
 ## Core API objects
 

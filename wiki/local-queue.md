@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-09-01
 
 ---
 
@@ -51,6 +51,14 @@ metadata:
     kueue.x-k8s.io/queue-name: team-ml-gpu
 # ...
 ```
+
+## Moving a LocalQueue to another ClusterQueue
+
+Retargeting a LocalQueue's `spec.clusterQueue` used to leave the **previous** ClusterQueue counting the moved Workloads as pending. The inflight cleanup now happens inside `Manager.RequeueWorkload`, before `info.Update` clears the source ClusterQueue, which fixes both the retarget path and the `requeueAndUpdate` path ([[pr-13885]]). See [[scheduler-internals#Popped heads must survive a snapshot failure]].
+
+## LocalQueue identity is `namespace/name`
+
+LocalQueue names are namespace-scoped, so `spec.queueName` alone is **not** an identity. Comparing Workloads by `spec.queueName` made `team-a/default` and `team-b/default` indistinguishable and broke admission fair-sharing preemption ordering; the comparison must use the namespace-qualified key (`utilqueue.KeyFromWorkload`) — [[pr-14547]], see [[admission-fair-sharing#LocalQueue identity is namespace-qualified]].
 
 ## Related pages
 

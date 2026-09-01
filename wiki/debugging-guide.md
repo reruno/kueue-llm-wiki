@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/controller/core/workload_controller.go`, `raw/kueue/pkg/debugger/`, `raw/github/kubernetes-sigs__kueue/` (issues), `raw/kueue/pkg/controller/core/clusterqueue_controller.go`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-09-01
 
 ---
 
@@ -242,6 +242,33 @@ Key metrics for triage (see [[metrics]]):
 | Re-queue loop (admit → evict → admit) | PodsReady timeout is too short; or failing admission check with `Retry` state |
 
 ---
+
+## Pods permanently `SchedulingGated` while the Workload says `Admitted=True`
+
+This combination — healthy-looking quota, valid TAS assignment, `Admitted=True`, but Pods that never start — has two known causes worth checking in order.
+
+1. **The Pod is missing `kueue.x-k8s.io/queue-name`.** The Pod integration logs `"queue-name label is not set, ignoring the job"`, no workload annotation is written, the Pod is absent from the `WorkloadSliceNameKey` index, and the topology ungater finds no candidates. `waitForPodsReady` then evicts, the Pods are recreated from the same unlabelled template, and the loop repeats until `requeueState.count` reaches `backoffLimitCount` and the Workload is **deactivated**. Classic trigger: a [[integration-leaderworkerset]] created *before* the queue-name write moved into the LWS webhook, so its pod templates were never stamped. Fixed by backfilling on adoption ([[pr-14138]], [[pr-14602]], [[pr-14603]]).
+2. **The ungater is limited by the admission count.** The elastic-job ungater ungates `status.admission.podSetAssignments[].count` Pods, not `podSet.count` ([[pr-14835]]). If those two differ (partial scale-up, or after a scale-down) the surplus Pods stay gated by design.
+
+Check: `kubectl get pod -o jsonpath='{.spec.schedulingGates}'` and the Pod's `kueue.x-k8s.io/queue-name` label and `kueue.x-k8s.io/workload` annotation.
+
+## A Pod stuck `Terminating` forever, or a replacement that never appears
+
+Symptom A: the owning controller (Deployment-style) thrashes — it creates a replacement Pod which Kueue immediately deletes as "excess". Symptom B: a StatefulSet-owned replacement with the same ordinal name is never created at all.
+
+Both come from the `kueue.x-k8s.io/managed` finalizer not being removed on a **non-deletion** eviction of a serving pod group (a `waitForPodsReady.recoveryTimeout` eviction, a `spec.active` toggle, or preemption). Fixed in [[pr-14632]]; the mechanics — including why the StatefulSet case is a genuine circular deadlock that previously needed a human to strip the finalizer — are in [[integration-plain-pod#Finalizer removal on eviction (serving pod groups)]].
+
+## A Workload that stays inactive after you re-activate it
+
+If the Workload's `WorkloadRequeued=False` condition carries a derived reason such as `DeactivatedDueToRequeuingLimitExceeded`, versions before [[pr-14874]] never transitioned it, so flipping `spec.active` back to `true` had no effect. Check `.status.conditions[?(@.type=="WorkloadRequeued")].reason`.
+
+## A ClusterQueue that stops admitting after a snapshot error
+
+`Manager.Heads` pops one head per active ClusterQueue before the snapshot is built. Before [[pr-13885]], a `cache.Snapshot()` failure dropped those heads on the floor until some unrelated event requeued them. Look for the `SnapshotFailed` requeue reason; its presence means the recovery path is working.
+
+## Reconcile errors that repeat forever on a quota-reserved Workload
+
+A quota-reserved Workload whose owner drops its `WorkloadPriorityClass` label used to be rewritten with a `priorityClassRef` the API server refuses, once per reconcile, for the life of the reservation ([[pr-14565]]). Since [[pr-14922]] the skip is logged at `V(4)`, so you will only see it with `-v=4`.
 
 ## Related pages
 

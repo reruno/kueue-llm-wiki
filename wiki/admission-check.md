@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-09-01
 
 ---
 
@@ -38,6 +38,26 @@ A check can populate `Workload.spec.podSetUpdates` with extra labels, annotation
 ## Per-flavor checks
 
 `admissionCheckStrategy` lets an admin apply a check only to specific ResourceFlavors — e.g. run ProvisioningRequest for an autoscaled flavor but not a pre-provisioned one. See [[provisioning-request]] for the canonical use case.
+
+## A `Rejected` check during an in-flight eviction
+
+`reconcileCheckBasedEviction` bailed out on `IsEvicted` **before** either of its branches, so an AdmissionCheck flipped to `Rejected` while an eviction was already in flight was silently dropped: no `DeactivationTarget`, no event, and the Workload kept `Admitted=True` sitting next to a `Rejected` check.
+
+[[pr-14309]] (fixes #10807; cherry-pick [[pr-14871]]) moves the `IsEvicted` guard **below** the `Rejected` branch so it only protects the `Retry` path:
+
+| Case | Workload state | Before | After |
+|---|---|---|---|
+| `Rejected` check, evicted | evicting | ignored — nothing written | deactivated + event |
+| `Rejected` check, not evicted | — | deactivated + event | unchanged |
+| `Retry` check, evicted | evicting | skipped | unchanged — still skipped |
+
+The guard is *moved* rather than deleted because a `Retry` must not evict a Workload that is already being evicted. Rejection is terminal, and `SetDeactivationTarget` writes a condition whose consumer flips `spec.Active=false` independently of `Evicted`; `apimeta.SetStatusCondition` makes repeat reconciles a no-op, so no extra API requests. Easiest to hit under [[multikueue]] — a worker-side eviction flips the MultiKueue check to `Retry`, which evicts the manager Workload and resets every check to `Pending` — but the handling is not MultiKueue-specific.
+
+Follow-up [[pr-14874]] fixed the matching reactivation path for derived `DeactivatedDueTo<Cause>` reasons; see [[workload#Reactivation matches deactivation reasons by prefix]].
+
+## `observedGeneration` on the `Active` condition
+
+An AdmissionCheck reconciler that skips the status write when status/reason/message are unchanged leaves `observedGeneration` stale after a parameter change that happens to preserve the health result. Fixed for the MultiKueue check in [[pr-14838]]; see [[multikueue#AdmissionCheck `observedGeneration` is refreshed on config change]].
 
 ## Related pages
 

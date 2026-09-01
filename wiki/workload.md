@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -47,6 +47,28 @@ When an admitted Workload is preempted, or when [[gang-scheduling]]'s WaitForPod
 ## Finalizer and GC
 
 A Workload carries a finalizer so quota accounting stays consistent while the underlying job is being torn down. Cases where the finalizer wasn't removed (plain Pods, PodGroups) have historically blocked GC ([[issue-6919]]).
+
+## `minCount` may be zero
+
+`PodSet.minCount` accepts **0** since [[pr-14720]] (fixes [[issue-14719]]); the OpenAPI `Minimum` was previously 1 even though `count` already allowed 0, so `count=0, minCount=0` — the shape partial scale-up of elastic workload slices needs — was rejected. The CEL rule `minCount <= count` is unchanged and no scheduler behaviour changed. Applies to both `v1beta1` and `v1beta2`.
+
+The maximum number of PodSets per Workload remains **10**.
+
+## `priorityClassRef` is frozen once quota is reserved
+
+The Workload CRD's CEL rules freeze `priorityClassRef` for a Workload that has reserved quota: it cannot be **added**, cannot be **removed**, its **group** and **kind** cannot change, and for a Pod `PriorityClass` neither can its **name**.
+
+`classifyWorkloadsForPriorityUpdate` only skipped the *addition* case, so a reserved Workload whose owner dropped its `WorkloadPriorityClass` label was written with a ref the API server refuses; the reconcile failed and retried for as long as the reservation was held. In a batch this splits the set: unreserved components take the transition, reserved ones are refused forever. [[pr-14565]] (fixes [[issue-14482]]) adds `priorityRefTransitionAllowed`, consulted **in the write loop** next to the existing `priorityStateEqual` skip — it cannot live in the classifier, which only receives the class *name*; the target's group and kind do not exist until `ExtractPriority` has resolved the ref, which happens after classification. A Workload **without** a reservation is unconstrained and still follows its owner. See [[workload-priority]].
+
+## Reactivation matches deactivation reasons by prefix
+
+Deactivation reasons follow a `DeactivatedDueTo<Cause>` pattern (e.g. `DeactivatedDueToRequeuingLimitExceeded`). `WorkloadReconciler.Reconcile` matched only the exact base reason `WorkloadDeactivated` ("Deactivated"), so a Workload carrying a *derived* reason on its `WorkloadRequeued=False` condition never took the reactivation path: the stale requeue condition stayed and the Workload was never re-queued after `spec.active` was flipped back on.
+
+[[pr-14874]] (fixes [[issue-14870]]; cherry-picks [[pr-14878]], [[pr-14879]]) converts the expression `switch` on `cond.Reason` into a condition `switch` and matches with `strings.HasPrefix(cond.Reason, kueue.WorkloadDeactivated)`. The eviction-backoff cases (`WorkloadEvictedByPodsReadyTimeout`, `WorkloadEvictedByAdmissionCheck`) are unchanged. This is a follow-up to [[pr-14309]].
+
+## Extended resources declared only in `limits` are indexed
+
+The core Workload indexer only looked at container `requests` when indexing extended resources, so a Workload whose containers declare an extended resource **only** in `limits` (legal Kubernetes — `requests` defaults from `limits`) was missing from the index. [[pr-14808]] (fixes [[issue-14801]]; cherry-picks [[pr-14887]], [[pr-14888]]) reads both.
 
 ## Related pages
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -43,6 +43,18 @@ Preemption accounting must stay consistent with quota: if a CQ's quota is reduce
 ## The `preemptionExpectations` store
 
 After the scheduler issues preemptions for a workload it records the targets in an in-memory `preemptionExpectations` map and will not re-issue the same preemption until it observes the eviction (this is the "Preemption already issued, waiting for observation" behaviour). Because admission is *asynchronous*, an admitted workload that was never removed from `preemptionExpectations` could wedge a whole ClusterQueue: the eviction of a lower-priority victim gets overwritten by a lagging Server-Side-Apply admission patch (which omits the `Evicted` condition), so the preemptor waits forever (head-of-line blocking) or, alternatively, the goroutine admits an already-evicted workload with no quota check (oversubscription). This was a confirmed production outage ([[issue-11480]], fixed in [[pr-11502]]; manual cherry-picks [[pr-11648]]/0.17, [[pr-11647]]/0.16, shipped in v0.17.4 / v0.16.9). The fix guarantees a workload is dropped from `preemptionExpectations` once it becomes Admitted. Full mechanics on [[scheduler-internals#Admitted workloads must leave preemptionExpectations]].
+
+## Preemptor tracking on the ClusterQueue
+
+A ClusterQueue records the Workload that most recently issued preemption as its `preemptorWorkload`, together with the `.metadata.generation` at which it was evaluated. `cq.IsPreemptor(wl)` requires a **strict generation match**, so a Workload that has since been modified stops being the tracked preemptor. Under the Alpha `PrioritizePreemptorWorkloads` gate this drives iterator ordering and lets the preemptor lock freed quota — and its TAS topology domains — into the cycle snapshot while it waits for staggered evictions. Full mechanism in [[scheduler-internals#Preemptor prioritization]] ([[pr-13797]]).
+
+## Fair-sharing preemption changes
+
+See [[fair-sharing]] for: the `AlmostLCA` correction to how the two strategies are described, the `+Inf` dominant-resource-share tournament skip, and the Alpha `FairSharingReevaluatePreemptionCandidates` re-run. A fair-sharing infinite preemption loop remains open ([[issue-14543]]).
+
+## A rejected AdmissionCheck during eviction now deactivates
+
+An AdmissionCheck flipping to `Rejected` while an eviction is in flight used to be dropped silently, leaving `Admitted=True` next to a `Rejected` check. See [[admission-check#A `Rejected` check during an in-flight eviction]] ([[pr-14309]]).
 
 ## Related pages
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/scheduler/scheduler.go`, `raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go`, `raw/kueue/pkg/scheduler/logging.go`
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -146,6 +146,59 @@ The `schedule()` function returns `KeepGoing` if at least one workload was admit
 - A ResourceFlavor is created/deleted.
 - A cohort membership changes.
 - A WaitForPodsReady timeout fires.
+
+## Preemptor prioritization
+
+Guarded by the Alpha, off-by-default `PrioritizePreemptorWorkloads` gate ([[pr-13797]], fixes #13662).
+
+**The failure it fixes.** When a Workload needs the *combined* quota of several victims across a cohort, the victims rarely finish evicting at the same instant. Between the first victim releasing quota and the last one finishing, the preemptor holds no reservation and no lock on that quota, so:
+
+1. victim `wlA` finishes evicting and frees quota;
+2. the preemptor still cannot be admitted — it is waiting on `wlB`;
+3. any workload with nominal capacity (or a favourable fair share) grabs the freed quota, including `wlA` itself being re-admitted;
+4. the preemptor re-issues preemption against `wlA`; when `wlB` finishes, the same thing happens there.
+
+The result is an unbounded eviction loop that never admits the preemptor.
+
+**The mechanism.**
+
+- **Preemptor tracking.** When preemption is issued, the ClusterQueue records the active `preemptorWorkload` together with the `.metadata.generation` it was evaluated at. `manager.Heads()` calls `cq.IsPreemptor(wl)` — which requires a **strict generation match** — and stamps `IsPreemptor: true` on the scheduler's `Head` struct.
+- **Iterator ordering.** With the gate on, both `makeClassicalIterator` and the fair-sharing `entryComparer.less` sort `IsPreemptor == true` entries first.
+- **Snapshot locking.** Being evaluated first means the preemptor runs `cq.AddUsage(usage)` in `processEntry` before anyone else, reserving its capacity **in the cycle snapshot** — even when `ReclaimWithinCohort: Any` (`CanAlwaysReclaim`) would otherwise let a reclaimer through. Interim workloads then fail `cq.Fits` and are skipped.
+
+**TAS domains are locked too.** The same `AddUsage` call re-locks the preemptor's chosen topology domains in `TASFlavorSnapshot`, and the placement is stable across cycles because `updateAssignmentForTAS` simulates removal of the *remaining* targets (`SimulateWorkloadRemoval(targets)`) and `sortedDomains` breaks ties deterministically via `compareDomainLevelValues` (lexicographic over domain-hierarchy level values, e.g. `rack-1/node-1` before `rack-2/node-2`). An interim workload trying to claim those domains fails `FitsCheckNoTAS`. Pinned by integration coverage in [[pr-14687]] / [[pr-14894]] / [[pr-14895]].
+
+Consistency of preemptor state between the queue snapshot and second-pass scheduling is still being tightened ([[issue-14681]], open).
+
+## Recompute an assignment when preemption targets overlap
+
+Phase 5 step 4 used to simply mark an entry `skipped` when its nomination-time preemption targets overlapped targets already claimed earlier in the same cycle. On a busy cluster a large "hero" Workload collided with earlier entries every cycle and never got scheduled (#13320). Under the **Beta** `RecomputeAssignmentUponPreemptionTargetsOverlap` gate the scheduler instead **recomputes** the assignment against the already-updated snapshot ([[pr-14246]], [[pr-14248]]; original #13863). The TAS-specific counterpart is `TASRecomputeAssignmentWithinSchedulingCycle`, which now requires `TopologyAwareScheduling` to be enabled ([[pr-14256]]).
+
+## Popped heads must survive a snapshot failure
+
+`Manager.Heads` pops one head from every active ClusterQueue **plus** all ready second-pass Workloads *before* `cache.Snapshot()` runs. If `Snapshot()` returns an error the cycle used to return immediately, leaving those Workloads out of the queue until some unrelated event happened to requeue them — an indefinite stall.
+
+[[pr-13885]] (fixes [[issue-13884]]) restores them on the error path:
+
+- regular heads are requeued with the new reason `SnapshotFailed`;
+- second-pass Workloads go back through the existing retry/backoff path.
+
+The inflight cleanup was moved **into `Manager.RequeueWorkload`, before `info.Update` clears the source ClusterQueue**. That placement also fixes two pre-existing accounting bugs on the `requeueAndUpdate` path and on LocalQueue retargeting, where the *previous* ClusterQueue kept counting the Workload as pending after it moved.
+
+Known trade-off, accepted in the PR: a *persistent* snapshot failure now produces a tight retry loop, because heads are requeued immediately and the scheduling-cycle slowdown is capped at 10 ms. A dedicated backoff for repeated snapshot failures was left as a follow-up.
+
+## Scheduling-equivalence hash: what it does and does not include
+
+The hash is computed over each PodSet's scheduling-relevant shape plus its effective `TotalRequests.Requests`. It deliberately **excludes** the PodSet `Name` when `SchedulingEquivalenceHashingIgnorePodSetName` is on (Beta/on from v0.20, Alpha/off on release-0.19) — flavor assignment never reads the name, but the Pod-group integration derives it from the client-settable `kueue.x-k8s.io/role-hash` annotation, so a client stamping a unique role hash per Workload produced one equivalence class per Workload and defeated the bulk-move optimization entirely ([[pr-14784]], part of #14534). PodSet **ordering** still matters, and the gate requires `SchedulingEquivalenceHashing`.
+
+Related open gaps: equivalence hashing interacts badly with `UsageBasedAdmissionFairSharing` ([[issue-14231]]), and the hash is recomputed unnecessarily on requeue ([[issue-14604]]).
+
+## Workload-aware scheduling (`SchedulerLibraryIntegration`, Alpha)
+
+Two pieces have shipped behind the Alpha, off-by-default `SchedulerLibraryIntegration` gate:
+
+- Kueue stops filtering unready / `spec.unschedulable` nodes when building the TAS node cache and lets the scheduler library apply those checks ([[pr-14203]], [[pr-14613]]).
+- Every Pod created by a Kueue-managed job is annotated `kueue.x-k8s.io/workload` with its Workload name, so preemption decisions can be mapped onto concrete Pods in the library's cluster cache ([[pr-14551]], [[pr-14796]]). Previously only `TopologyAwareScheduling` set this annotation. The name is resolved in order: explicit workload annotation → prebuilt-workload → pod group → workload slice.
 
 ## Related pages
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -70,6 +70,34 @@ Kueue supports a rolling window of Kubernetes minor versions (typically the curr
 ## Dependency management
 
 Kueue depends on `cluster-autoscaler/apis` for the ProvisioningRequest types; historically these were sometimes pinned to unreleased commits ([[issue-1194]], [[issue-1896]] — use a released cluster-autoscaler/apis module). Similar for KubeRay ([[issue-1634]]).
+
+## v0.18.6 and v0.19.2 (paired patch releases, 2026-08)
+
+Prepared by [[pr-14685]] ([[issue-14322]]) and [[pr-14686]] ([[issue-14323]]); `main` and the website were re-synced by [[pr-14690]], [[pr-14691]], [[pr-14692]], [[pr-14696]]. Headline content carried by these two branches in this window:
+
+- the pod-group foreign-Workload adoption fix ([[pr-14617]], [[pr-14630]]) — see [[integration-plain-pod]];
+- the reserved `pods` resource-name refusal plus its `ReservedResourceNameValidation` escape-hatch gate ([[pr-14756]], [[pr-14758]], [[pr-14773]], [[pr-14774]]) — see [[dra]];
+- TAS elastic leader-assignment preservation ([[pr-14064]], [[pr-14076]]) and the `TASCacheTopologyTree` gate at Alpha/off ([[pr-14639]], [[pr-14644]]);
+- MultiKueue `nominatedClusterNames` MAP clearing ([[pr-14643]], [[pr-14659]]) and AdmissionCheck `observedGeneration` refresh ([[pr-14914]], [[pr-14915]], [[pr-14933]], [[pr-14934]]);
+- observability fixes on `kueue_pod_scheduling_gate_removal_seconds` ([[pr-14731]], [[pr-14530]]) and the metrics overflow / `+Inf` fix ([[pr-14050]]);
+- LeaderWorkerSet queue-name backfill ([[pr-14602]], [[pr-14603]]) and the revision-guard precedence fix ([[pr-14892]], [[pr-14893]]);
+- `kueuectl` UID-precondition delete ([[pr-14882]], [[pr-14883]]) and clusterqueue list chunking ([[pr-14880]], [[pr-14881]]).
+
+Follow-on patch releases v0.18.7 ([[issue-14694]]) and v0.19.3 ([[issue-14693]]) were open at the time of this ingest.
+
+## v0.20: action required
+
+- **`v1beta1` is no longer served.** Run `hack/migrate-to-v1beta2.sh` before upgrading. See [[api-versions]] ([[pr-14558]]).
+- **`TASRecomputeAssignmentWithinSchedulingCycle` now requires `TopologyAwareScheduling`.** If TAS is disabled, set the gate to `false` before upgrading ([[pr-14256]]).
+- **A Configuration that names `pods`** as a DRA `deviceClassMappings[].name` or in a resource transformation will now stop the manager at startup (`os.Exit`). Rename it, or set `ReservedResourceNameValidation=false` for one release ([[pr-13989]], [[pr-14778]]). Renaming an `outputs` key also requires updating the matching ClusterQueue resource name.
+- **`kueue_pod_scheduling_gate_removal_seconds` gained a `replica_role` label**, changing that metric's series identity ([[pr-14488]]).
+- **`RejectUpdatesToCQWithInvalidOnFlavors` is Beta/on** — fix invalid `AdmissionCheckStrategy.OnFlavors` references first ([[pr-14776]]).
+
+## Cherry-pick mechanics worth knowing
+
+Feature-gate specs generally **cannot** be cherry-picked verbatim. Kueue never sets an emulation version, so the effective version is Kubernetes' `DefaultKubeBinaryVersion`; `featureSpecAtEmulationAndMinCompatVersion` therefore still selects a spec written as `{0.20, Default: true, Beta}` on a release-0.19 build, silently enabling the gate there. A backport that must stay opt-in has to rewrite the spec as `{0.19, Default: false, Alpha}`, and gate *dependencies* move from `main`'s `defaultFeatureGateDependencies` map to the branch's `validateFeatureGateDependency` in `pkg/config/validation.go`. ([[pr-14804]])
+
+A manual cherry-pick is also required whenever the bot's automated pick fails on a diverged `go.mod` — see [[pr-14531]] for a worked example (dependency resolution to the branch's own versions, plus test-fixture adaptation to the branch's older internal API).
 
 ## Related pages
 

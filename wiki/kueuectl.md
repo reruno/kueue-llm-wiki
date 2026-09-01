@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-09-01
 
 ---
 
@@ -29,6 +29,16 @@ The CLI grew incrementally during v0.6–v0.7. Representative tracking issues:
 ## Test infrastructure
 
 `kueuectl` tests use a fake clock to avoid real-time flakiness ([[issue-2287]]).
+
+## Deleting a Workload uses a UID precondition
+
+`kueuectl delete workload` deletes the Workload's owner as well. It used to delete **by name**, so a stale Workload whose owner had already been deleted and recreated with the same name destroyed the *replacement* object. [[pr-14831]] (fixes [[issue-14830]]; cherry-picks [[pr-14882]], [[pr-14883]]) preserves the UID from each Workload owner reference and passes it as a **delete precondition**, so the delete is refused when the UID no longer matches.
+
+## `list clusterqueue` honours the chunk size
+
+`list clusterqueue` never set `Options.Limit` in `Complete()`, unlike `list localqueue`, `list workload` and `list resourceflavor`, which all call `listRequestLimit()`. `KUEUECTL_LIST_REQUEST_LIMIT` therefore had no effect and every invocation issued a single unbounded LIST. [[pr-14864]] (cherry-picks [[pr-14880]], [[pr-14881]]) adds the missing call; an invalid limit is now rejected up front instead of silently producing an unusable setting.
+
+Open inconsistency: `kueuectl create clusterqueue` validates resource-group overlap differently from the webhook ([[issue-14926]]).
 
 ## Related pages
 

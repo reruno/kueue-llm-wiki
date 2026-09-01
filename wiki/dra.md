@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/2941-DRA/README.md`, `raw/kueue/keps/2941-DRA/kep.yaml`, `raw/kueue/pkg/dra/claims.go`, `raw/kueue/pkg/dra/extended_resources.go`
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -103,6 +103,47 @@ DRA resources participate in [[admission-fair-sharing]] calculations the same wa
 ## Comparison with resource-transformer
 
 For how DRA differs from [[resource-transformer]] (and when to use each), see the canonical comparison in [[resource-transformer#comparison-with-dra]].
+
+## The reserved `pods` resource name
+
+`pods` is reserved for Kueue's own Pod-count accounting. The Workload webhook already refused it (`validateResourceList` in `pkg/webhooks/workload_webhook.go` returns `"the key is reserved for internal kueue use"`), but the **operator Configuration** did not: `validateDeviceClassMappings` only checked the mapping name for label-key syntax, length and uniqueness, so a DeviceClass could be mapped to a logical resource named `pods` — and a [[resource-transformer]] could name it too.
+
+**Why it is silently wrong.** `totalRequestsFromPodSets` merges the preprocessed DRA resources into the PodSet's requests without filtering reserved names, and `dropExcludedResources` only removes administrator-configured prefixes. Then flavor assignment overwrites the key:
+
+```go
+// pkg/scheduler/flavorassigner/flavorassigner.go, assignFlavors
+if a.cq.RGByResource(corev1.ResourcePods) != nil {
+    if podSet.Requests != nil {
+        podSet.Requests.Set(corev1.ResourcePods, int64(podSet.Count))
+    }
+    // ...
+}
+```
+
+`Set` **replaces** rather than adds, in `MapRequests` and `SliceRequests` alike. So on a ClusterQueue that tracks `pods` quota, one Pod claiming eight devices of a mapped class is charged **one**. This is not specific to prioritized lists — the `ExactCount` path charges through the same merge.
+
+[[pr-13989]] (fixes [[issue-13988]]; cherry-picks [[pr-14756]], [[pr-14758]]) refuses the name in the four Configuration positions that reach this accounting path:
+
+| Position | Why |
+|---|---|
+| `deviceClassMappings[].name` | writes under the reserved key — the collision above |
+| `resources.transformations[].outputs` key | same |
+| `resources.transformations[].input` | operand — a transformation runs *before* the Pod-count request is synthesized, so it cannot denote it |
+| `resources.transformations[].multiplyBy` | same |
+
+Nothing else in the Configuration is touched: `admissionFairSharing.resourceWeights` and friends still accept `pods`, where it correctly means the Pod count.
+
+**Where the refusal lives.** Only the *mapping-name* check moved behind `KueueDRAIntegration`: the mapper is built inside that gate check in `main.go`, so with the gate off nothing reads the name and a mapping carrying it is dormant — and Configuration validation failure is `os.Exit`, so refusing it unconditionally would have crashed an upgrade over something inert. Count limits, name syntax and length, duplicate names, device-class syntax and per-class conflicts stay **unconditional** (a mapping that is malformed while dormant is malformed the day it is switched on), following the shape #12134 already used for `sources`. The three transformation positions are also unconditional, because `main.go` installs transformations with no gate above them.
+
+**Upgrade escape hatch.** Because no released version refused the name (verified absent from `pkg/config/validation.go` in v0.18.6 and v0.19.2), the refusal is gated behind **`ReservedResourceNameValidation`** — Alpha/off on release-0.18 and release-0.19 ([[pr-14773]], [[pr-14774]], fixes [[issue-14763]]), Beta/on from v0.20 ([[pr-14778]]). Registering the name on `main` too is mandatory: `Set`/`SetFromMap` return `unrecognized feature gate` for an unregistered name and `main.go` exits, so an operator who used the branch mitigation would crash-loop one release later. Renaming a mapping name or an `outputs` key also requires updating the matching ClusterQueue resource name.
+
+Out of scope of this fix: `template.spec.overhead`, which `PodRequests` also adds to the charge and which the Workload webhook does not reach (#13991).
+
+## Stale DRA resource names after DeviceClass deletion
+
+A Workload kept its DRA-mapped resource names after the referenced DeviceClass was deleted, so requeue re-evaluated it against resources that no longer existed. Fixed in [[pr-14085]] (original #11927).
+
+Still open: a DeviceClass **change** never reaches a Workload that has already reserved quota ([[issue-14563]]).
 
 ## Related pages
 

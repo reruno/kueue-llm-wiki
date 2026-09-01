@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -73,6 +73,49 @@ Feature-gate names and values supplied by the operator (via the Kueue Configurat
 ## When a gate graduates
 
 Graduation is primarily a documentation + defaults change; the code typically stays the same. Missed graduation issues ([[issue-9633]]) are usually about forgetting to flip the stage annotation in the code so release tooling knows the new status.
+
+## Gates added or changed in v0.19 / v0.20
+
+All entries below are **merged and shipped**. Where a gate has a different stage on `main` (v0.20) than on the release branches, both are given — this asymmetry is deliberate and is described under "Registering a gate on a release branch" below.
+
+### Scheduling / preemption
+
+- **`PrioritizePreemptorWorkloads`** — **Alpha, off by default** ([[pr-13797]], fixes #13662; cherry-picks [[pr-14682]]/0.19, [[pr-14683]]/0.18). Sorts a ClusterQueue's tracked *preemptor* Workload to the head of the scheduling iterator so the quota freed by staggered evictions is re-locked into the snapshot before competitors can steal it. Cures preemption thrashing when a preemptor needs several victims that finish evicting at different times. See [[scheduler-internals#Preemptor prioritization]] and [[preemption]].
+- **`RecomputeAssignmentUponPreemptionTargetsOverlap`** — **Beta** ([[pr-14246]]/0.19, [[pr-14248]]; original #13863, fixes #13320). Recomputes an assignment produced during nomination when its preemption targets overlap targets already claimed earlier in the *same* cycle, instead of skipping the entry. Fixes starvation of a large "hero" Workload on a busy cluster. Previously such an entry was simply marked `skipped` (Phase 5, step 4 of [[scheduler-internals]]).
+- **`TASRecomputeAssignmentWithinSchedulingCycle`** — the TAS counterpart. **Action required**: it could previously be enabled while `TopologyAwareScheduling` was off, which is meaningless; [[pr-14256]] (original #14237) makes it *depend* on `TopologyAwareScheduling`. If you disable TAS you must also set `TASRecomputeAssignmentWithinSchedulingCycle=false` before upgrading, or the manager refuses the configuration.
+- **`FairSharingReevaluatePreemptionCandidates`** — **Alpha, off by default** ([[pr-14128]], fixes [[issue-14122]]; cherry-picks [[pr-14767]], [[pr-14768]]). Re-runs the first fair-sharing strategy over the retry candidates when the first pass did not fit *and* it preempted Workloads from the preemptor's own ClusterQueue (which lowers the preemptor's DRS and can make previously-unfair candidates fair). The release note warns that enabling it increases exposure to the known fair-sharing preemption loop [[issue-14543]] (still open). See [[fair-sharing#Re-evaluating candidates after preempting from the preemptor's own CQ]].
+- **`SchedulingEquivalenceHashingIgnorePodSetName`** — **Beta, on by default on main (registered at 0.20)**; **Alpha, off by default on release-0.19** ([[pr-14784]]; branch variants [[pr-14804]], [[pr-14805]]). Excludes each PodSet's `Name` from the scheduling-equivalence hash, because flavor assignment never reads it. Requires `SchedulingEquivalenceHashing`. Motivation: the Pod-group integration derives the PodSet name from the client-settable `kueue.x-k8s.io/role-hash` annotation, so a client that stamps a unique role hash per Workload got one equivalence class per Workload and the bulk-move-to-inadmissible optimization never matched. PodSet *ordering* and resource shape remain significant.
+
+### TAS
+
+- **`TASCacheTopologyTree`** — **Beta, on by default on main**; **Alpha, off by default on release-0.19** ([[pr-13819]], part of #12580; cherry-picks [[pr-14639]], [[pr-14644]]). Caches an immutable topology tree per TAS flavor and reuses it across scheduler snapshots while scheduling-relevant Node data (labels, taints, allocatable) is unchanged. Measured on 2,500 nodes × 15 TAS flavors: **−71.7% CPU, −61.0% allocated bytes, −64.5% allocations** when the tree is reused; **+5.6% CPU** in the pathological case where it is invalidated every cycle. See [[topology-aware-scheduling#Cached topology trees]].
+
+### Integrations
+
+- **`ValidateRayAndSparkJobUpdates`** — **Beta, on by default** ([[pr-13293]]; cherry-picks [[pr-14666]], [[pr-14676]]). Rejects removal of the `kueue.x-k8s.io/queue-name` label from RayJob / RayCluster / RayService / SparkApplication. See [[integration-rayjob]].
+- **`MultiKueueBatchJobClearingTTLSecondsAfterFinishedOnWorkerCluster`** — **Beta, on by default on main (v0.20)**; **Alpha, off by default on release-0.18/0.19** ([[pr-14734]]; branch variants [[pr-14827]], [[pr-14828]]). Omits `spec.ttlSecondsAfterFinished` when MultiKueue creates the remote worker Job. See [[multikueue#Worker Job TTL]]. GA graduation is tracked in [[issue-14826]].
+- **`ElasticJobsViaWorkloadSlicesWithPartialReplicaScaleUp`** — **Alpha, off by default** ([[pr-14909]], part of #12100). Opt-in per job via the `kueue.x-k8s.io/elastic-job-scale-up-strategy` annotation (`atomic` — the default — or `partial`). When enabled *and* the annotation is `partial` *and* `minReplicas` is set, the RayCluster worker PodSet gets `MinCount` = effective minimum worker count instead of a fixed count. No behaviour change with the gate off. See [[elastic-jobs]].
+
+### Configuration validation
+
+- **`ReservedResourceNameValidation`** — **Beta, on by default on main (registered at 0.20)** ([[pr-14778]]); **Alpha, off by default on release-0.18 and release-0.19** ([[pr-14773]], [[pr-14774]], fixes [[issue-14763]]). Gates the refusal of `pods` as a [[dra]] `deviceClassMappings[].name` or in any of the three [[resource-transformer]] positions (`input`, `multiplyBy`, `outputs`). The gate exists purely as an **upgrade escape hatch**: Kueue configuration validation failure calls `os.Exit`, so a cluster whose config named `pods` (accepted by every release up to v0.18.6 / v0.19.2) would crash-loop the manager immediately on upgrade with no way to fix it at rollout time. Registering the name on `main` as well is required because `Set`/`SetFromMap` return `unrecognized feature gate` for an unregistered name and `main.go` exits on that — so an operator who set the gate on 0.18/0.19 would otherwise crash-loop one release later. See [[dra#The reserved `pods` resource name]].
+- **`RejectUpdatesToCQWithInvalidOnFlavors`** — graduated **Alpha → Beta, on by default** ([[pr-14776]]).
+
+### Removed
+
+- **`LendingLimit`** — the gate is **removed** ([[pr-13067]]); `lendingLimit` is now unconditional. See [[borrowing-and-lending]].
+
+### Workload-aware scheduling (WAS) — alpha, opt-in
+
+- **`SchedulerLibraryIntegration`** — **Alpha, off by default**. Delegates work to the upstream `scheduler-library` instead of re-implementing it in Kueue.
+  - [[pr-14203]] / [[pr-14613]]: TAS no longer applies node-readiness and `spec.unschedulable` filtering when building the TAS node cache; the scheduler library does it.
+  - [[pr-14551]] / [[pr-14796]]: Pods created by Kueue-managed jobs get the `kueue.x-k8s.io/workload` annotation (previously only `TopologyAwareScheduling` added it), so a Workload can be matched back to its Pods in the library's cluster cache. Resolution order is workload → prebuilt-workload → group → slice annotation.
+
+## Registering a gate on a release branch
+
+Kueue never sets an emulation version, so the effective version used by `featureSpecAtEmulationAndMinCompatVersion` is Kubernetes' `DefaultKubeBinaryVersion` (1.36 at the time of writing), **not** the Kueue version. `featureSpecAtEmulationAndMinCompatVersion` selects the highest spec at or below that version, so a spec written as `{0.20, Default: true, Beta}` is still selected on a release-0.19 build and the gate lands **enabled by default there too**. A cherry-pick that wants the gate off on the branch must therefore rewrite the spec as `{0.19, Default: false, Alpha}` rather than reuse the main spec. ([[pr-14804]])
+
+Gate *dependencies* are also tracked differently per branch: `main` uses the `defaultFeatureGateDependencies` map in `pkg/features`, while release branches use `validateFeatureGateDependency` in `pkg/config/validation.go`. Both surface as a startup configuration error. ([[pr-14804]], [[pr-14256]])
 
 ## Related pages
 

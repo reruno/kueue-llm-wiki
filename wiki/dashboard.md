@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -34,6 +34,14 @@ The LocalQueue details page used to list **every** Workload in the namespace reg
 ## MultiKueue stats
 
 "Support worker resource stats visibility in MultiKueue manager cluster" ([[issue-10105]]) — KueueViz historically couldn't reach into worker clusters; this opened the path.
+
+## Namespace selector: WebSocket closed with a status
+
+Selecting a namespace on the dashboard produced a WebSocket `1005` error (no status code) because the backend closed the connection without one. [[pr-14788]] (cherry-picks [[pr-14789]], [[pr-14790]]) closes the socket with an explicit normal-closure status on error and on component cleanup.
+
+## KueueViz cluster RBAC no longer carries a namespace
+
+The Helm chart emitted `metadata.namespace` on KueueViz's `ClusterRole` and `ClusterRoleBinding`, which are cluster-scoped. The API server clears namespace metadata for cluster-scoped resources before validation, so this was a manifest-hygiene problem rather than a rejection; [[pr-14816]] (cherry-picks [[pr-14824]], [[pr-14825]]) removes it while keeping the namespace where it is valid — the ServiceAccount subject and the namespaced `Role`/`RoleBinding`. Regression coverage renders the chart with a non-default release namespace.
 
 ## Related pages
 

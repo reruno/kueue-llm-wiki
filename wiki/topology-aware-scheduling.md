@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-01
 
 ---
 
@@ -126,6 +126,49 @@ Cross-flavor overlap is only supported when both flavors reference the **same** 
 ## Defaults
 
 "TAS: reduce friction by defaulting the PodSet annotations" ([[issue-3754]]) — for a flavor that's already TAS-enabled, defaulting the annotation to "unconstrained" rather than requiring the user to repeat it.
+
+## Cached topology trees (`TASCacheTopologyTree`)
+
+Before [[pr-13819]] every scheduling cycle rebuilt the entire TAS topology tree from scratch — domain hierarchy, node-to-domain mapping, leaf capacities — even though almost none of it changes between cycles.
+
+The gate (**Beta/on from v0.20, Alpha/off on release-0.19** — cherry-picks [[pr-14639]], [[pr-14644]]) makes the cache hold an **immutable tree per TAS flavor**:
+
+- the tree is reused while scheduling-relevant Node data is unchanged;
+- **mutable** scheduling state stays in each snapshot, so concurrently created snapshots remain isolated;
+- invalidation is driven by *semantic* node changes — labels, taints, allocatable resources. Node updates that cannot affect TAS placement do not invalidate.
+
+Benchmark, 2,500 nodes / 15 TAS flavors / one non-TAS pod per node:
+
+| Scenario | CPU time | Allocated bytes | Allocations |
+|---|---|---|---|
+| Cached tree reused | −71.74% | −60.96% | −64.50% |
+| Invalidated every cycle | +5.55% | +10.54% | +23.57% |
+| Invalidated every 2nd cycle | −32.54% | −25.05% | −20.28% |
+
+The pathological case (invalidation every cycle) is a small *regression*, which is why the gate ships off on the release branch.
+
+## Elastic workloads: the leader's assignment is preserved
+
+For an elastic Workload (`ElasticJobsViaWorkloadSlicesWithTAS`) with a leader/workers PodSet group, recomputing placement on a resize must not move the leader.
+
+- **Scale-up** ([[pr-14064]], original #13574): a scale-up recomputed the placement for the whole group and **overwrote the running leader Pod's `TopologyAssignment`**, so the leader Pod was restarted and lost its state. Kueue now keeps the leader's existing assignment and places only the newly added workers.
+- **Same-count and scale-down** ([[pr-14076]], original #12436): leader PodSet assignments *and* their capacity accounting are preserved when the worker count stays the same or shrinks.
+
+## `ComputeTASNetUsage` ignores shrinking domain counts
+
+`ComputeTASNetUsage` **skips** a topology domain whose recomputed count is lower than what the previous admission already accounted for — i.e. a negative delta contributes zero rather than a negative usage. This defensive branch was added by #14572 for a state that should not arise normally; [[pr-14754]] / [[pr-14759]] / [[pr-14760]] (fixes [[issue-14645]]) added the dedicated test case, and [[pr-14762]] dropped `EquateEmpty` from it so an empty-vs-nil result is not silently accepted.
+
+## Topology domains are held across scheduling cycles for a preemptor
+
+With `PrioritizePreemptorWorkloads` on, a preemptor waiting for several staggered evictions keeps its chosen nodes/blocks across cycles: it is evaluated first, `cq.AddUsage` re-locks the domains in `TASFlavorSnapshot`, and interim pending Workloads fail `FitsCheckNoTAS`. Placement is stable across cycles because `updateAssignmentForTAS` simulates removal of the remaining targets and `sortedDomains` falls back to the deterministic `compareDomainLevelValues` tie-break. See [[scheduler-internals#Preemptor prioritization]] ([[pr-13797]], covered by [[pr-14687]]).
+
+## `TASRecomputeAssignmentWithinSchedulingCycle` requires TAS
+
+The gate could previously be enabled with `TopologyAwareScheduling` off, which is meaningless. [[pr-14256]] (original #14237) makes it depend on the TAS gate. **Action required**: if you disable `TopologyAwareScheduling`, also set `TASRecomputeAssignmentWithinSchedulingCycle=false` before upgrading, or the manager rejects the configuration at startup.
+
+## Node health filtering can be delegated (`SchedulerLibraryIntegration`, Alpha)
+
+With the Alpha `SchedulerLibraryIntegration` gate on, Kueue no longer applies node-readiness and `spec.unschedulable` checks when building the TAS node cache — the scheduler library performs them instead ([[pr-14203]], [[pr-14613]]). With the gate off (the default) TAS keeps doing its own filtering.
 
 ## Related pages
 

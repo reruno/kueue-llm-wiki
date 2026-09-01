@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-05-08
+**Last updated**: 2026-09-01
 
 ---
 
@@ -58,6 +58,32 @@ The top-level `resources.quotaCheckStrategy` configuration field (gated behind t
 - **Nominal quota versus usage.** A CQ with pending workloads in one flavor blocking borrowing across flavors within the cohort is an intentional-but-tricky behavior ([[issue-1036]]). StrictFIFO amplifies this — see [[queueing-strategy]].
 - **Immutable fields.** `queueingStrategy` was historically immutable to avoid re-sorting the queue mid-flight; the restriction was tightened and then reconsidered ([[issue-1877]], [[issue-434]]).
 - **Over-admission after quota change.** Removing or lowering quota on a CQ that has admitted workloads does not retroactively evict them; the CQ can be "over-nominal" until they finish ([[issue-2678]]).
+
+## Shrinking capacity never evicts admitted Workloads
+
+An invariant that is easy to assume but was previously untested: reducing the *effective* schedulable capacity of a cohort does **not** evict Workloads that are already admitted. [[pr-14598]] (fixes [[issue-13716]]; cherry-picks [[pr-14806]], [[pr-14807]]) pins it with four integration scenarios, each reaching reduced capacity by a different path:
+
+1. reparenting a child [[cohort]] under a smaller root;
+2. reducing an ancestor Cohort's nominal quota **below current usage**;
+3. tightening `lendingLimit` on a lender Cohort while a sibling subtree holds borrowed Workloads;
+4. setting `borrowingLimit: 0` on a ClusterQueue that is actively borrowing.
+
+In all four the admitted Workloads keep running; only *future* admissions see the smaller capacity. See [[borrowing-and-lending]].
+
+## `RejectUpdatesToCQWithInvalidOnFlavors` is Beta
+
+The gate that makes the validating webhook reject ClusterQueue updates referencing invalid flavors in `AdmissionCheckStrategy.OnFlavors` graduated **Alpha → Beta, on by default** ([[pr-14776]]). Fix pre-existing invalid references before upgrading. See [[feature-gates]].
+
+## Configuration: `scheduling.quotaReleaseStrategy`
+
+A Configuration-level (not per-ClusterQueue) field added in both `v1beta1` and `v1beta2` by [[pr-13224]], the API foundation of KEP-6143 ([[pr-13163]] is the KEP; #10076 is the gap it addresses):
+
+| Value | Behaviour |
+|---|---|
+| `OnTermination` (**default**) | quota is released as soon as a Pod receives a `deletionTimestamp`. Preserves the historical `batch/v1` Job behaviour. |
+| `OnTerminalBestEffort` | quota is held until Pods actually reach a terminal phase (`Succeeded`/`Failed`). |
+
+`OnTerminalBestEffort` exists for [[topology-aware-scheduling]]: with `OnTermination`, new Pods can be assigned to nodes that terminating Pods still physically occupy, and scheduling then fails. Validation rejects any other value, and defaulting writes `OnTermination` when the field is unset. [[pr-13224]] shipped the **API types, defaults, validation and generated conversions only** — reconciler wiring and per-integration behaviour land in later PRs of the KEP-6143 series.
 
 ## Related pages
 
