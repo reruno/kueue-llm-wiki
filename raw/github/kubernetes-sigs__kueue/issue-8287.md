@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8287
 
-**Last updated**: 2026-08-26T16:51:04Z
+**Last updated**: 2026-08-31T19:31:19Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-12-17T08:03:11Z
-- **Updated**: 2026-08-26T16:51:04Z
+- **Updated**: 2026-08-31T19:31:19Z
 - **Closed**: —
 - **Labels**: `good first issue`, `help wanted`, `priority/important-soon`, `kind/cleanup`
 - **Assignees**: [@kaisoz](https://github.com/kaisoz), [@NarayanaSabari](https://github.com/NarayanaSabari), [@SatishChoudhary642](https://github.com/SatishChoudhary642)
-- **Comments**: 23
+- **Comments**: 25
 
 ## Description
 
@@ -214,3 +214,18 @@ Thanks @kaisoz! Happy to hand it over :)
 ### Comment by [@andreyvelich](https://github.com/andreyvelich) — 2026-08-26T16:51:04Z
 
 /assign @kaisoz
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-08-31T16:32:47Z
+
+Hi folks, what is the status here? I'm asking because the history looks rather messy. IIUC https://github.com/kubernetes-sigs/kueue/pull/14504 was merged so we already use the new code which allows to finalize the fix?
+
+Actually, I'm even concerned that since we bumped the dependency and didn't remove the workaround now we might be overcounting the quota, wdyt?
+
+cc @kaisoz @SatishChoudhary642
+
+### Comment by [@SatishChoudhary642](https://github.com/SatishChoudhary642) — 2026-08-31T19:31:19Z
+
+Hi @mimowo, #14504 upgraded trainer to v2.3.0 but it still uses the old code (RuntimeInfo() doesn't call SyncParallelCount), so the manual loop is still the only thing setting Parallelism/Completions on Kueue's path  and no double counting. Removing it now would actually break numNodes. The fix needs trainer v2.4 which will contain the new code. 
+As far as I can tell, we can't do anything until v2.4 is released.
+
+Fix is really simple just delete few lines once we get new trainer code.
