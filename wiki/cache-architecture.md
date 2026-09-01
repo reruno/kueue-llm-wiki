@@ -66,6 +66,8 @@ The `pkg/cache/hierarchy` package provides a generic `Manager[CQ, C]` type that 
 
 When a Cohort's parent is set or changed, the hierarchy manager checks for cycles (a Cohort being its own ancestor). A cycle is a fatal configuration error and is rejected. (source: pkg/cache/hierarchy/)
 
+**Ordering invariant, currently violated.** A ClusterQueue is registered in the hierarchy manager (`hm.AddClusterQueue`) *before* its scheduler-cache state is fully populated, so a `updateClusterQueue` that fails part-way leaves a cached CQ with a **nil `NamespaceSelector`**. `MatchingClusterQueues` dereferences it on the next Namespace event and the manager **panics**. Two paths reach that state: `updateCohortTreeResources` returning `ErrCohortHasCycle` before the selector is assigned, and `LabelSelectorAsSelector` failing on an unparsable selector (after `AddClusterQueue` has already run). Open bug #13553 (source: pr-13571.md, open). Anyone adding a fallible step to `updateClusterQueue` should assign the selector before it, or default it to `labels.Nothing()`.
+
 ## Queue manager
 
 The queue manager (`pkg/cache/queue`) is the pending queue:
@@ -101,6 +103,17 @@ Why it exists: a CPU quota like `1E` whose milliCPU exceeds `int64` used to **co
 - **Equality gotcha**: `Amount` has an unexported field, so Kubernetes' `equality.Semantic.DeepEqual` (a forked `reflect`) **panics** on it. The fix adds a `ResourceQuota.Equal` method (+`equalAmountPtr`) and `updateQuotasAndResourceGroups` uses `maps.EqualFunc(..., ResourceQuota.Equal)` instead of `DeepEqual`. Anyone adding a struct with unexported fields into cached types must supply an `Equal` method for the same reason.
 
 See [[scheduler-internals#Quota arithmetic and integer-overflow safety]] for the workload-request-side overflow fixes that preceded this refactor.
+
+## Workload usage can reach the `Unlimited` sentinel
+
+The invariant in `amount.go` — *bounded amounts must never equal `math.MaxInt64`* — is enforced on the **quota** boundary only (`AmountFromQuantity`). The **usage** boundary is unguarded, so the sentinel is reachable from a workload's own requests (source: issue-14105.md, open bug, measured at `cead7dee`):
+
+- `totalRequestsFromPodSets` ends with a **saturating** `Requests.Mul(int64(count))`, so e.g. 4 pods × 2⁶² of a countable resource saturates to exactly `9223372036854775807`. Neither factor is past `int64` on its own.
+- `Info.ResourceUsage` folds that into the tree with `ru.Assigned[fr] = ru.Assigned[fr].AddInt64(q)`. `AddInt64` also saturates, so the result is a *bounded* usage that nothing downstream can distinguish from `Unlimited`.
+
+`Amount` arithmetic is then **asymmetric**, and this is the damaging part: `AddInt64` returns early on an unlimited receiver (later workloads' usage is silently not counted), while `Sub` still subtracts. Measured through the cache with one saturating Workload plus one ordinary 7-unit Workload, usage went `MaxInt64` → `MaxInt64` (the 7 swallowed) → `0` (saturating workload removed) → **`-7`**. The ClusterQueue is left believing 7 units *fewer* are in use than ever were, i.e. with more available capacity than it has, until the process restarts and the cache is rebuilt.
+
+It is not a permanent wedge — `Sub` answers bounded zero when both sides are unlimited, so the saturating Workload's own removal clears the sentinel; what survives is the drift left by the swallowed additions. Whether the scheduler would *admit* such a Workload in band is unestablished; the reproduction hands an already-admitted Workload to the cache, which is the path `AddOrUpdateWorkload` takes on resync without rechecking quota. See [[workload-resource-adjustment]].
 
 ## Debugging cache state
 

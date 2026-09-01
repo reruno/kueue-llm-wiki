@@ -79,3 +79,4 @@ The core Workload indexer only looked at container `requests` when indexing exte
 - [[workload-garbage-collection]] — **[Stable]** retention policies for finished/deactivated Workloads.
 - [[workload-max-execution-time]] — **[Beta]** `spec.maximumExecutionTimeSeconds` enforcement.
 - [[concurrent-admission]] — **[Alpha]** Parent/Variant Workload model for racing flavors.
+- [[workload-resource-adjustment]] — how the requests that count against quota are recomputed from LimitRange defaults, and the raw-vs-adjusted split in `workload.Info`.

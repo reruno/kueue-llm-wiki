@@ -187,6 +187,8 @@ The inflight cleanup was moved **into `Manager.RequeueWorkload`, before `info.Up
 
 Known trade-off, accepted in the PR: a *persistent* snapshot failure now produces a tight retry loop, because heads are requeued immediately and the scheduling-cycle slowdown is capped at 10 ms. A dedicated backoff for repeated snapshot failures was left as a follow-up.
 
+Backported to **release-0.19** ([[pr-14938]]) and **release-0.18** ([[pr-14939]]), both merged 2026-08-31; the regression test lives in `scheduler_afs_test.go` ([[pr-14956]] and its branch variants [[pr-14959]], [[pr-14960]]).
+
 ## Scheduling-equivalence hash: what it does and does not include
 
 The hash is computed over each PodSet's scheduling-relevant shape plus its effective `TotalRequests.Requests`. It deliberately **excludes** the PodSet `Name` when `SchedulingEquivalenceHashingIgnorePodSetName` is on (Beta/on from v0.20, Alpha/off on release-0.19) — flavor assignment never reads the name, but the Pod-group integration derives it from the client-settable `kueue.x-k8s.io/role-hash` annotation, so a client stamping a unique role hash per Workload produced one equivalence class per Workload and defeated the bulk-move optimization entirely ([[pr-14784]], part of #14534). PodSet **ordering** still matters, and the gate requires `SchedulingEquivalenceHashing`.

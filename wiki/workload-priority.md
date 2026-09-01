@@ -40,7 +40,17 @@ One case in the original report was already covered: #13780's `!HasNoPriority(wl
 
 `WorkloadPriorityClassReconciler.Reconcile` listed every Workload referencing the changed class and wrote them in a plain `for` loop — one `client.Update` at a time, never reading `ctx`, and accumulating one error per failure via `errors.Join`. Since `WorkloadPriorityClassDefaulting` became beta-default in v0.20, a **single** class (the default one) can cover every Workload in the cluster that does not set its own, so the set one reconcile walks is no longer bounded by opt-in.
 
-[[pr-14737]] (fixes #13982) switches the sweep to `pkg/util/parallelize.Until` — the same helper the LeaderWorkerSet reconciler, the Pod controller, the elastic-job ungater and the TAS topology ungater already use. It bounds concurrency to **at most 8 workers**, checks `ctx.Done()` before each item so a cancelled reconcile stops promptly, and returns a **single** error rather than one per item.
+[[pr-14737]] (fixes [[issue-13982]]) switches the sweep to `pkg/util/parallelize.Until` — the same helper the LeaderWorkerSet reconciler, the Pod controller, the elastic-job ungater and the TAS topology ungater already use. It bounds concurrency to **at most 8 workers**, checks `ctx.Done()` before each item so a cancelled reconcile stops promptly, and returns a **single** error rather than one per item. Backported to **release-0.19** ([[pr-14945]]) and **release-0.18** ([[pr-14944]]), both merged 2026-08-31.
+
+The shape before the fix also explains the failure signature: the `List` is unpaginated (one reconcile holds the whole membership in memory), and because `ctx` was never read, cancelling the manager mid-sweep let the loop run to the end — every remaining `Update` failed locally and was appended, so the returned `errors.Join` carried one entry per un-swept Workload (source: issue-13982.md).
+
+### The sweep does not filter terminal Workloads
+
+`WorkloadPriorityClassKey` indexes **every** Workload referencing the class, including finished ones, so an installation that retains terminal Workloads (see [[workload-garbage-collection]]) walks and writes them too, even though the value written can no longer affect anything — a finished Workload has already been deleted from the scheduler cache on the workload controller's `StatusFinished` branch. The priority path is the only Workload-keyed writer that does **not** ask `workloadfinish.IsFinished`; the concurrent-admission controller, the MultiKueue workload group, the provisioning controller, the incremental dispatcher, the Pod and StatefulSet reconcilers, the elastic-job ungater and both the TAS indexer and node controller all do (source: issue-13982.md comment).
+
+### Worker-cluster classes must not re-price MultiKueue remote Workloads
+
+The same sweep is a [[multikueue]] hazard. The manager cluster resolves `priorityClassRef` locally and copies both the ref and the resolved `spec.priority` to the worker, tagging the remote Workload with `kueue.x-k8s.io/multikueue-origin` — so the **manager owns that priority**. If the worker cluster defines a `WorkloadPriorityClass` with the *same name but a different value* (e.g. `high = 100` on the manager, `high = 999` on the worker) and that class is created, recreated or modified, the worker's sweep rewrites the remote Workload's priority to its own value, because it does not distinguish locally owned Workloads from remote ones. Open bug, fix in review as [[pr-14963]] (skip Workloads carrying `multikueue-origin`); tracked alongside #13929.
 
 Known related bug, still open: restarting the controller can overwrite `.spec.priority` with the WorkloadPriorityClass's priority ([[issue-14698]]).
 

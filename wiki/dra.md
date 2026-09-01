@@ -2,7 +2,7 @@
 
 **Summary**: Kueue's alpha integration with Kubernetes Dynamic Resource Allocation (DRA) enables quota management, borrowing, and preemption for workloads that request devices via ResourceClaimTemplates or extended resources backed by DRA DeviceClasses.
 
-**Sources**: `raw/kueue/keps/2941-DRA/README.md`, `raw/kueue/keps/2941-DRA/kep.yaml`, `raw/kueue/pkg/dra/claims.go`, `raw/kueue/pkg/dra/extended_resources.go`
+**Sources**: `raw/kueue/keps/2941-DRA/README.md`, `raw/kueue/keps/2941-DRA/kep.yaml`, `raw/kueue/pkg/dra/claims.go`, `raw/kueue/pkg/dra/extended_resources.go`, `raw/github/kubernetes-sigs__kueue/pr-14951.md`, `issue-14964.md`
 
 **Last updated**: 2026-09-01
 
@@ -71,6 +71,12 @@ resources:
 ```
 
 The logical names (`whole-gpus`, `shared-gpus`) are then used as `coveredResources` in a [[cluster-queue]]. Each DeviceClass may appear in at most one mapping entry — duplicate entries are rejected at configuration load time. (source: keps/2941-DRA/README.md)
+
+### Qualified-name validation: more than one slash is now rejected
+
+`validateQualifiedName` (`pkg/config/validation.go`) — a port of upstream Kubernetes' DRA resource validation, and today reached only from `DeviceClassMapping.Sources[].Capacity.Name` — switched on the number of `/`-separated parts and handled **only** `len(parts) == 1` and `len(parts) == 2`. A name with two or more slashes (`a/b/c`) matched neither case, so `allErrs` stayed empty and the value was **silently accepted**, producing a mapping that could never match any device. [[pr-14951]] (fixes [[issue-14846]], cherry-picked to release-0.19 as [[pr-14953]]) adds a `default:` case emitting `field.Invalid`. **Correction to an earlier reading in this wiki**: [[issue-14846]] was previously logged as closed-not-a-bug on the assumption the `IsLabelKey` refactor already covered it; the merged fix and its release note ("Fixed config validation silently accepting capacity names with more than one slash, which produced a mapping that never matched any device") show the gap was real.
+
+Note the ratcheting argument that made failing fast acceptable here: this field lives in Kueue's own `Configuration` file, re-validated from scratch on every controller-manager start, not in a persisted CRD — so there are no existing non-compliant stored objects to grandfather in. Contrast [[feature-gates]]' `ReservedResourceNameValidation`, where the same *kind* of tightening did need an escape hatch because config-validation failure calls `os.Exit`. The equivalent gap in `k8s.io/apimachinery`'s declarative-validation helper (`resourcesQualifiedName` in `strfmt.go`) was deliberately left to be fixed upstream.
 
 ## Workload processing flow
 
@@ -156,3 +162,4 @@ Still open: a DeviceClass **change** never reaches a Workload that has already r
 - [[feature-gates]]
 - [[admission-fair-sharing]]
 - [[topology-aware-scheduling]]
+- [[workload-resource-adjustment]] — DRA detection and DRA processing can run against different (raw vs adjusted) request views.

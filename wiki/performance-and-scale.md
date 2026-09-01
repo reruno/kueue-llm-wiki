@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-09-01
 
 ---
 
@@ -41,6 +41,20 @@ At moderate scale (hundreds of CQs, thousands of pending Workloads) the loop fit
 
 RayCluster with many worker groups, or a JobSet with many replicated jobs, creates multi-PodSet Workloads. Per-PodSet admission cost is linear; cohort-level preemption candidates include all admitted Workloads in the cohort, so CQ-per-namespace deployments keep this set small.
 
+## Client-side rate limiting
+
+Throughput is frequently bounded not by the scheduling loop but by the client-go token bucket in front of the API server.
+
+- **Kueue's own client** is configured from the Configuration field `clientConnection` (`qps`, `burst`), which defaults to **`qps: 300` / `burst: 500`** (`apis/config/v1beta1/defaults.go`). `cmd/kueue/main.go` installs a shared `flowcontrol.NewTokenBucketRateLimiter(qps, burst)` **only when `qps >= 0`**; a **negative `qps` deliberately disables** client-side rate limiting altogether.
+- **MultiKueue's worker clients** do not go through `clientConnection` at all and inherit client-go's defaults of **QPS 5 / Burst 10**. This is a large, easily-missed bottleneck — see [[multikueue#Manager → worker clients run at client-go's default rate limit]].
+
+**Gotcha — zero is accepted and breaks the client.** `qps`/`burst` are pointers defaulted with `cmp.Or`, so an explicit `0` survives defaulting, and nothing validates it (source: pr-14442.md, open):
+
+- `burst: 0` → every request fails immediately at the limiter with `rate: Wait(n=1) exceeds limiter's burst 0`.
+- `qps: 0` with a non-zero burst → the first `burst` requests succeed, then the bucket never replenishes and later requests **block until their context is cancelled or times out** (indefinitely if it has neither).
+
+Keep `qps > 0` and `burst > 0`, or set a negative `qps` if the intent is to remove the limiter.
+
 ## Interpreting metrics
 
 `kueue_admission_attempt_duration_seconds` and `kueue_admission_attempts_total` are the primary signals for loop health (see [[metrics]]). A climbing p99 with stable attempt count means per-attempt cost is rising (flavor groups grew, TAS domains grew, cohort deepened). A climbing attempt count with stable duration means demand is rising; tune queue strategy or split CQs.
@@ -52,3 +66,4 @@ RayCluster with many worker groups, or a JobSet with many replicated jobs, creat
 - [[topology-aware-scheduling]] — main source of scale work.
 - [[visibility-api]] — snapshot cost.
 - [[testing-performance]] — how to run the scheduler perf benchmarks that substantiate the claims on this page.
+- [[multikueue]] — the manager→worker leg, whose clients are throttled separately.

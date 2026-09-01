@@ -46,6 +46,7 @@ Common reasons surfaced in events:
 - The required ResourceFlavor or Topology doesn't exist / isn't labeled on any node.
 - An AdmissionCheck is failing (e.g. ProvisioningRequest still pending).
 - The ClusterQueue is `stopPolicy: Hold`.
+- `workload.ValidateAdmissibility` rejected the candidate — most commonly `resources didn't satisfy LimitRange constraints`, i.e. the effective requests violate a namespace LimitRange `max`/`min`. This rejection leaves the requeue reason at `RequeueReasonGeneric` and, under BestEffortFIFO, does not recover when the LimitRange is relaxed; see [[workload-resource-adjustment]].
 
 Events are attached to the Workload for each of these cases. The [[metrics]] surface also exposes pending counts, admission attempts, and preemption counts.
 
@@ -66,3 +67,4 @@ Two conditions that used to be able to disagree, both now fixed:
 - [[queueing-strategy]] — how the scheduler picks the next candidate.
 - [[preemption]] — how admission displaces lower-priority workloads.
 - [[workload]] — the object whose conditions track this state machine.
+- [[workload-resource-adjustment]] — what requests admission actually evaluates, and where they come from.

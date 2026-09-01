@@ -104,6 +104,24 @@ All entries below are **merged and shipped**. Where a gate has a different stage
 ### Removed
 
 - **`LendingLimit`** — the gate is **removed** ([[pr-13067]]); `lendingLimit` is now unconditional. See [[borrowing-and-lending]].
+- **`MultiKueueBatchJobWithManagedBy`**, **`HierarchicalCohorts`**, **`ObjectRetentionPolicies`** — checked off as removed in the gate-cleanup umbrella below, i.e. the corresponding behaviour is unconditional; the removal PRs themselves are not in the ingested corpus. See [[multikueue]], [[cohort]], [[workload-garbage-collection]].
+
+### The gate-cleanup umbrella ([[issue-12927]])
+
+@mimowo audits `pkg/features/kube_features.go` periodically and batches the mechanical graduations/removals into one issue. Status of that list as of 2026-09-01 (source: issue-12927.md; items marked done there are shipped, the rest are not — do not rely on them):
+
+| Gate | Target | Done? |
+|---|---|---|
+| `ManagedJobsNamespaceSelectorAlwaysRespected` | Stable | yes |
+| `LendingLimit`, `MultiKueueBatchJobWithManagedBy`, `HierarchicalCohorts`, `ObjectRetentionPolicies` | removed | yes |
+| `MultiKueueKubeConfigPathValidation` | Beta | yes (#13706) |
+| `RejectUpdatesToCQWithInvalidOnFlavors` | Beta | yes ([[pr-14776]]) |
+| `QuotaCheckStrategy` | Beta | yes |
+| `WorkloadPriorityClassDefaulting` | Beta (default-on at v0.20) | yes |
+| `TASProfileMixed`, `AssignQueueLabelsForPods` | Stable | no |
+| `PriorityBoost` | Beta | no — deliberately deferred |
+
+Two things worth carrying forward from the discussion: bundling is only appropriate for gates whose graduation is mechanical (removal always is; Beta/Stable promotion has per-feature criteria — `PartialAdmission` is the standing counter-example), and an opt-in-by-Configuration feature is treated as safe enough to promote without broad alpha feedback because the config field is the second switch. `PriorityBoost`'s promotion is held pending the direction of configurable preemption rules, since that mechanism may subsume boost scoping ([[preemption-cost]]).
 
 ### Workload-aware scheduling (WAS) — alpha, opt-in
 

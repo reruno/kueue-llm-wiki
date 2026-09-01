@@ -22,6 +22,7 @@
 - [[cohort]] — Group of ClusterQueues that can borrow/lend unused quota; supports hierarchy.
 - [[resource-flavor]] — Label/toleration descriptor that differentiates otherwise-equivalent resources (GPU models, spot vs on-demand).
 - [[workload]] — Kueue's internal representation of a gated job; the unit that gets admitted, preempted, and counted against quota.
+- [[workload-resource-adjustment]] — How a Workload's effective (quota-counted) requests are recomputed from LimitRange defaults, and the raw-vs-adjusted gotchas.
 
 ## Admission and scheduling
 

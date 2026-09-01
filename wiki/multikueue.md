@@ -148,6 +148,16 @@ The MultiKueue AdmissionCheck reconciler skipped the status update whenever the 
 
 `cmpConditionState` was intentionally **not** changed: event handlers use the same helper to detect meaningful health-state transitions, and broadening it would trigger extra reconciles.
 
+## Manager → worker clients run at client-go's default rate limit
+
+`newClientWithWatch` (`pkg/controller/admissionchecks/multikueue/multikueuecluster.go`) builds each worker cluster's `client.WithWatch` from the kubeconfig **without touching `restConfig.QPS` / `restConfig.Burst`**, so the manager→worker connection falls back to client-go's `rest.Config` defaults of **QPS 5 / Burst 10**. Kueue's *own* API client is far more generous — `clientConnection` defaults to **QPS 300 / Burst 500** — so the remote leg is the throttled one, and there is no configuration field to raise it.
+
+Measured impact (source: issue-14973.md, open feature request): a burst of **1000 Workloads** across 10 worker clusters took **~15 minutes** to be fully admitted; hard-coding `QPS = Burst = 500` on `restConfig` in a PoC brought the same burst down to **~1.5 minutes**. The number of worker clusters was not the significant variable. If you are diagnosing slow MultiKueue dispatch under bursty load, client-side throttling on the remote clients is the first thing to rule out — see [[performance-and-scale#Client-side rate limiting]].
+
+## A worker-local WorkloadPriorityClass can overwrite a remote Workload's priority
+
+The manager owns the priority of a dispatched Workload; a same-named class on the worker with a different value can silently re-price it. See [[workload-priority#Worker-cluster classes must not re-price MultiKueue remote Workloads]].
+
 ## Elastic RayCluster with in-tree autoscaling is rejected
 
 See [[elastic-jobs#MultiKueue rejects an autoscaling elastic RayCluster]] ([[pr-14061]]).

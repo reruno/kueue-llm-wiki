@@ -2,7 +2,7 @@
 
 **Summary**: Combined coverage for Injection (22), Path Traversal (11), and Code Execution (194) CVE categories — they share the same root cause (untrusted input crossing a parse/exec boundary) and the same mitigations (validate at boundary, allowlist, type-safe builders).
 
-**Sources**: `raw/cve/` — representative entries `CVE-2018-17450.md` (Jenkins SSRF), `CVE-2019-10165.md` (OpenShift command injection), `CVE-2019-11246.md` (kubectl cp tar extraction path traversal), `CVE-2019-1002101.md` (related path traversal), `CVE-2021-25741.md` (subpath symlink), `CVE-2022-23524-26.md` (Helm SSRF), and CWE-20/22/74/77/78/89/94/502/918/601 entries.
+**Sources**: `raw/cve/` — representative entries `CVE-2018-17450.md` (Jenkins SSRF), `CVE-2019-10165.md` (OpenShift command injection), `CVE-2019-11246.md` (kubectl cp tar extraction path traversal), `CVE-2019-1002101.md` (related path traversal), `CVE-2021-25741.md` (subpath symlink), `CVE-2022-23524-26.md` (Helm SSRF), `CVE-2025-15613.md` (Kyverno Service Call SSRF), and CWE-20/22/74/77/78/89/94/502/918/601 entries.
 
 **Last updated**: 2026-09-01
 
@@ -25,6 +25,7 @@ From the corpus:
 
 - **Building API server URLs from user-controlled namespace/name fields.** Mitigation: use the typed Kubernetes client (`client.Get(ctx, types.NamespacedName{...}, obj)`), never construct REST paths by string concatenation. Kueue already follows this pattern; the rule kicks in only if someone adds direct HTTP code.
 - **SSRF via container image URLs or init-container pull specs (CWE-918).** Kueue does not fetch URLs server-side, but [[admission-check]] implementations might. Validate that any new admission check doesn't dereference user-supplied URLs from the controller pod.
+- **An endpoint named in a CR, dialled with cluster data in the body (CWE-918).** `CVE-2025-15613` (Kyverno < 1.13.4, CVSS 6.5, `PR:L`): a user who may create `(Cluster)Policies` puts an external URL in a policy's `apiCall`/`service` configuration. The feature is documented for in-cluster Services but resolves external addresses too, and the policy *context* — which can include Secret contents — travels in the request, so a low-privilege author exfiltrates cluster data to a server they control. Two rules for Kueue: an "in-cluster only" endpoint field must be **enforced**, not just documented (resolve and reject non-cluster addresses); and never attach object context to an outbound request whose destination the requester chose.
 - **Using `fmt.Sprintf` to construct YAML/JSON payloads.** Always marshal a typed struct; never string-build YAML.
 - **Executing user-supplied strings via `exec.Command` without allowlist (CWE-78).** Kueue contains no `os/exec` calls in `pkg/`; verify on review.
 - **Template injection in labels/annotations rendered server-side (CWE-94).** If a feature renders `Sprintf(format, userInput)` where `format` could be tenant-supplied, both the format string and the args are untrusted — use `%q` for safe quoting or fixed format strings only.

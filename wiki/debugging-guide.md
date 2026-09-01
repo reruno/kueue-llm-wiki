@@ -262,6 +262,18 @@ Both come from the `kueue.x-k8s.io/managed` finalizer not being removed on a **n
 
 If the Workload's `WorkloadRequeued=False` condition carries a derived reason such as `DeactivatedDueToRequeuingLimitExceeded`, versions before [[pr-14874]] never transitioned it, so flipping `spec.active` back to `true` had no effect. Check `.status.conditions[?(@.type=="WorkloadRequeued")].reason`.
 
+## A Workload that stays pending after you raise a LimitRange
+
+Event/message: **`resources didn't satisfy LimitRange constraints`**. Raising a container `max` (or lowering `min`, or even deleting the LimitRange) does **not** reliably wake the Workloads that were rejected by it: the workload controller does watch LimitRange, but the recomputed spec is byte-identical for a constraint-only change, so the queue's "spec unchanged" guard parks the Workload again. Under BestEffortFIFO it stays inadmissible until an unrelated event requeues the ClusterQueue's inadmissible set; StrictFIFO is unaffected. Workaround: trigger whatever requeues that ClusterQueue's inadmissible set (a ClusterQueue spec update, or restarting the manager). Open bug [[issue-14965]]; full chain in [[workload-resource-adjustment#Gotcha: relaxing or deleting a LimitRange does not wake the Workloads it rejected]].
+
+## Slow MultiKueue dispatch under a burst
+
+If manager→worker dispatch is minutes-slow with an idle scheduling loop, suspect **client-side throttling**: MultiKueue's remote clients use client-go's defaults (QPS 5 / Burst 10) and are not covered by `clientConnection`. 1000 Workloads across 10 workers measured ~15 min. See [[multikueue#Manager → worker clients run at client-go's default rate limit]].
+
+## ClusterQueue usage that drifts below what is actually admitted
+
+If a ClusterQueue reports less usage than the sum of its admitted Workloads (or a negative-looking gap that only clears on manager restart), check whether any admitted Workload's per-flavor total saturates to `math.MaxInt64` — that value is the `Unlimited` sentinel, and additions onto an unlimited amount are silently dropped while removals still subtract. See [[cache-architecture#Workload usage can reach the `Unlimited` sentinel]].
+
 ## A ClusterQueue that stops admitting after a snapshot error
 
 `Manager.Heads` pops one head per active ClusterQueue before the snapshot is built. Before [[pr-13885]], a `cache.Snapshot()` failure dropped those heads on the floor until some unrelated event requeued them. Look for the `SnapshotFailed` requeue reason; its presence means the recovery path is working.
@@ -274,6 +286,7 @@ A quota-reserved Workload whose owner drops its `WorkloadPriorityClass` label us
 
 - [[kueue-overview]]
 - [[workload]]
+- [[workload-resource-adjustment]] — LimitRange defaults/constraints and the raw-vs-adjusted request views.
 - [[admission]]
 - [[cluster-queue]]
 - [[local-queue]]
