@@ -1,23 +1,23 @@
-# Issue #3087: Document productionisation aspects of Kueue
+# Issue #3087: 📖 Document productionization aspects of Kueue
 
-**Summary**: Document productionisation aspects of Kueue
+**Summary**: 📖 Document productionization aspects of Kueue
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/3087
 
-**Last updated**: 2026-02-21T10:41:20Z
+**Last updated**: 2026-09-29T07:34:24Z
 
 ---
 
 ## Metadata
 
-- **State**: closed (not_planned)
+- **State**: open (reopened)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2024-09-18T14:05:22Z
-- **Updated**: 2026-02-21T10:41:20Z
-- **Closed**: 2026-02-21T10:41:20Z
-- **Labels**: `lifecycle/rotten`, `kind/documentation`
-- **Assignees**: _none_
-- **Comments**: 17
+- **Updated**: 2026-09-29T07:34:24Z
+- **Closed**: —
+- **Labels**: `kind/documentation`
+- **Assignees**: [@MichalZylinski](https://github.com/MichalZylinski)
+- **Comments**: 21
 
 ## Description
 
@@ -26,11 +26,14 @@
 Add documentation page(s) for:
 - how to ensure Kueue manager is running in isolated environment so that it is not preempted by workloads
 - how to assign requests and limits for the Kueue manager pod depending on the anticipated volume of workloads
+- make users about performance implications of using many ResourceFlavors, ClusterQueues, PodSets, etc, espectially combined with other features like ConcurrentAdmission. requested here: https://github.com/kubernetes-sigs/kueue/issues/15500#issuecomment-5685396894
 
 
 **Why is this needed**:
 
 This was prompted by the discussion [thread](https://github.com/kubernetes-sigs/kueue/pull/3049?notification_referrer_id=NT_kwDOAJ4RjbQxMjQwODY4NjMyNToxMDM1OTE4MQ#discussion_r1763249813)
+
+Also requested here: https://github.com/kubernetes-sigs/kueue/issues/15500#issuecomment-5685396894
 
 **Completion requirements**:
 
@@ -250,3 +253,19 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/3087#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-09-29T07:22:37Z
+
+/reopen
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-09-29T07:23:10Z
+
+/remove-lifecycle rotten
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-09-29T07:26:33Z
+
+cc @MichalZylinski
+
+### Comment by [@MichalZylinski](https://github.com/MichalZylinski) — 2026-09-29T07:34:21Z
+
+/assign

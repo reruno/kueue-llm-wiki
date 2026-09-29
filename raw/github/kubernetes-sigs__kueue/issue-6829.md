@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/6829
 
-**Last updated**: 2026-05-22T17:02:47Z
+**Last updated**: 2026-09-24T16:55:15Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-09-15T09:02:50Z
-- **Updated**: 2026-05-22T17:02:47Z
+- **Updated**: 2026-09-24T16:55:15Z
 - **Closed**: —
 - **Labels**: `kind/feature`
-- **Assignees**: [@yaroslava-serdiuk](https://github.com/yaroslava-serdiuk)
-- **Comments**: 7
+- **Assignees**: _none_
+- **Comments**: 12
 
 ## Description
 
@@ -43,9 +43,9 @@ To support elastic Ray clusters (and other Jobs) in autoscalable environments.
 
 This enhancement requires the following artifacts:
 
-- [ ] Design doc
+- [x] Design doc
 - [ ] API change
-- [ ] Docs update
+- [x] Docs update
 
 The artifacts should be linked in subsequent comments.
 
@@ -144,3 +144,23 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-05-22T17:02:44Z
 
 /remove-lifecycle rotten
+
+### Comment by [@yaroslava-serdiuk](https://github.com/yaroslava-serdiuk) — 2026-08-13T08:46:30Z
+
+/unassign
+
+### Comment by [@neilb-dotcom](https://github.com/neilb-dotcom) — 2026-08-13T12:57:37Z
+
+Related to: #13975, #14240, #14316
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-09-18T11:03:53Z
+
+For x-referencing: https://github.com/kubernetes-sigs/kueue/issues/14615
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-09-18T11:04:36Z
+
+The KEP: https://github.com/kubernetes-sigs/kueue/pull/14616
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-09-24T16:55:15Z
+
+Implementations: https://github.com/kubernetes-sigs/kueue/pull/14316

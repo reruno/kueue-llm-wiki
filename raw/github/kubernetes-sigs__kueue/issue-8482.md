@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8482
 
-**Last updated**: 2026-01-10T12:23:40Z
+**Last updated**: 2026-09-23T09:56:53Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: closed (completed)
 - **Author**: [@TaylorTrz](https://github.com/TaylorTrz)
 - **Created**: 2026-01-09T01:45:37Z
-- **Updated**: 2026-01-10T12:23:40Z
+- **Updated**: 2026-09-23T09:56:53Z
 - **Closed**: 2026-01-10T12:23:39Z
 - **Labels**: `kind/bug`
 - **Assignees**: _none_
-- **Comments**: 7
+- **Comments**: 8
 
 ## Description
 
@@ -274,3 +274,7 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/8482#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@Raid57](https://github.com/Raid57) — 2026-09-23T09:56:53Z
+
+I hit the same issue. The root cause was another webhook removing the pod’s schedulingGates. Without the gates, the pod got scheduled before its Workload was admitted. Kueue’s v1_pod reconciler detected this and called stopJob(), which deleted the pod. The StatefulSet controller then recreated it, resulting in a delete/recreate loop. Fixing that webhook resolved it.

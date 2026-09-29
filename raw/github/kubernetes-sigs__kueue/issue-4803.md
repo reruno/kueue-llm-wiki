@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/4803
 
-**Last updated**: 2026-06-25T21:14:17Z
+**Last updated**: 2026-09-24T06:00:17Z
 
 ---
 
 ## Metadata
 
-- **State**: open (reopened)
+- **State**: closed (completed)
 - **Author**: [@KPostOffice](https://github.com/KPostOffice)
 - **Created**: 2025-03-26T20:01:24Z
-- **Updated**: 2026-06-25T21:14:17Z
-- **Closed**: —
+- **Updated**: 2026-09-24T06:00:17Z
+- **Closed**: 2026-09-24T06:00:17Z
 - **Labels**: `kind/feature`, `lifecycle/rotten`
 - **Assignees**: [@MaysaMacedo](https://github.com/MaysaMacedo)
-- **Comments**: 22
+- **Comments**: 28
 
 ## Description
 
@@ -262,3 +262,42 @@ One puzzle to me is the semantics of waitForPodsReady enabled by workload while 
 
 Good point, I'm also not sure.
 BTW, have you guys seen people configuring all the `WaitForPodsReady` fields or just `Timeout`? Perhaps if that is the one most configured we should consider only that field for MVP.
+
+### Comment by [@MaysaMacedo](https://github.com/MaysaMacedo) — 2026-07-03T21:39:04Z
+
+A KEP has been proposed and it would be great to have inputs there https://github.com/kubernetes-sigs/kueue/pull/12776
+There are a couple of open questions.
+
+### Comment by [@kaushik229](https://github.com/kaushik229) — 2026-07-31T21:57:26Z
+
++1 — here's a concrete data point on why cluster-wide waitForPodsReady is painful: with blockAdmission: true, a single admitted-but-not-yet-PodsReady workload blocks admission cluster-globally — across ClusterQueues in different cohorts, not just its own queue.
+Minimal reproduction (kind, Kueue main, blockAdmission: true):
+- cq-a in cohort-a and cq-b in cohort-b — two distinct cohorts, each with spare quota.
+- wl-a → cq-a: admitted on quota, but its pod is unschedulable, so it never reaches PodsReady.
+- wl-b → cq-b (empty): a trivially-fitting workload is not admitted (QuotaReserved never set), even though cq-b/cohort-b is completely empty.
+- Deleting wl-a immediately unblocks wl-b.
+
+Mechanism: waitForPodsReadyIfBlocked → cache.WaitForPodsReady blocks the (single) scheduling goroutine until podsReadyForAllAdmittedWorkloads is true, and that check iterates all ClusterQueues — so any not-ready admitted workload anywhere halts admission everywhere. This is exactly why per-workload readiness (this issue) is valuable. It may also be worth revisiting the scope of the block: KEP-349's "More granular configuration to enable the mechanism" already lists Job/LocalQueue/ClusterQueue/ResourceFlavor-level opt-in as deferred ("keep API commitments small for now"). A per-workload timeout helps, but a workload with a long/absent timeout would still freeze unrelated cohorts unless the block is also scoped.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-09-04T18:24:07Z
+
+I think will also nicely complement the "UnschedulablePodsTimeout" extension which is currently being worked on: https://github.com/kubernetes-sigs/kueue/pull/14041/changes#r3936834345
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-09-04T18:55:59Z
+
+> I think will also nicely complement the "UnschedulablePodsTimeout" extension which is currently being worked on: https://github.com/kubernetes-sigs/kueue/pull/14041/changes#r3936834345
+
+That sounds good to me. Question for @mimowo: does your comment indicate KEP-13502 should also lead the per-workload unschedulable pods timeout? Or should KEP-4803 take responsibility for the per-workload timeout mechanism?
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-09-04T19:18:50Z
+
+I would propose:
+- for Alpha1 develop both KEPs independently, in terms of code independently
+- for Beta (or Alpha2) I would add a point to the per-workload KEP to add the UnschedulableTimeout to the new per-workload annotation KEP
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-09-04T19:21:08Z
+
+> * for Alpha1 develop both KEPs independently, in terms of code independently
+> * for Beta (or Alpha2) I would add a point to the per-workload KEP to add the UnschedulableTimeout to the new per-workload annotation KEP
+
+SGTM

@@ -1,10 +1,10 @@
-# Issue #975: Partial preemption of workloads
+# Issue #975: ☂️ Partial preemption of workloads
 
-**Summary**: Partial preemption of workloads
+**Summary**: ☂️ Partial preemption of workloads
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/975
 
-**Last updated**: 2026-06-04T22:44:45Z
+**Last updated**: 2026-09-29T07:57:04Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ahg-g](https://github.com/ahg-g)
 - **Created**: 2023-07-11T17:25:03Z
-- **Updated**: 2026-06-04T22:44:45Z
+- **Updated**: 2026-09-29T07:57:04Z
 - **Closed**: —
 - **Labels**: `kind/feature`
 - **Assignees**: _none_
-- **Comments**: 23
+- **Comments**: 25
 
 ## Description
 
@@ -283,3 +283,15 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@sohankunkerkar](https://github.com/sohankunkerkar) — 2026-06-04T22:44:43Z
 
 /remove-lifecycle stale
+
+### Comment by [@zhengchenyu](https://github.com/zhengchenyu) — 2026-08-18T13:34:58Z
+
+@ahg-g @mimowo @amy @tenzen-y @sohankunkerkar   I have implemented partial preemption for our Spark-on-Kubernetes use case. And I submit a POC PR https://github.com/kubernetes-sigs/kueue/pull/14590 and a KEP PR https://github.com/kubernetes-sigs/kueue/pull/14589. Can you please review this proposal?
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-09-29T07:57:01Z
+
+/retitle ☂️ Partial preemption of workloads
+
+This is now umbrella issue for (x-referencing) :
+- https://github.com/kubernetes-sigs/kueue/issues/12146
+- https://github.com/kubernetes-sigs/kueue/issues/16233

@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8296
 
-**Last updated**: 2026-05-07T21:55:01Z
+**Last updated**: 2026-09-16T16:08:24Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-12-17T10:05:10Z
-- **Updated**: 2026-05-07T21:55:01Z
+- **Updated**: 2026-09-16T16:08:24Z
 - **Closed**: —
 - **Labels**: `kind/bug`, `priority/important-soon`, `kind/cleanup`
 - **Assignees**: [@NarayanaSabari](https://github.com/NarayanaSabari)
-- **Comments**: 18
+- **Comments**: 20
 
 ## Description
 
@@ -157,3 +157,37 @@ Thoughts @astefanutti @tenzen-y @kaisoz ?
 > If this is critical bug for Kueue to support Trainer v2.2, we can release patch version v2.2.1 Thoughts [@astefanutti](https://github.com/astefanutti) [@tenzen-y](https://github.com/tenzen-y) [@kaisoz](https://github.com/kaisoz) ?
 
 I don't think is that critical since the current implementation, although suboptimal, does the job, and there's a workaround for the race condition (please @mimowo correct me if I'm wrong)
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-09-16T15:41:17Z
+
+@kaisoz @andreyvelich we have a PR which makes now the Stop idempotent as the 2-request flow is tricky: https://github.com/kubernetes-sigs/kueue/pull/15652
+
+Is this maybe already supported to suspend and edit nodeSelectors in one request? That could potentially simplify the PR.
+
+### Comment by [@henry3260](https://github.com/henry3260) — 2026-09-16T16:08:24Z
+
+> [@kaisoz](https://github.com/kaisoz) [@andreyvelich](https://github.com/andreyvelich) we have a PR which makes now the Stop idempotent as the 2-request flow is tricky: [#15652](https://github.com/kubernetes-sigs/kueue/pull/15652)
+> 
+> Is this maybe already supported to suspend and edit nodeSelectors in one request? That could potentially simplify the PR.
+
+IIUC Trainer already allows it: checkRuntimePatchesImmutability blocks the change
+only when the TrainJob stays fully unsuspended before *and* after the update, and
+the comment there says it exists precisely so "external controllers (e.g. Kueue)
+update RuntimePatches and toggle spec.suspend in a single API request".
+
+Two caveats though:
+
+1. That relaxation landed in kubeflow/trainer#3469, so the earliest release with it
+   is v2.2.1 — v2.2.0 only looks at the post-update state, which lets a stop
+   (false -> true) through but rejects an unsuspend (true -> false). So a
+   single-request start would need a Trainer minimum of v2.2.1 (related: #14819).
+
+2. On the stop path the same check also rejects RuntimePatches changes while the
+   child JobSet still has active pods. Clearing RuntimePatches requires the pods to
+   be gone, and the only way to get them gone is to persist `suspend=true` first, so
+   the two writes are separated by a real wait rather than a saveable round trip
+   that's what the I`sActive() `guard in Stop is for. They only land in the same call
+   once the TrainJob is already inactive.
+
+   The start path has no such constraint, so that's where the redundant request
+   actually is.
