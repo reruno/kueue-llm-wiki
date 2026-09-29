@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -89,6 +89,14 @@ if sts.Status.CurrentRevision == "" || sts.Status.UpdateRevision == "" &&
 Go binds `&&` tighter, so this is `A || (B && C)`; `(B && C)` requires `UpdateRevision == "" && CurrentRevision == UpdateRevision`, which already implies `CurrentRevision == ""`. The whole guard therefore collapsed to `if CurrentRevision == "" { return }`, and **every** StatefulSet status update with a non-empty `CurrentRevision` enqueued a LeaderWorkerSet reconcile — including the steady state with no rollout in progress. Later guards dropped most of them, so it was over-enqueue rather than a correctness failure.
 
 [[pr-14447]] (cherry-picks [[pr-14892]], [[pr-14893]]) extracts a named `revisionChanged` helper that is true only when both revisions are set and differ. The narrowing is safe because this controller watches Pods directly, so the reconcile that removes their scheduling gates does not depend on the StatefulSet event; `Create`, `Delete` and `Generic` on the handler are already no-ops.
+
+## `WorkloadAnnotation` on LWS Pods
+
+LWS's `setDefault` in `leaderworkerset_reconciler.go` builds Pod annotations by hand for its pod-group mechanism and never set `kueue.WorkloadAnnotation`, which `wasSimulator.TrackPod` needs to map Pods to their Workload. It is now written in two places, gated like the shared write site (`TopologyAwareScheduling || SchedulerLibraryIntegration`): the main annotation path (after the leader/worker `RoleHashAnnotation` branch) and the "already managed" early-return branch (Pods labelled `ManagedByKueueLabelKey`), which backfills Pods handled by an earlier reconcile (source: pr-15142.md).
+
+## Empty PodGroups and quota
+
+An evicted LWS Workload with no Pods (e.g. scaled to zero) used to keep its quota reserved; fixed together with StatefulSet, see [[integration-plain-pod#Empty PodGroups of StatefulSet / LeaderWorkerSet]] (source: pr-14578.md). Open issues that reveal current limits: the LWS webhook can be blind to an object created before it is ready ([[issue-15835]]); pod-template shape immutability for non-quota fields ([[issue-15570]]); TAS support for LWS affinity/anti-affinity ([[issue-15057]]).
 
 ## Related pages
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-09-29
 
 ---
 
@@ -57,6 +57,15 @@ Every integration must flow the [[resource-flavor]]'s `nodeLabels` and `tolerati
 ## MultiKueue compatibility
 
 Not all integrations work with [[multikueue]] out-of-the-box. Each needs a MultiKueue adapter that can mirror the job to a worker cluster and mirror status back. AppWrapper's adapter is tracked under [[issue-3989]]; PodGroup support under [[issue-4719]].
+
+## Recent cross-integration behaviour (v0.20 line)
+
+- Feature gates that shape integration behaviour: `PodIntegrationCountSucceededPodsAsReady` (Beta, on), `DeploymentJobUIDLabel` (Beta, on), `ValidateRayAndSparkJobUpdates` (Beta, on), `FinalizeTerminatingPodGroups` (Alpha, off), `EnforceProvisioningPodTemplateContents` (see [[provisioning-request]]). See [[integration-plain-pod]] (sources: pr-15734.md, pr-15641.md, pr-15628.md, pr-13015.md).
+- **Serving integrations (StatefulSet, LeaderWorkerSet, Deployment) share the Pod reconciler.** Webhooks for these three run on update as well as create, which makes them sensitive to defaulting bugs: with `WorkloadPriorityClassDefaulting`, the mutating webhook adds `kueue.x-k8s.io/priority-class: default` on update even for unmanaged objects without a queue-name, and the validating webhook rejects it on Ready objects ("WorkloadPriorityClass cannot be added to a non-suspended workload"); open at writing ([[issue-16333]], source: issue-16333.md). Also open: Workload control metadata can be inherited from the Job or Pod it is built from ([[issue-16322]]).
+- **Pod-level `WorkloadAnnotation`** must be set by every integration that creates Pods (StatefulSet, LWS done) so the simulator can map Pods to Workloads (source: pr-15142.md).
+- **Quota accounting per integration:** batch Job reclaimable pods ([[integration-batchjob#Reclaimable pods when `parallelism > completions`]]); Spark requests mirror Spark's computation ([[integration-spark]]); PodRequests helper ([[integration-plain-pod#Pod-level requests and quota]]).
+- **RBAC:** AppWrapper was the only CRD integration without editor and viewer ClusterRoles; they were added modelled on SparkApplication's, and `rbac.md` now lists what batch-admin and batch-user cover (source: pr-16096.md). JAXJob/TrainJob delete permission: [[integration-trainjob]].
+- **Ray:** head-container validation is shared across RayCluster/RayJob/RayService ([[integration-rayjob#Head-container validation]]).
 
 ## Related pages
 

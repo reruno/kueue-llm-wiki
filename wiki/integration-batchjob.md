@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -27,6 +27,14 @@ The batch/v1 Job adapter is the canonical MultiKueue adapter: the manager create
 ## MultiKueue does not copy `spec.ttlSecondsAfterFinished`
 
 When a `batch/v1` Job is dispatched through [[multikueue]], the remote worker Job is created **without** `spec.ttlSecondsAfterFinished`, so the worker's TTL controller cannot delete the completed remote Job before its terminal status has been synced back to the manager. The manager Job keeps its own TTL and remains authoritative for cleanup. Behind `MultiKueueBatchJobClearingTTLSecondsAfterFinishedOnWorkerCluster` — Beta/on in v0.20, Alpha/off in the 0.18 and 0.19 backports. See [[multikueue#Worker Job TTL]] ([[pr-14734]], [[pr-14827]], [[pr-14828]]).
+
+## Reclaimable pods when `parallelism > completions`
+
+Correction to the PodSet count above: the Workload PodSet reserves `min(parallelism, completions)` pods (`podsCount()`). `ReclaimablePods` used to measure the reclaimable count against `parallelism`, so with `parallelism: 10`, `completions: 5` and one succeeded Pod it reported 6, clamped to the PodSet count of 5, and the 4 still-running Pods no longer held quota (ClusterQueue could over-admit). It now measures against `podsCount()` for both Indexed and NonIndexed Jobs (source: pr-16111.md; backports pr-16132.md, pr-16138.md).
+
+## Zero-parallelism elastic Jobs
+
+A Job created at `parallelism: 0` used to be admitted on whichever flavor came first, and its `nodeLabels` were stamped into the pod template; see [[elastic-jobs#Zero-count PodSets and flavor selection]] (source: pr-15444.md).
 
 ## Related pages
 

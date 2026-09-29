@@ -4,7 +4,7 @@
 
 **Sources**: `raw/cve/CVE-*.md` mitigation blocks (which repeat per category); the category pages [[security-denial-of-service]], [[security-authn-authz]], [[security-information-disclosure]], [[security-injection-and-input-validation]], [[security-supply-chain]]; [[code-quality]] for the project's existing review bar.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -44,6 +44,21 @@
 - [ ] Every deref of an optional pointer field (`workload.Status.Admission`, `cq.Spec.Cohort`, optional sub-structs) is guarded.
 - [ ] Reconcile errors that come from invalid CR content terminate the reconcile *without* re-enqueue. Status records the error; the controller does not crash-loop on bad input.
 - [ ] Goroutines launched outside the controller-runtime workqueue have a deferred recover or a documented panic-policy.
+
+### Guard coverage and identity (added 2026-09-29)
+
+- [ ] Any cluster-scoped object created from a namespaced object includes the namespace or UID in its name; a name collision cannot overwrite another tenant's object ([[security-authn-authz]]).
+- [ ] Every path to a protected operation applies the same check: each integration adapter, each selector operator (`In`, `NotIn`, `!=`), each RPC kind. Negated and sibling forms have tests.
+- [ ] `ValidateUpdate(old, new)` validates `new`; a test with a valid old and invalid new value exists for each new field. Copy-pasted validators read the intended field.
+- [ ] Webhook rules name the exact plural resource and subresource; an integration test proves the webhook fires.
+- [ ] A conflict or missing configuration falls back to the **stricter** behaviour, and an unset trust anchor or secret never disables verification.
+- [ ] An exemption or exclusion applies at the granularity it was written (one object, not the whole namespace).
+- [ ] A destructive action driven by a tenant-writable compound key verifies ownership of every part of the key; use UID preconditions on delete.
+- [ ] After a permission-denied outcome, anything already granted (finalizer, copied Secret, binding) is revoked.
+- [ ] Size fields taken from untrusted archives, headers, or URL-fetched payloads are capped **before** allocation; decompressors are wrapped in `io.LimitReader`; webhook bodies use `http.MaxBytesReader`.
+- [ ] Optional fields are nil-guarded even when a `recover()` exists: a persistent poison object re-panics on every reconcile.
+- [ ] No fixed log leak without a test that greps captured logs for the secret.
+- [ ] Single-use tokens or approvals use an optimistic-concurrency write (`resourceVersion`), not read-then-write.
 
 ### Supply chain
 

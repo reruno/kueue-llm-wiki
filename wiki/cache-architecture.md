@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/cache/scheduler/`, `raw/kueue/pkg/cache/hierarchy/`, `raw/kueue/pkg/cache/queue/`
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -93,27 +93,30 @@ There is a brief window where the in-memory cache lags behind etcd. For quota ac
 
 The scheduler only reads the snapshot. After a workload is admitted (`s.admit()` call), the admission is written to the live cache via `cq.AddUsage(usage)` on the snapshot — but this is a local mutation. The live cache is updated when the Workload controller processes the newly admitted workload and reconciles it back. (source: pkg/scheduler/scheduler.go)
 
-## Quota amount type and overflow safety
+## Quota amounts are exact past int64 (pr-15026)
 
-Quota quantities stored in the scheduler cache are wrapped in **`resources.Amount`** (`pkg/resources/amount.go`, introduced by [[pr-11156]], fixes #9843) rather than raw `int64`. The shipped representation is `type Amount struct { value int64 }` with a sentinel `var Unlimited = Amount{value: math.MaxInt64}` for effectively-infinite quota; bounded amounts must never equal `math.MaxInt64`.
+Quota quantities in the scheduler cache are `resources.Amount` (`pkg/resources/amount.go`, introduced by pr-11156). The **first** design (`Amount{value int64}` with `Unlimited = MaxInt64` as a sentinel, saturating add/sub) is **gone**. Since pr-15026 (fixes issue-14105; v0.20) `Amount` is an **exact integer**: an `int64` (`small`) while the value fits, otherwise an immutable `*big.Int` (`large`), and back to `int64` when a result returns to range, so equal amounts are always stored the same way. `math.MaxInt64` is now an ordinary amount and nothing manufactures an infinity, so add/remove of usage is reversible at any magnitude (source: pr-15026.md, raw/kueue/pkg/resources/amount.go).
 
-Why it exists: a CPU quota like `1E` whose milliCPU exceeds `int64` used to **collapse to 0** (making a CQ look like it had zero quota), and cohort aggregation of huge sibling quotas could wrap **negative**. `AmountFromQuantity(name, q)` instead returns `Unlimited` at/over the boundary (`maxCPUQuantityForAmount = MaxInt64/1000` for CPU, `maxNonCPUQuantityForAmount = MaxInt64` otherwise). `Add`/`Sub` propagate `Unlimited` and **saturate** bounded overflow (delegating to the `pkg/util/math` saturating helpers); `Cmp` treats `Unlimited` as greater than any bounded amount.
+Why it changed: with the sentinel, a workload whose usage reached `MaxInt64` was indistinguishable from "unlimited"; adding it, then a 7-unit workload, then removing the first left usage at `-7` (`Sub(Unlimited, Unlimited)` was defined as bounded zero). The queue then believed 7 units fewer were in use than ever were until a restart (issue-14105.md).
 
-- **Where it's stored**: `ResourceQuota` (`pkg/cache/scheduler/resource.go`) changed `Nominal`, `BorrowingLimit`, `LendingLimit` from `int64`/`*int64` to `Amount`/`*Amount`; the `SubtreeQuota` and `Usage` maps (`FlavorResourceQuantities`) hold `Amount`. Cohort math in `resource_node.go` (`available`, `potentialAvailable`, `accumulateFromChild`, `addUsage`, `removeUsage`) is rewritten over `Amount` methods.
-- **Equality gotcha**: `Amount` has an unexported field, so Kubernetes' `equality.Semantic.DeepEqual` (a forked `reflect`) **panics** on it. The fix adds a `ResourceQuota.Equal` method (+`equalAmountPtr`) and `updateQuotasAndResourceGroups` uses `maps.EqualFunc(..., ResourceQuota.Equal)` instead of `DeepEqual`. Anyone adding a struct with unexported fields into cached types must supply an `Equal` method for the same reason.
+Rules to keep when touching accounting code:
 
-See [[scheduler-internals#Quota arithmetic and integer-overflow safety]] for the workload-request-side overflow fixes that preceded this refactor.
+- **`Amount` is uncomparable** (`_ [0]func()`): `==` and use as a map key are compile errors. Use `Equal`/`Cmp`. `resources.Unlimited` and `Amount.Int64()` no longer exist; an amount leaves the package as a `Quantity` via `AmountQuantity` or as text via `String`. Structs with unexported fields in cached types still need an `Equal` method because `equality.Semantic.DeepEqual` panics on them (`ResourceQuota.Equal`).
+- The stored `big.Int` never leaves `pkg/resources` and is **never mutated**; that is what makes the shallow map clones in `resourceNode.Clone` and `FlavorResourceQuantities.Clone` safe when snapshots share it with the cache. The `int64` path allocates nothing (measured `UpdateFlavorUsage` -2.9%, `ResourceNodeClone` +19.6% and 1.46 to 1.84 KiB, large fair-share ratio 3 to 17 allocs).
+- `AmountFromQuantity` reads the decimal the `Quantity` holds (not `Value()`/`MilliValue()`, which overflow; at the smallest `int64` milli `MilliValue` returns zero). The API boundary applies the resource's scale **before** narrowing: a Quantity holds at most `MaxInt64` in the unit it reports (cores for CPU), so up to `MaxInt64` cores (about 9.2x10^21 milli) are representable and reportable; past that the value is capped with its sign. The same bound applies on the way in, so `8Ei` and `9223372036854775808` are one quota. `10P` of CPU is `10^19` milli, no longer reported as `9223372036854775807m`.
+- `updateFlavorUsage` adds/subtracts `Amount`s; `FlavorResourceQuantities.ToResourceList` sums flavors and converts each total once (`FlattenFlavors` was removed); the fair-sharing ratio uses the exact operands.
 
-## Workload usage can reach the `Unlimited` sentinel
+Behaviour changes operators can observe ([[borrowing-and-lending]], [[metrics]]):
 
-The invariant in `amount.go` — *bounded amounts must never equal `math.MaxInt64`* — is enforced on the **quota** boundary only (`AmountFromQuantity`). The **usage** boundary is unguarded, so the sentinel is reachable from a workload's own requests (source: issue-14105.md, open bug, measured at `cead7dee`):
+- **Oversized limits.** `1E` nominal with a `10P` `lendingLimit` used to turn both into `Unlimited` (nothing stayed local); now `990P` stays local. A `borrowingLimit` past `int64` used to equal everything the Cohort had spare; now it bounds what the ClusterQueue can reach. An *unset* limit is still unset.
+- **Metrics** report `+Inf` for an amount at or past `MaxInt64`, as before; for CPU the threshold moved from `MaxInt64/1000` cores to `MaxInt64` milli (0.807 cores apart).
+- **Fair sharing** is otherwise unchanged: a share that underflows to zero still reads as within quota, and `weightedShare` still goes through `int64(math.Ceil(...))`. (Saturating share conversion and the underflow floor were split into a separate follow-up.)
 
-- `totalRequestsFromPodSets` ends with a **saturating** `Requests.Mul(int64(count))`, so e.g. 4 pods × 2⁶² of a countable resource saturates to exactly `9223372036854775807`. Neither factor is past `int64` on its own.
-- `Info.ResourceUsage` folds that into the tree with `ru.Assigned[fr] = ru.Assigned[fr].AddInt64(q)`. `AddInt64` also saturates, so the result is a *bounded* usage that nothing downstream can distinguish from `Unlimited`.
+The workload-request side still uses saturating `Requests.Mul(int64(count))`; a huge per-pod request times count can saturate to `MaxInt64`, but that is now just a big number, not an unlimited sentinel. See [[scheduler-internals#Quota arithmetic and integer-overflow safety]] and [[workload-resource-adjustment]].
 
-`Amount` arithmetic is then **asymmetric**, and this is the damaging part: `AddInt64` returns early on an unlimited receiver (later workloads' usage is silently not counted), while `Sub` still subtracts. Measured through the cache with one saturating Workload plus one ordinary 7-unit Workload, usage went `MaxInt64` → `MaxInt64` (the 7 swallowed) → `0` (saturating workload removed) → **`-7`**. The ClusterQueue is left believing 7 units *fewer* are in use than ever were, i.e. with more available capacity than it has, until the process restarts and the cache is rebuilt.
+## Queue manager: inflight and LocalQueue weights
 
-It is not a permanent wedge — `Sub` answers bounded zero when both sides are unlimited, so the saturating Workload's own removal clears the sentinel; what survives is the drift left by the swallowed additions. Whether the scheduler would *admit* such a Workload in band is unestablished; the reproduction hands an already-admitted Workload to the cache, which is the path `AddOrUpdateWorkload` takes on resync without rechecking quota. See [[workload-resource-adjustment]].
+The queue manager keeps popped ("inflight") Workloads keyed by `workload.Reference` per ClusterQueue rather than a single slot (pr-15844; dump includes inflight state), and a per-ClusterQueue `lqWeights` map (default `1.0`) used by both the heap comparator and the visibility snapshot; `Snapshot()` clones it under the read lock ([[fair-sharing#LocalQueue weight lookup: one cached path for heap and snapshot (AFS ordering)]]). `PopFrom` and `HasQueuedWorkloads` share one helper for "look up the ClusterQueue and check it is active" (pr-15994). The queue cache also feeds `kueue_unadmitted_workloads` ([[unadmitted-workloads-observability]]).
 
 ## Debugging cache state
 
@@ -129,6 +132,7 @@ Inflight bookkeeping is cleared **inside `Manager.RequeueWorkload`, before `info
 
 ## Related pages
 
+- [[workload-resource-adjustment]] — the effective-resource view stored in `workload.Info`.
 - [[scheduler-internals]]
 - [[cluster-queue]]
 - [[cohort]]

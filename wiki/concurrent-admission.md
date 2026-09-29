@@ -2,9 +2,9 @@
 
 **Summary**: An alpha feature that lets a Workload simultaneously pursue admission on multiple ResourceFlavors in parallel, enabling flavor migration and racing long-running AdmissionChecks across different accelerator types.
 
-**Sources**: `raw/kueue/keps/8691-concurrent-admission/README.md`, `raw/kueue/keps/8691-concurrent-admission/kep.yaml`
+**Sources**: `raw/kueue/keps/8691-concurrent-admission/README.md`, `raw/kueue/keps/8691-concurrent-admission/kep.yaml`, pr-15553.md, pr-15781.md, pr-15949.md, pr-16282.md, issue-15500.md, issue-15547.md, issue-15838.md, pr-15000.md
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-29
 
 ---
 
@@ -99,7 +99,7 @@ The ClusterQueue's `spec.concurrentAdmissionPolicy` controls what happens once o
 
 > **Field rename.** This field was originally introduced as `minPreferredFlavorName` and renamed to `lastAcceptableFlavorName` across the codebase in [[pr-11317]] (no remaining references to the old name). Use `lastAcceptableFlavorName`.
 
-A validation webhook rule ([[pr-11126]], `validateConcurrentAdmissionPolicy` in `clusterqueue_webhook.go`) rejects a ClusterQueue whose `lastAcceptableFlavorName` does not name a flavor that actually exists in the ResourceGroup's flavor list. This sits alongside the pre-existing rule that a ConcurrentAdmission ResourceGroup may not exceed 16 resource flavors.
+A validation webhook rule ([[pr-11126]], `validateConcurrentAdmissionPolicy` in `clusterqueue_webhook.go`) rejects a ClusterQueue whose `lastAcceptableFlavorName` does not name a flavor that actually exists in the ResourceGroup's flavor list. This sits alongside the rule that a ConcurrentAdmission ClusterQueue must have a single ResourceGroup with **at most 32 resource flavors** (raised from 16 in v0.20; see below).
 
 ## Implementation details (v0.18 hardening)
 
@@ -107,7 +107,7 @@ A validation webhook rule ([[pr-11126]], `validateConcurrentAdmissionPolicy` in 
 
 Kueue's scheduler skips re-evaluating Workloads whose **scheduling hash** matches one already determined inadmissible in the same cycle (the `SchedulingEquivalenceHashing` optimization — graduated to **Beta, default on, in v0.18** via [[pr-11097]]; see [[feature-gates]]). Variants of the same Parent share PodSets and most spec fields, so without an extra disambiguator they would all hash to the same value and only the first Variant's NoFit decision would matter — a pessimistic same-flavor result on Variant A would suppress Variant B even though B targets a different ResourceFlavor.
 
-[[pr-10910]] adds the `kueue.x-k8s.io/allowed-resource-flavor` annotation (`WorkloadAllowedResourceFlavorAnnotation`) into the scheduling-hash computation, so each Variant gets its own bucket and is evaluated independently.
+[[pr-10910]] adds the Workload annotation `WorkloadAllowedResourceFlavorAnnotation` (its value in the tree is `kueue.x-k8s.io/workload-allowed-resource-flavors`, a comma-separated flavor list such as `reservation,spot`; the older `allowed-resource-flavor` spelling no longer matches the code) into the scheduling-hash computation, so each Variant gets its own bucket and is evaluated independently.
 
 ### Indexer for parent → Variant lookup
 
@@ -128,6 +128,26 @@ The ConcurrentAdmission controller now emits Kubernetes Events on Variant **crea
 ### Preemption.Target wrapping removed
 
 [[pr-10954]] removes a redundant `preemption.Target` wrapping around `workload.Info` in the ConcurrentAdmission scheduler path; no behaviour change but cleaner internal types.
+
+### Flavor count limit raised from 16 to 32 (v0.20)
+
+The ClusterQueue webhook (`clusterqueue_webhook.go`) rejects a ClusterQueue with `concurrentAdmissionPolicy` whose single ResourceGroup lists more than **32** flavors ("cannot have more than 32 resource flavors in the ResourceGroup when ConcurrentAdmissionPolicy is defined"). It was 16; pr-15949 raised it after a user with 14 flavors asked for headroom (issue-15500.md, who intended to race on at most three at a time). Every flavor becomes a Variant Workload that goes through the scheduler, so cost grows with flavors times ClusterQueues; the docs and the API comments on `flavors` (pr-16282) now warn about the performance implications of many flavors, especially with very many ClusterQueues. The gate stays **Alpha** (`ConcurrentAdmission`, since 0.18, off by default).
+
+### Preemption gate must not open on a less favorable Variant (pr-15553, cherry-picked to 0.19 as pr-15639)
+
+`firstCandidateVariant` chooses which Variant may have its preemption gate opened. It must distinguish "scheduler evaluated this Variant and it needs no preemption" from "not evaluated yet". A `WorkloadQuotaReserved` condition with reason `PendingEvaluation` means *not evaluated*; the earlier check only tested for the condition's presence, so after an eviction (`clearWorkloadAdmission` stamps `PendingEvaluation`) or on a Variant's first reconcile the controller could ungate a less favorable Variant and pin the choice for `preemptionTimeout` (5 minutes; `latestOpenGateTime`), while the preferred Variant was locked out. Sibling Variants are created within the same second, so their timestamps tie after RFC3339 truncation and ordering falls back to UID comparison: gate selection has to be right for any arrival order. The `PendingEvaluation` distinction only exists with `UnadmittedWorkloadsObservability` on (default in v0.20); see [[unadmitted-workloads-observability]]. Related event: `PreemptionUngatedVariant`.
+
+### Panic on parent names without a dash (pr-15781, backport pr-15850)
+
+Kueue-generated Workload names always end in `-<hash>`, but a user-created (e.g. prebuilt) parent may have any DNS-subdomain name. `getWorkloadBaseName` sliced at the last `-` unconditionally, so a parent named `wl` panicked (`slice bounds out of range [:-1]`); controller-runtime recovered it, so the reconcile retried forever and the parent never got Variants. It now returns the whole name when there is no `-`.
+
+### Known open issue: removing a flavor evicts the running parent (issue-15838.md)
+
+When a flavor is removed from a ClusterQueue with `concurrentAdmissionPolicy`, one reconcile deletes the stale (admitted) Variant, creates a Variant for the new flavor, and then `syncAdmissionStatus` finds no admitted Variant while the parent is admitted and writes `Evicted`/`ConcurrentAdmission`/"No variant is running" on the parent, although its admission was still valid. Reported against v0.20.0-rc.1, open at the time of this update.
+
+### Interaction with AdmissionFairSharing
+
+Each reservation obtained by a more-preferred Variant can settle another entry penalty; deduplication per Workload and LocalQueue is not implemented ([[admission-fair-sharing#Accounting anchor: quota reservation, not admission (v0.20, Beta)]]).
 
 ## Related pages
 

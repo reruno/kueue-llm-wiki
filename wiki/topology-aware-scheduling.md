@@ -2,9 +2,9 @@
 
 **Summary**: TAS lets a [[workload]] request placement within a topology domain — a rack, a block, a zone — so bandwidth-sensitive Pods (ML training, MPI) don't get scattered across a data center. A ResourceFlavor references a `Topology` object that declares the topology levels; PodSets carry required/preferred annotations; Kueue picks a domain at admission and pins each Pod to nodes in that domain.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (pr-15262, pr-15436, pr-15447, pr-15456, pr-15571, pr-15578, pr-15579, pr-15640, pr-15678, pr-15689, pr-15856, pr-15857, pr-15860, pr-15861, pr-15862, pr-15885, pr-16003, pr-16039, pr-16061, pr-16152, pr-16174, pr-16248, pr-16273, pr-16306, pr-16321 and others cited inline); `raw/kueue/pkg/features/kube_features.go`, `raw/kueue/pkg/util/tas/spreading.go`, `raw/kueue/apis/kueue/v1beta2/topology_types.go`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -170,8 +170,101 @@ The gate could previously be enabled with `TopologyAwareScheduling` off, which i
 
 With the Alpha `SchedulerLibraryIntegration` gate on, Kueue no longer applies node-readiness and `spec.unschedulable` checks when building the TAS node cache — the scheduler library performs them instead ([[pr-14203]], [[pr-14613]]). With the gate off (the default) TAS keeps doing its own filtering.
 
+## Feature-gate stages (main / v0.20 development)
+
+Stages read from `pkg/features/kube_features.go` (source: kube_features.go). All TAS gates below depend on `TopologyAwareScheduling` (Beta, on since v0.14).
+
+| Gate | Stage / default | Effect |
+|---|---|---|
+| `TASHandleOverlappingFlavors` | Beta, on (since v0.18) | Shared per-Topology usage; older text above says Alpha/off at introduction |
+| `TASNodeFeasibilityForAllLevels` | Beta, on (v0.20) | Per-node capacity/feasibility checks even when the Topology's lowest level is not `kubernetes.io/hostname` |
+| `TASLeaderPodSetFeasibility` | Beta, on (v0.20) | Leader PodSet's own node filters are applied when picking a domain |
+| `TASPartialSlices` | Beta, on (v0.20) | Slice size need not divide PodSet count |
+| `TASGroupedPodSetSlicing` | Beta, on (v0.20) | Slicing together with PodSet groups |
+| `TASTopologySpreading` | Alpha, off (v0.20) | Cross-Workload spreading annotation |
+| `TASRejectFalseUnconstrainedTopology` | Alpha, off (v0.20) | Reject `podset-unconstrained-topology: "false"` |
+| `TASValidateWorkloadSliceSize` | Beta, on (v0.20; GA noted for 0.21) | Reject non-positive slice sizes on Workloads |
+| `SchedulerLibraryIntegration` | Alpha, off (v0.19) | Delegate node feasibility to scheduler-library (see *Workload-aware scheduling simulator* below) |
+
+## Annotations belong on the PodTemplate
+
+TAS annotations are read from the PodSet **template** metadata. For a `batch/v1` Job they must be in `spec.template.metadata.annotations`; an annotation on the Job's own `metadata.annotations` is silently ignored, with no error, event or condition. The docs for topology spreading, multi-layer topology and balanced placement were corrected to say this ([[pr-15816]], fixes [[issue-15791]]).
+
+## Unconstrained annotation: `"false"` is rejected
+
+`kueue.x-k8s.io/podset-unconstrained-topology` is an opt-in whose only meaningful value is `"true"`. Before [[pr-15262]], `"false"` passed validation and the JobFramework builder produced `TopologyRequest.Unconstrained=&false`. That counts as an explicit TAS request (so implicit TAS fallback is skipped) but selects no level, so the Workload could never be admitted (`topology level not specified`). Behind `TASRejectFalseUnconstrainedTopology` it is now rejected in the webhook **and** in the topology request builder (defense in depth for objects that bypassed the webhook). [[pr-15856]] added the same rule to the Workload webhook for `spec.podSets[].topologyRequest.unconstrained: false` on create and update. Open follow-up: the gate has no declared dependency on the other TAS gates in the same way in all paths ([[issue-15873]]).
+
+## StatefulSet TAS validation
+
+The StatefulSet reconciler builds `podSet.TopologyRequest` from the Pod template (`jobframework.NewPodSetTopologyRequest(...).PodIndexLabel(...)`), but its validating webhook did not validate those annotations. [[pr-15857]] validates them on create and [[pr-16039]] on update (fixes [[issue-15880]]); both only run when `TopologyAwareScheduling` is enabled. Backported to 0.18/0.19 ([[pr-15881]], [[pr-15882]], [[pr-16104]], [[pr-16105]]).
+
+## Topology spreading (`TASTopologySpreading`, Alpha)
+
+Cross-**Workload** spreading (KEP 13746, [[issue-13746]]): limits how many Workloads matching a label selector may occupy one domain. It is driven by the PodTemplate annotation `kueue.x-k8s.io/podset-topology-spreading` holding JSON (source: topology_types.go, spreading.go):
+
+- `workloadLabelSelectors` — list of `LabelSelectorRequirement`s selecting, among Workloads **in the same namespace**, which count against each other (empty means the default group).
+- `rules` — 1 to 2 entries (`minSpreadingRules=1`, `maxSpreadingRules=2`), each `{topologyKey, maxShareAllowingPlacement, enforcementMode}`. `maxShareAllowingPlacement` must be strictly in (0, 1). `enforcementMode` is `Required` (default, applied at parse time; domains over the share are excluded) or `Preferred` (over-share domains are only deprioritised by spread-aware ordering).
+- Must be combined with `podset-required-topology`: a PodSet group is counted as occupying one domain per rule level, which only holds for required topology. A rule whose level is **below** the requested level is rejected (`topology spreading level ... is below the podset topology ...`).
+- `ExceedsShare(count,total)` is `count > maxShare * total` in exact `inf.Dec` arithmetic; `total == 0` (cold start) never exceeds. Before [[pr-15862]] it used `Quantity.ScaledValue(milli)`, which rounds *up*, so `0.4501` became `451m` and 45.1% was allowed (fixes [[issue-15789]]).
+- `NewSpreadingSpec` now defaults an empty enforcement mode to `Required` like `ParseSpreadingAnnotation` (and clones its input) so `HasRequiredSpreadingLevels` and placement checks do not skip those rules ([[pr-15860]], [[issue-15788]]).
+- **PodSet-group constraint**: a shared group used for spreading must have exactly two PodSets, at least one with `Count == 1` (`ValidatePodSetGroupingTopology`; documented in [[pr-15859]]).
+
+Validation and enforcement points hardened in this cycle:
+
+- Annotation validation moved from `jobframework` to `pkg/util/tas` as `ValidateSpreadingAnnotation` (selectors, topology keys, share values, enforcement modes, duplicate keys) ([[pr-16248]]).
+- Directly created or prebuilt Workloads used to bypass it. [[pr-15885]] runs the same validation in the Workload webhook when the gate is on: requires structured `topologyRequest.required`, consistent annotations within a named PodSet group (equivalent JSON is accepted, not only byte-identical), with ratcheting per PodSet and per group so unrelated updates are not blocked by pre-existing errors ([[issue-15784]]). Broader TAS checks (group size) were deliberately left out.
+- **TAS-implied workloads**: on a ClusterQueue whose flavors are all TAS, TAS is implied even without `RequiredTopologyRequest`; flavor assignment skipped topology-level checks there, so a flavor lacking a required spreading level could match. `checkRequiredSpreadingLevels` in `tas_flavorassigner.go` now covers both explicit and implied paths ([[pr-16003]], [[issue-15786]]).
+- **Preemption**: spreading bans blocked preemption. In the `Preempt` representative-mode check `FindTopologyAssignmentsForWorkload` runs with `simulateEmpty=true` but `topologySpreadCountsForFlavor` ignored it and counted existing Workloads, banning domains and yielding `NoFit`; and `updateAssignmentForTAS` used `SimulateWorkloadUsageRemoval`, which left victims in `cq.Workloads`. Fix: spread counts are zero when `simulateEmpty`, and `SimulateWorkloadRemoval` removes victims (and their Pods) from `cq.Workloads` during assignment then restores them ([[pr-16061]], [[issue-16021]]).
+- The two `filterOutBannedDomains` calls in the descent loops of `findTopologyAssignment` were no-ops and were removed; the only ban filter is in `findLevelWithFitDomains` (`bannedBySpreading` walks ancestors; counts are filled once in `fillInCounts`). Invariants: spreading rules exist only in Required mode (so the fit level equals the requested level), balanced placement requires `!required`, and rules below the requested level are rejected ([[pr-16306]], [[issue-16305]]).
+- Known gap closed as not planned: with *Preferred* topology, a parent domain whose capacity lies only in children banned by a Required spreading rule can yield an incomplete assignment without failure reason ([[issue-15787]]). Tracker for remaining work: [[issue-15740]].
+
+## Partial slices (`TASPartialSlices`, Beta/on in v0.20)
+
+A PodSet with slice topology previously required `count % sliceSize == 0`; with 10 Pods and slice size 4 only 8 Pods entered `TopologyAssignment` and the trailing 2 stayed scheduling-gated forever ([[pr-15640]]; backports [[pr-16121]], [[pr-16122]]). With the gate, the trailing Pods form one incomplete **tail slice** in a single domain:
+
+- Each domain carries four capacities: `sliceCount`, `sliceCountWithLeader`, `sliceCountWithTail`, `sliceCountWithLeaderAndTail` (child penalties tracked jointly by `tailPenaltyTracker`, so co-located vs split leader/tail can be evaluated).
+- Whole slices are placed greedily first, then `placeTail` finds a home, preferring domains already hosting whole slices.
+- `normalizeTailLast` reorders the published assignment so the domain with the incomplete slice is **last**, preserving the ungater's `RankToDomainID` contract (otherwise a partial slice would fragment later whole slices in rank space).
+- Multi-layer slice constraints (`podset-slice-required-topology-constraints`) are rejected when the count is not divisible by the **outermost** slice size.
+- Not supported for partial slices in this first part: failed-node replacement (falls back to full requeue), balanced placement (falls back to best-fit) and elastic scale-up. Interaction with PartialAdmission is open ([[issue-16116]]). The PR description calls the gate Alpha but its final release note says Beta/on; the code says Beta/on (source: pr-15640.md, kube_features.go).
+
+## Leader/worker PodSet groups: feasibility fixes
+
+- **Leader's own filters** (`TASLeaderPodSetFeasibility`, [[pr-15447]], fixes [[issue-15373]]): domains for a PodSet group were chosen with the workers' node selector/tolerations/affinity only, so a leader with a different template was admitted where it could not run and stayed Pending holding quota. Leader selector, tolerations, node affinity and DRA feasibility are now checked. Backport [[pr-15690]].
+- **Leader on its own node** ([[pr-15678]], fixes [[issue-15636]]): with virtual-hostname topologies (no explicit hostname level) the leader and workers may take different feasible nodes inside one domain (e.g. a rack).
+- **Leader leaf cache** ([[pr-15689]], fixes [[issue-15685]]): the leader's feasible leaves are cached alongside the workers'; reused across preemption simulations (500 nodes: 348us to 243us; 2500 nodes: 1.88ms to 1.26ms). Backport [[pr-15852]].
+- **Worker-only path decoupled** ([[pr-15861]], fixes [[issue-10812]]): with no leader, placement uses worker slice counts and no longer reads `stateWithLeader`; leader-specific capacity/retry logic is gated on a leader being required. Isolating leader state further is open ([[issue-15981]]).
+- **Zero-count PodSets** ([[pr-16174]], regression fix for [[issue-16083]]; backports [[pr-16246]], [[pr-16247]]): the "probe" that fits hypothetical Pods for zero-count members now applies only when **every** effective count in the group is zero; mixed groups pick flavors from actual requests. TAS checks placement after choosing a flavor and never retries a skipped flavor, which is why the probe steered admission wrongly. Open: an elastic group scaling workers 0 to 1 with a tied count panics because `findLeaderAndWorkers` picks roles by count ([[issue-16239]]).
+- **Non-adjacent group members** ([[pr-16273]], part of [[issue-16266]]; backports [[pr-16286]], [[pr-16287]]): flavor assignment and a replaced slice's admission are in *group* order, not Workload order. `TotalRequestsFor` and the workload-slice replacement flavor check paired PodSets by position, which could use another PodSet's counts/flavors, panic the scheduler in preemption or leave the Workload Pending. They now match PodSets **by name**; other positional consumers remain to be converted.
+
+## Elastic (workload-slice) TAS fixes
+
+- **Ungating across slices** ([[pr-15578]]): Pod events reference the *origin* slice, but expectations were recorded under the replacement's name, so they never cleared and late Pods stayed gated (`pending ungate operations`). The controller resolves the latest active slice before reading its admission and uses the stable origin name (`kueue.x-k8s.io/workload-slice-name`) for ungating expectations. Backports [[pr-15693]], [[pr-15706]].
+- **Double-counting** ([[pr-15579]]): growing 2 to 4 one-CPU Pods on a 4-CPU node was classified `Preempt` because the snapshot already charged the old slice and placement charged it again. The replaced slice's TAS usage is temporarily removed during placement and the snapshot restored afterwards; quota accounting and other Workloads' usage are untouched. Backports [[pr-15586]], [[pr-15634]]. Related open bugs: replaced slice still counted within the scheduling-cycle snapshot ([[issue-16119]]), slice replacement can overcommit cohort quota ([[issue-16118]]).
+- Evicted slices are drained before releasing quota ([[pr-15661]]).
+
+## Node replacement and second pass
+
+- **Required domain must be known** ([[pr-16321]], fixes [[issue-16291]]): with `TASReplaceMultipleFailedNodes` a remaining assigned node can be missing from the snapshot before entering `UnhealthyNodes`; an undeterminable required domain was treated as unrestricted and replacement Pods could land outside the required rack. Replacement is now rejected (a replacement-failure event; original assignment unchanged) when a *required* request still has a remaining assignment but no known domain. Preferred requests and replacing the whole assignment remain allowed.
+- **Reservation-free marked Workloads** ([[pr-15571]], fixes [[issue-15504]]; backports [[pr-15655]], [[pr-15656]]): a Workload with `status.unhealthyNodes` but `status.admission == nil` took the node-replacement branch in `FindTopologyAssignmentsForFlavor`, skipped every PodSet as having no prior assignment, and returned a vacuous success, so TAS-only ClusterQueues committed flavors without a `TopologyAssignment`. The replacement branch now requires a current admission; otherwise fresh placement (or a real failure reason). The second-pass queue now requeues by key and **re-reads the live Workload** when the backoff elapses, so `NeedsSecondPass` and the release path act on current state; healed or deleted entries are skipped without a status write. Open follow-ups on the same race: [[issue-15658]], [[issue-16330]], [[issue-16331]].
+- **Requeue scope** ([[pr-16152]]; backports [[pr-16161]], [[pr-16162]]): a Node-triggered TAS ResourceFlavor reconcile requeued inadmissible Workloads of *every* active ClusterQueue (also resetting their equivalence-hash cache). Now only ClusterQueues using that flavor are requeued (Cohort members are still reached because `NotifyRetryInadmissible` requeues the whole Cohort tree); `Cache.ActiveClusterQueues()` was removed.
+
+## Workload-aware scheduling simulator
+
+With `SchedulerLibraryIntegration` (Alpha), TAS feasibility is answered by a simulator backed by `sigs.k8s.io/scheduler-library` (`pkg/cache/scheduler/was`). Existing wiki coverage of the gate: [[scheduler-internals]]. Behaviour and structure now in main:
+
+- **Structure**: `simulator.SchedulerSimulator` (`FindFeasibleNodes`, `PreemptWorkload`, `Simulate`) with a default implementation (`scheduling_simulator_default.go`) and `wasSimulator`. `wasSimulator` holds a cluster snapshot with every tracked Pod on its node, `podsByWorkload` (the only Pods `PreemptWorkload` can release) and a lazily-built `emptyCluster` (same nodes, no Pods) used when `requirements.SimulateEmpty` is set. It calls `MakePlacement(candidateNodeNames)` then `CanSchedulePod`; `NodeExclusionStats.SchedulerLibraryNoFit` counts rejects. The interface was renamed from snapshot to a factory of simulators ([[pr-16064]], backport [[pr-16117]]); `SchedulingSimulator.Snapshot` takes variadic `SnapshotOption`s such as `WithAssumedWorkloads` ([[pr-16009]]); pod-removal simulation moved to `Snapshot` and `forgetSimulatedFeasibility` became private ([[pr-16267]]).
+- **Merged constraints reach the simulator** ([[pr-15456]], fixes [[issue-15455]], [[issue-15629]]): `PodRequirements.PodTemplate` is a plain deep copy of the PodSet template, while the TAS snapshot merges `ResourceFlavor.spec.tolerations` and AdmissionCheck `PodSetUpdates` only into the field form (`Tolerations`, `Selector`). The WAS path read the template, so flavor-only tolerations were ignored (never admitted) and ProvisioningRequest `nodeSelector` was ignored (wrong placement). The template's `tolerations` and `nodeSelector` are now overwritten with the merged values right after the copy. Still open for worker clusters: [[issue-15450]].
+- **Scheduler name ignored** ([[pr-15635]], fixes [[issue-15630]]; backport [[pr-15643]]): the simulator builds a single `default-scheduler` profile, so a PodSet with another `spec.schedulerName` failed with `profile not found for scheduler name ...`. The name is now forced to `default-scheduler` for feasibility.
+- **Preemption-aware feasibility** ([[pr-15436]], part of [[issue-12422]]): "would it fit if everything were preempted" was answered against the current cluster, so a host port held by the would-be victim made the node look unusable and preemption was never attempted. Feasibility now uses the cluster preemption would leave behind while preserving unmanaged-Pod occupancy. [[pr-15651]] (fixes [[issue-15631]]) likewise removes selected victims' Pods from the simulator during TAS overlap recomputation and restores simulator state, including on error paths.
+- **Virtual pods** ([[pr-15720]], part of [[issue-13700]]): admitted or quota-reserved Workloads without running Pods are synthesised (`virtual_pods.go`, `PodsForWorkload`): PodSet template and namespace copied, `Spec.NodeName` from the `TopologyAssignment`, deterministic truncated name. Per Workload, virtual Pods replace real Pods if any could be generated; otherwise real Pods from the `podTracker` are kept. This makes node reservations accurate in feasibility and preemption simulations.
+- **Planner** ([[pr-16158]], part of [[issue-5333]]): new `assignment.Planner` interface (`Plan(ctx, initialAssignment, opts...) Plan`, with `Plan.Assignment` and `PreemptionTargets`; `CanFit()` is true for `Fit`, or `Preempt` with at least one target) abstracts "fit the workload given flavors, topology requests and preemption". Only the native implementation exists; a SchedulerLibrary planner and a hybrid are planned. [[pr-16000]] made preemption rely on a `Strategy` producing a dynamically computed candidate iterator to accommodate future integrations.
+- **Cleanup**: `newTASFlavorSnapshot` takes a `flavorInformation` struct ([[pr-15545]]).
+
 ## Related pages
 
+- [[dra]] — per-node device feasibility runs inside TAS.
+- [[scheduler-internals]]
 - [[resource-flavor]] — opts a flavor into TAS.
 - [[workload]] — where topology annotations live per PodSet.
 - [[admission]] — where topology assignments are computed.

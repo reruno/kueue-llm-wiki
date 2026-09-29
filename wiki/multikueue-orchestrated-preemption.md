@@ -2,13 +2,13 @@
 
 **Summary**: When a high-priority workload is dispatched to multiple worker clusters in a MultiKueue setup, all of them may simultaneously attempt to preempt lower-priority workloads. This KEP introduces preemption gates to serialize those preemption attempts, letting only one worker cluster preempt at a time.
 
-**Sources**: `raw/kueue/keps/8303-multikueue-orchestrated-preemption/README.md`, `raw/kueue/keps/8303-multikueue-orchestrated-preemption/kep.yaml`
+**Sources**: `raw/kueue/keps/8303-multikueue-orchestrated-preemption/README.md`, `raw/kueue/keps/8303-multikueue-orchestrated-preemption/kep.yaml`, pr-16235.md, issue-13966.md, raw/kueue/pkg/controller/admissionchecks/multikueue/workload.go
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-09-29
 
 ---
 
-> **Stage: Alpha** — Feature gate `MultiKueueOrchestratedPreemption`, disabled by default. (source: keps/8303-multikueue-orchestrated-preemption/kep.yaml)
+> **Stage: Beta since v0.20 (enabled by default)** — Feature gate `MultiKueueOrchestratedPreemption`; Alpha (off) in v0.17 through v0.19. Graduated by pr-16235 (tracked in issue-13966.md; a concrete Configuration API for the timeout is planned under issue-9852 and is not merged). (source: raw/kueue/pkg/features/kube_features.go, pr-16235.md)
 
 ## The problem
 
@@ -39,6 +39,9 @@ The gate has a `position` (in `status.preemptionGates`): `Closed` = cannot preem
 (source: keps/8303-multikueue-orchestrated-preemption/README.md)
 
 ## Timeout mechanism
+
+The timeout is a hard-coded constant, `singleClusterPreemptionTimeout = 5 * time.Minute`, in `pkg/controller/admissionchecks/multikueue/workload.go` (the ConcurrentAdmission controller has its own identical `preemptionTimeout = 5m` for Variants; see [[concurrent-admission]]). Neither is configurable yet.
+
 
 If the ungated preemption fails (worker crashes, pod never starts), the 5-minute `SingleClusterPreemptionTimeout` eventually elapses, and the orchestrator opens the gate for the next waiting replica. This prevents a single failing preemption from blocking all others. (source: keps/8303-multikueue-orchestrated-preemption/README.md)
 

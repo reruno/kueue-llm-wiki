@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -48,7 +48,13 @@ Common reasons surfaced in events:
 - The ClusterQueue is `stopPolicy: Hold`.
 - `workload.ValidateAdmissibility` rejected the candidate — most commonly `resources didn't satisfy LimitRange constraints`, i.e. the effective requests violate a namespace LimitRange `max`/`min`. This rejection leaves the requeue reason at `RequeueReasonGeneric` and, under BestEffortFIFO, does not recover when the LimitRange is relaxed; see [[workload-resource-adjustment]].
 
-Events are attached to the Workload for each of these cases. The [[metrics]] surface also exposes pending counts, admission attempts, and preemption counts.
+With `UnadmittedWorkloadsObservability` (Beta/on in v0.20) each of these is reported as a distinct `QuotaReserved=False` reason (`WaitingForQuota`, `NoMatchingFlavor`, `ExceedsMaxQuota`, `Misconfigured`, `Suspended`, `AdmissionGated`, ...) rather than `Pending`; see [[unadmitted-workloads-observability]].
+
+Events are attached to the Workload for each of these cases. The `Admitted` event's message reports the real wait time since quota reservation (pr-15829), not `0s`. The [[metrics]] surface also exposes pending counts, admission attempts, and preemption counts.
+
+## Wait after quota reservation
+
+Between `QuotaReserved` and `Admitted` a Workload may wait for AdmissionChecks; Admission Fair Sharing counts that reserved usage by default since v0.20 ([[admission-fair-sharing#Accounting anchor: quota reservation, not admission (v0.20, Beta)]]). After `Admitted`, the [[wait-for-pods-ready]] timers run.
 
 ## When quota is released
 

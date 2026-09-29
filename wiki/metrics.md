@@ -2,9 +2,9 @@
 
 **Summary**: The `kueue-controller-manager` binary exposes Prometheus metrics on `/metrics`. Metrics cover per-[[cluster-queue]] usage and reservation, [[workload]] admission/preemption counters, [[admission-check]] outcomes, and scheduling-loop latency. Labels include `cluster_queue`, `flavor`, `priority_class`, and recently `priority_class_source`.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15026.md, pr-16208.md, raw/kueue/pkg/metrics/metrics.go, raw/kueue/site/content/en/docs/reference/metrics.md
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -83,6 +83,19 @@ Two independent fixes to the same metric:
 - **`replica_role` label added** ([[pr-14488]] / [[pr-14530]], fixes [[issue-14457]]). It was the only metric in the health group without it, so leader / follower / standalone observations were indistinguishable. The `RoleTracker` is threaded through the shared recording helper and all three emit paths (Pod controller via a new `WithRoleTracker` PodOption; the TAS topology ungater and the elastic-job ungater already carried a tracker); `roletracker.GetRole` yields `standalone` when the tracker is nil. The label is placed **before** the configured ClusterQueue custom labels, matching every other role-labeled metric. **Adding a label changes series identity** — existing queries on this metric must be updated.
 
 Related: the "Job controller with CustomMetricLabels" integration block widened the shared metric vectors and panicked later specs ([[issue-14744]], fixed by [[pr-14745]] / [[pr-14751]]).
+
+### New in v0.20
+
+- **`kueue_unadmitted_workloads`** (gauge; `cluster_queue`, `reason`, `underlying_cause`, `replica_role`) and **`kueue_local_queue_unadmitted_workloads`** (`name`, `namespace`, `cluster_queue`, `reason`, `underlying_cause`, ...): counts Workloads without quota reservation per tiered reason. Emitted only with `UnadmittedWorkloadsObservability` (Beta/on in v0.20). Unlike `kueue_pending_workloads` (`active`/`inadmissible`), it also counts Workloads that referenced a missing queue ([[unadmitted-workloads-observability]]).
+- **`multikueue_workloads_evicted_total`** (counter; `cluster_queue`, `cluster`, `reason`, `replica_role`, pr-15288): remote Workload evictions on a worker cluster, next to `multikueue_workloads_dispatched_total`, `multikueue_workloads_admitted_total` and the `multikueue_cluster_status` gauge (one series per manager ClusterQueue referencing a worker, so use `max by (cluster)` not `sum` to count distinct workers). See [[multikueue]].
+- **Preemption `reason` label value `ConfigurablePreemption`** on `kueue_preempted_workloads_total` and the eviction metrics when a `PreemptionConfig` rule selected the victim (Alpha, [[configurable-preemptions]]); eviction metrics that carry an `underlying_cause` label use the PreemptionConfig name.
+- **`kueue_preemption_target_recomputations_total`** (label `result`) and **`kueue_admission_cycle_preemption_skips`** (gauge per ClusterQueue: Workloads that had candidates but were skipped because another ClusterQueue needed the same resources in the cycle) describe overlap handling in the scheduling cycle ([[scheduler-internals#Recompute an assignment when preemption targets overlap]]).
+- **`kueue_pending_scheduling_hashes`** (gauge; `cluster_queue`, `status`): unique pending scheduling-equivalence hashes, reported only with `SchedulingEquivalenceHashing`.
+- **`replica_role`** is a label on all of these; custom metric labels are appended to ClusterQueue and LocalQueue series.
+
+### Exact quota amounts and `+Inf`
+
+pr-15026 changed how large quota and usage are reported: an amount at or past `math.MaxInt64` is `+Inf` as before, but for CPU the boundary moved from `MaxInt64/1000` cores to `MaxInt64` milli (0.807 cores apart), and amounts between are now exact rather than saturated ([[cache-architecture#Quota amounts are exact past int64 (pr-15026)]]).
 
 ### Integer overflow and unlimited quota
 

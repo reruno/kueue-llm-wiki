@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/2936-local-queue-defaulting/README.md`, `raw/kueue/keps/2936-local-queue-defaulting/kep.yaml`
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-09-29
 
 ---
 
@@ -37,6 +37,10 @@ The `default` LocalQueue must be created manually by the admin — Kueue does no
 3. Enable `LocalQueueDefaulting`.
 
 Users can submit jobs without any Kueue-specific labels and they will be automatically queued.
+
+## Namespace selector is now consistently respected
+
+`ManagedJobsNamespaceSelectorAlwaysRespected` (GA since 0.19) applies to both defaulting paths. `ApplyDefaultLocalQueue` was fixed first (pr-13375; hanging workloads were the symptom). The WorkloadPriorityClass defaulting path followed later, returning Namespace read errors from the webhook the same way; see [[workload-priority#Defaulting respects the namespace selector]] (source: pr-15851.md).
 
 ## Related pages
 

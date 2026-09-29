@@ -2,9 +2,9 @@
 
 **Summary**: Master checklist of code patterns reviewers should flag, distilled from the `Security Code Patterns` section of every CVE in `raw/cve/`. Grouped by category and mapped to CWE.
 
-**Sources**: `raw/cve/CVE-*.md` (682 entries). Pattern text is taken verbatim from the CVE files where the same checklist repeats per category.
+**Sources**: `raw/cve/CVE-*.md` (749 entries). Pattern text is taken verbatim from the CVE files where the same checklist repeats per category.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -105,12 +105,15 @@ This page is the single-pane reference. The category pages ([[security-denial-of
 | CWE-200 | Sensitive info exposure | [[security-information-disclosure]] |
 | CWE-269 | Improper privilege management | [[security-authn-authz]] |
 | CWE-276 | Incorrect default permissions | [[security-authn-authz]] |
+| CWE-23 | Relative path traversal (Flux source-controller, Fleet) | [[security-injection-and-input-validation]] |
+| CWE-250 | Execution with unnecessary privileges (CRI-O, Strimzi) | [[security-authn-authz]] |
 | CWE-284 | Improper access control | [[security-authn-authz]] |
 | CWE-285 | Improper authorization | [[security-authn-authz]] |
 | CWE-287 | Improper authentication | [[security-authn-authz]] |
 | CWE-295 | Improper cert validation | [[security-supply-chain]] |
 | CWE-306 | Missing authn for critical function | [[security-authn-authz]] |
 | CWE-352 | CSRF | [[security-authn-authz]] |
+| CWE-362 | Race condition (Envoy Gateway map, Omni SAML replay) | [[security-denial-of-service]] |
 | CWE-400 | Uncontrolled resource consumption | [[security-denial-of-service]] |
 | CWE-476 | Nil-pointer dereference | [[security-denial-of-service]] |
 | CWE-502 | Deserialization of untrusted data | [[security-injection-and-input-validation]] |
@@ -118,7 +121,9 @@ This page is the single-pane reference. The category pages ([[security-denial-of
 | CWE-532 | Sensitive info in log files | [[security-information-disclosure]] |
 | CWE-552 | Files/dirs accessible to outside parties | [[security-information-disclosure]] |
 | CWE-601 | Open redirect | [[security-injection-and-input-validation]] |
+| CWE-639 | IDOR / user-controlled key (Traefik, Argo Workflows) | [[security-authn-authz]] |
 | CWE-770 | Allocation without limits | [[security-denial-of-service]] |
+| CWE-789 | Memory allocation with excessive size (Envoy Gateway) | [[security-denial-of-service]] |
 | CWE-776 | XML entity expansion (billion laughs) | [[security-denial-of-service]] |
 | CWE-862 | Missing authorization | [[security-authn-authz]] |
 | CWE-863 | Incorrect authorization | [[security-authn-authz]] |
@@ -142,6 +147,25 @@ A cluster of ecosystem CVEs in this corpus, and a matching set of Kueue fixes, s
 | A guard applied on one code path but not its sibling (incomplete fix) | `CVE-2026-65835` (Capsule — `NamespacedItems` had the cluster-scoped rejection guard; `RawItems`/`Generators` did not) | #13014 guarded `FindMatchingWorkloads` but not the earlier `finalize` path — exactly the gap [[pr-13960]] closed |
 
 **Review rule that falls out of the table:** when a reconciler looks an object up, ask *who can write the key*. If the answer includes an unprivileged tenant, require a second condition that only Kueue stamps — an ownership marker such as `kueue.x-k8s.io/is-group-workload`, an owner-reference *shape* (controller vs non-controller), a UID, or a namespace qualification — and check that **every** path that reaches the lookup applies it, not just the obvious one.
+
+## Guard-coverage and derived-identity patterns (2026-09-29 additions)
+
+The 2026-09-29 data-collection added 67 CVEs (all non-Kueue operators, gateways and runtimes). They reinforce the lookup-key table above and add six patterns that are checkable by reading a diff:
+
+| Pattern | Ecosystem CVE | What to check in Kueue code |
+|---|---|---|
+| Cluster-scoped object named by a bare namespaced name; a same-named CR elsewhere overwrites or deletes it | `CVE-2026-19274` (Instana Agent Operator, CWE-284, 9.6, versions 1.0.303-1.0.323) | any ClusterRole/Binding, webhook config or cluster-scoped CR created from a namespaced object needs namespace or UID in its name |
+| Derived name that is **too specific**, splitting objects that must share a security decision | `CVE-2026-85596` (Traefik 3.7.0-3.7.10, TLS option named per Ingress, conflict falls back to no client auth, CWE-287, 9.8) | on a conflict, fail closed; do not fall back to a weaker default |
+| Guard on one branch but not the sibling branch, RPC kind or operator | `CVE-2026-53718` (Envoy Gateway custom `backendRef` skipped `validateBackendNamespace`), `CVE-2026-53714` (unary RPC lacked the stream JWT interceptor), `CVE-2026-93991` (Argo `metadata.namespace!=` skipped access review), `CVE-2026-88877` (Traefik sibling redirect router) | enumerate every entry into a protected function, including negated selectors and each integration adapter |
+| Validation that reads the wrong variable (`old` for `new`, labels for annotations) | `CVE-2026-61795`, `CVE-2026-61794` (Capsule 0.13.x, fixed 0.13.7) | validators need a table test for each field with valid-old/invalid-new |
+| Webhook or policy rule that silently never matches (singular vs plural, wrong subresource) | `CVE-2026-55636` (Capsule `namespace/finalize` vs `namespaces/finalize`, 0.13.0-0.13.5) | integration test that proves each webhook rule fires; compare `+kubebuilder:webhook` markers with real resource names |
+| Data structure invariant broken between sort and search | `CVE-2026-61672` (Capsule, `sort.SearchStrings` on a case-insensitively sorted list) | `slices.BinarySearchFunc` must use the same comparator as the sort; prefer a `sets.Set` |
+| Operator writes RBAC from a CR field | `CVE-2026-55225` (Strimzi `watchedNamespace`, CWE-269, 8.0) | see [[security-authn-authz]] |
+| Untrusted size fields used to allocate or iterate | `CVE-2026-53717` (tar `h.Size`), `CVE-2026-53716` (gzip), `CVE-2026-44778` (ELF `DescSize`) | see [[security-denial-of-service]] |
+| Optional secret defaults to open | `CVE-2026-93539` (Fleet webhook receiver without a configured secret) | new receivers or endpoints default closed |
+| Compound identifier verified on one half only | `CVE-2026-85781` (EFS CSI `volumeHandle` pairs an access point with a different filesystem, CWE-283, 8.7) | verify ownership of every component of a key before a destructive action |
+
+**Extension of the review rule:** after finding *who can write the key*, ask *what does every sibling path do with the same key*. Four of the 2026-09 CVEs (Envoy Gateway x2, Argo, Traefik) are one guard missing from one branch. The Kueue-side instance remains #13014 versus [[pr-13960]].
 
 ## Related pages
 

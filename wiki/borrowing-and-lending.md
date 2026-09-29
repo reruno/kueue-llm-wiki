@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -18,6 +18,10 @@
 
 - `borrowingLimit` (per resource) caps how much a CQ can consume *above* its nominal. `nil` means unlimited; `0` disables borrowing.
 - `lendingLimit` caps how much of the CQ's nominal quota can be loaned out. Without a lending limit, the entire nominal is available for siblings; with a limit, some of the nominal is "protected" and can't be borrowed even if idle.
+
+### Oversized limits are no longer collapsed to "unlimited" (pr-15026, v0.20)
+
+Quota amounts are exact integers past `int64` ([[cache-architecture#Quota amounts are exact past int64 (pr-15026)]]). Before, a `1E` nominal quota with a `10P` `lendingLimit` turned both into the `Unlimited` sentinel, so nothing stayed local; now `990P` stays local. A `borrowingLimit` beyond `int64` used to equal everything the Cohort had spare; now it bounds what the ClusterQueue can reach. An unset limit is still unset (unlimited).
 
 ## When reclaim happens
 
@@ -46,6 +50,10 @@ Per-CQ metrics expose `admitted_usage`, `reserved_usage`, `nominal_quota`, and b
 ## Shrinking capacity does not evict
 
 Reparenting a cohort under a smaller root, dropping an ancestor's nominal quota below current usage, tightening a lender's `lendingLimit`, or setting `borrowingLimit: 0` on an actively-borrowing ClusterQueue all leave already-admitted Workloads running — only future admissions see the reduced capacity. Pinned by [[pr-14598]]; see [[cluster-queue#Shrinking capacity never evicts admitted Workloads]].
+
+## Preemption knobs beyond borrowing
+
+`borrowWithinCohort` gates preemption that would leave the preemptor borrowing; the Alpha `PreemptionConfig` can additionally allow preemption in that situation ([[configurable-preemptions]]). A reported open limitation: with `borrowWithinCohort: Never`, a borrowing ClusterQueue cannot preempt lower-priority Workloads of its *own* queue ([[preemption#Known limitation: classical preemption within a borrowing ClusterQueue]]).
 
 ## Related pages
 

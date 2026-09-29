@@ -36,6 +36,10 @@
 - [[borrowing-and-lending]] — Borrowing limits, lending limits, and how cohorts redistribute idle capacity.
 - [[workload-priority]] — PriorityClass vs WorkloadPriorityClass, priority-sorting within cohort.
 - [[preemption-cost]] — **[Alpha]** External controllers dynamically boost a workload's effective priority via annotation.
+- [[wait-for-pods-ready]] — WaitForPodsReady config, defaults, per-workload override, unscheduled timeout, succeeded pods counted as ready.
+- [[configurable-preemptions]] — PreemptionConfig API, evaluator, candidate filters, eviction reasons, RBAC (Alpha, 0.20).
+- [[dynamic-quota-orchestration]] — DQO / CapacityProvider: externally orchestrated flavor quota (Alpha).
+- [[unadmitted-workloads-observability]] — Tiered QuotaReserved reasons and pending-workload gauges.
 - [[gang-scheduling]] — All-or-nothing admission via WaitForPodsReady and scheduler ordering.
 - [[elastic-jobs]] — Dynamic scale-up/scale-down of admitted jobs via WorkloadSlices.
 - [[concurrent-admission]] — **[Alpha]** Pursue multiple ResourceFlavors simultaneously via Variant Workloads.

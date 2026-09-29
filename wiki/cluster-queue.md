@@ -2,9 +2,9 @@
 
 **Summary**: A ClusterQueue (CQ) is a cluster-scoped resource that owns a pool of quota. It groups quota into resource groups of flavors, limits how workloads queue up, and optionally joins a [[cohort]] so unused capacity can be lent to peers.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15633.md, pr-16140.md, pr-15949.md, pr-16282.md, pr-15913.md, pr-16168.md, raw/kueue/apis/kueue/v1beta2/clusterqueue_types.go
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -38,6 +38,18 @@ A CQ's `spec.cohort` field joins it into a [[cohort]]. CQs in the same cohort ca
 `status.flavorsReservation` and `status.flavorsUsage` are the authoritative view of what's reserved and what's actually consumed. `status.pendingWorkloads` and `status.admittedWorkloads` count head-of-queue and admitted jobs. `status.conditions` includes `Active` (the CQ is healthy, referenced flavors exist, webhooks pass).
 
 A CQ becomes inactive if a referenced [[resource-flavor]] is missing or a referenced [[admission-check]] is not `Active` — by design ([[issue-3645]] — TAS: CQ is not deactivated when there is no Topology, which was fixed).
+
+## `kubectl get -o wide` shows ACTIVE and REASON (v0.20)
+
+`kubectl get clusterqueue -o wide` and `kubectl get localqueue -o wide` gained `ACTIVE` and `REASON` columns (priority-1 printer columns, so default output is unchanged) that read the existing `Active` condition; the quick-start and MultiKueue examples were updated (source: pr-15633.md, closes issue-15566.md). No schema change.
+
+## Fields and annotations added around the ClusterQueue in v0.20
+
+- **`kueue.x-k8s.io/preemption-config-name` annotation** (Alpha, gate `ConfigurablePreemptions`) references a cluster-scoped `PreemptionConfig`; it becomes a real field in Beta ([[configurable-preemptions]]).
+- **`status.effectiveQuotas`** (`orchestratorRef` + `resourceGroups`, max 16 groups): written by a `DynamicQuotaOrchestrator` under gate `DynamicQuotaOrchestration` (Alpha); when set, the scheduler uses it instead of `spec.resourceGroups`, and an empty list is a complete override ([[dynamic-quota-orchestration]]).
+- **`spec.concurrentAdmissionPolicy`** requires a single ResourceGroup with at most **32** flavors (was 16) ([[concurrent-admission]]).
+- The API comments on `resourceGroups[].flavors` now warn that many flavors have performance implications (pr-16282).
+- The manager-side `MultiKueueManagerQuotaAutomation` condition's `observedGeneration` is refreshed even when the condition itself is unchanged (pr-16140; [[multikueue]]).
 
 ## Stop policies
 

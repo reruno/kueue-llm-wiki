@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-09-29
 
 ---
 
@@ -53,6 +53,23 @@ See [[integration-plain-pod]] and [[integration-kubeflow]] for integration-speci
 ## Interaction with Retry
 
 If the PR cannot be provisioned, the check sets state `Retry`, which evicts and requeues the Workload so it can try a different flavor or wait. The interaction of `Retry` with `PodsReadyTimeout` is delicate — an admitted workload with `Retry` may not be evicted promptly, leaving it admitted longer than intended ([[issue-10660]]). See the `Retry` state on [[admission-check]].
+
+## PodTemplate contents are enforced by Kueue
+
+The controller computes a deterministic PodTemplate name (`ppt-<workload>-<check>-<attempt>-<podset>`) in the tenant's namespace. It used to reference an already existing PodTemplate at that name **verbatim** in the generated `ProvisioningRequest`, so a user able to write PodTemplates could pre-create one with unrelated resource requests and decouple what Cluster Autoscaler provisions from what Kueue quota-checked. Now the controller is the sole authority on contents (source: pr-13015.md; backports pr-16070.md, pr-16072.md):
+
+- `createPodTemplate` is split into a pure `buildPodTemplate` (deep-copies the PodSet template because `podset.Merge` mutates in place).
+- On reconcile: **create** when absent; **skip** when equivalent to the Kueue-derived contents (shared `equality.ComparePodTemplate`, same strategy as Job to Workload); **replace** (delete then create) when a pre-existing object differs. Replace rather than Retry avoids blocking re-admission after preemption when attempt 1 collides with a leftover template from a prior flavor. A recreate racing the still-finalizing delete returns the error and controller-runtime retries with backoff; no admission-check Retry is involved.
+- Ownership/label checks are deliberately not the trust boundary, because a tenant who can write PodTemplates can forge them.
+- Gated by `EnforceProvisioningPodTemplateContents` (renamed from `RetryProvisioningDueInconsistentPodTemplate` before release). Out of scope: ProvisioningRequest name squatting and post-creation tampering.
+
+## Name truncation and the attempt suffix
+
+`ProvisioningRequestName` hashed the full name including the attempt number while `getAttemptRegex` hashed only the workload+check prefix, so a long name produced two hashes. `matchesWorkloadAndCheck` missed the object, `deleteUnusedProvisioningRequests` deleted it and `syncOwnedProvisionRequest` recreated it in an endless loop. The stable prefix is now truncated first (reserving room for an int32 attempt) and the attempt appended afterwards, keeping the final name within 253 characters; short names like `wl-check-1` are unchanged. Objects named under the old scheme will not match after upgrade (they were already looping) (source: pr-14916.md, backports pr-15466.md, pr-15467.md).
+
+## Elastic jobs
+
+Elastic Jobs with a ProvisioningRequest check rely on per-pod (not per-template) lifetime of the `consume-provisioning-request` / `provisioning-class-name` identity annotations, so GKE's node-selector injection for `queued-provisioning.gke.io` stays scoped to the current request across scale-ups; this is currently implicit in `podset.go` and `elastic_job_ungater.go` ([[issue-14615]], documentation request; source: issue-14615.md).
 
 ## Related pages
 

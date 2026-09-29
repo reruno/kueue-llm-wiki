@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/controller/jobs/trainjob/trainjob_controller.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_webhook.go`
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -58,6 +58,14 @@ Earlier versions of the integration's mutating webhook patched the **referenced 
 [[pr-14836]] (cherry-picks [[pr-14841]], [[pr-14842]]; related to [[issue-14722]]) switches both call sites to `clientutil.Patch` (JSON merge patch via `client.MergeFrom`), matching the pattern `RestorePodSetsInfo` already used. A merge patch carries only the fields that actually changed, so unmodelled fields are never touched.
 
 This is the general "preserve unmodelled spec fields" hazard for any integration that vendors a third-party CRD's Go types; the MultiKueue counterpart is [[issue-14837]] (open). Validating TrainJob CRD compatibility at setup and documenting a minimum Trainer version is [[issue-14819]] (open).
+
+## `Stop` is idempotent
+
+`TrainJob.Stop` always returned `true` and always sent the restore patch, so every reconcile while a TrainJob stayed evicted or unadmitted re-sent a no-op PATCH and made the framework emit another `Stopped` event. `Stop` now tracks whether it actually suspended the TrainJob, and `RestorePodSetsInfo` reports whether it changed anything (as the `GenericJob` contract documents) so `clientutil.Patch` skips no-op patches (source: pr-15652.md; backports pr-15754.md, pr-15755.md). `RuntimePatchWrapper` gained `Clone()` for tests (pr-15773.md).
+
+## RBAC: delete permission
+
+Kueue lacked `delete` on JAXJob and TrainJob, so jobs deactivated by Kueue were not deleted after `objectRetentionPolicies.workloads.afterDeactivatedByKueue` (source: pr-15567.md, pr-15568.md, backports of pr-15565).
 
 ## Related pages
 

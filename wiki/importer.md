@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-09-29
 
 ---
 
@@ -27,6 +27,29 @@ The importer is intentionally non-destructive. It doesn't re-create jobs, doesn'
 - **Priority inference.** If jobs use stock `PriorityClass`, that carries over. If they use Kueue-specific `WorkloadPriorityClass` labels, the importer picks those up; otherwise priority defaults to 0.
 - **Missing LocalQueue.** If a namespace has no LocalQueue, the importer can't decide which CQ owns the workload. Operators need to create LocalQueues first.
 - **Integration coverage.** The importer covers batch/v1 Job and a subset of CRDs; uncommon integrations may need manual Workload creation.
+
+## Mapping rules can match on resource requests
+
+The importer selects Pods by `--namespace` and by queue-mapping rules. Rules matched only on `labels` and `priorityClassName`, so a label covering both GPU and CPU-only Pods could not be split. The rule `match` block now accepts a **`resources`** list: a rule matches when the Pod's total requests contain a **non-zero** amount of **all** listed resources, AND-ed with the `labels`/`priorityClassName` conditions; an absent or empty list matches everything (old mapping files behave as before). Details (source: pr-15573.md; backports pr-15662.md, pr-15663.md):
+
+```yaml
+- match:
+    labels: {src.lbl: src-val}
+    resources: [nvidia.com/gpu]
+  toLocalQueue: gpu-queue
+- match:
+    labels: {src.lbl: src-val}
+  skip: true
+```
+
+- Rules are evaluated in order, so exclusion uses the existing `skip: true`. Filtered-out Pods count in the `skipped` counter of the check and import summaries.
+- Requests are totalled with `resources.NewRequestsFromPodSpec` (init and sidecar containers, pod-level resources and overhead included).
+- Only available through `--queuemapping-file`, not the simple `--queuelabel`/`--queuemapping` pair. To match any-of several resources use one rule per resource.
+- `Rules.QueueFor` now takes the `*corev1.Pod` so requests are computed once per Pod (`cache.ImportCache.LocalQueue` is the only production caller).
+
+## Other fixes
+
+Flavor assignment in the Pod importer was corrected (backports pr-14579.md, pr-14582.md of #12924), and the importer returns an error when listing Pods fails instead of continuing (source: pr-15596.md, pr-15597.md).
 
 ## Related pages
 

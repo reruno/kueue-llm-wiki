@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/369-job-interface/README.md`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -127,6 +127,18 @@ Use `clientutil.Patch` (JSON merge patch via `client.MergeFrom`) in `RunWithPodS
 ## Ownership markers, not names
 
 When a reconciler resolves a Workload from a **client-supplied** label or annotation (pod-group name, prebuilt-workload name, slice name), the name alone is not an identity. Require a second condition Kueue stamps itself — the `kueue.x-k8s.io/is-group-workload` marker plus an owner-reference *shape* check, in the pod-group case — and apply it on **every** path that reaches the lookup, including the finalize path that runs before the queue-name and namespace-selector checks. See [[integration-plain-pod#PodGroup Workload adoption is guarded by `is-group-workload`]] ([[pr-13960]]).
+
+## `RestorePodSetsInfo` takes a context
+
+`RestorePodSetsInfo` now receives `context.Context` (mirroring `RunWithPodSetsInfo`). **ACTION REQUIRED for in-house integrations:** pass the context when calling or implementing it. Integrations that guard on the pod set count (JobSet, MPIJob, Kubeflow Trainer, SparkApplication, RayJob, RayCluster, RayService) return `false` and skip the restore when the job's pod set count does not match the admitted Workload (for example after a worker group is added to a running RayCluster), and now log that at V(2) with expected and actual counts (source: pr-13114.md; the guard itself is pr-13025, backported in pr-13111.md). Per the interface contract, `RestorePodSetsInfo` returns whether it changed anything so callers such as `clientutil.Patch` can skip no-op patches; TrainJob's `Stop` relies on this to stay idempotent (source: pr-15652.md, see [[integration-trainjob]]).
+
+## `FindMatchingWorkloads` only considers Workloads the job controls
+
+`FindMatchingWorkloads` lists Workloads through the owner-reference field index, which matches **all** ownerReferences of the job's GVK, including non-controller ones. The reconciler used to treat every listed Workload as its own, causing a nil-pointer dereference in `EquivalentToWorkload` (a permanent reconcile error loop for that job), deletion of Workloads controlled by other objects (`toDelete` path) and spec overwrite of foreign Workloads for suspended jobs (`toUpdate` path). It now skips (V(2) log) any listed Workload not controlled by this job before the equivalence check. The UID is deliberately **not** compared there, so stale-UID cleanup through `FinishOrphanedWorkloads` still works; `EquivalentToWorkload` also got a nil guard on the controller owner reference. Pod-group Workloads are controller-less by design and use their own equivalence check, so they are unaffected (source: pr-13573.md; backports pr-15526.md, pr-15527.md).
+
+## Defaulting must respect `managedJobsNamespaceSelector`
+
+`ApplyDefaultLocalQueue` and `ApplyDefaultWorkloadPriorityClass` both check the namespace selector before mutating and return a Namespace read error from the webhook rather than swallowing it; every Job webhook passes the configured selector through, and the Pod webhook passes `nil` because it already enforced the selector. See [[workload-priority#Defaulting respects the namespace selector]] (source: pr-15851.md).
 
 ## Related pages
 

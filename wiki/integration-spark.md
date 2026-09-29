@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_controller.go`, `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_podset.go`, `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_webhook.go`
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -46,6 +46,12 @@ On admission, Kueue injects the ResourceFlavor's node selector and tolerations i
 ## Removing the `queue-name` label is rejected
 
 `SparkApplication` shares the Ray webhook validation: removing `kueue.x-k8s.io/queue-name` from an unsuspended SparkApplication — or from a suspended one in a namespace with a default LocalQueue — is rejected, behind the Beta, default-on `ValidateRayAndSparkJobUpdates` gate. Before the fix the job kept running with its Pods uncounted against quota. See [[integration-rayjob#Removing the queue-name label is rejected]] ([[pr-13293]], [[pr-14666]], [[pr-14676]]).
+
+## Node selector and resource accounting fixes
+
+- **Application-level `spec.nodeSelector`.** `buildDriverPodTemplateSpec` / `buildExecutorPodTemplateSpec` copied only `spec.driver.nodeSelector` and `spec.executor.nodeSelector`. The application-level and per-role selectors are mutually exclusive, so `RunWithPodSetsInfo` flattens `spec.nodeSelector` into the per-role selectors and clears it; the Workload is the only place `RestorePodSetsInfo` can read it back from, so after the first eviction the selector was permanently lost and pods could land on any node. The application-level selector is now recorded in the PodSet templates (per-role selector wins on conflict), and therefore also takes part in ResourceFlavor matching (source: pr-15649.md; backports pr-15797.md, pr-15813.md).
+- **Requests mirror Spark's own computation.** Only `coreRequest` and `memory` were read, so `cores` and `memoryOverhead` were ignored. The PodSet templates now reproduce Spark (`BasicDriverFeatureStep`, `BasicExecutorFeatureStep`, `ResourceProfile.getResourcesForClusterManager`): CPU = `request.cores`, falling back to `cores` (default 1); memory = `memory + memoryOverhead`, with the overhead defaulting per Spark (at least 384Mi); PySpark and off-heap memory are included; typed spec fields, `spec.memoryOverheadFactor` and the matching `spec.sparkConf` properties are honoured with `spark-submit` precedence. Memory strings must use the Java format Spark accepts (`512m`, `2g`). **Action required:** ClusterQueue quotas may need to rise, since each Pod now reserves its `cores` as CPU and at least 384Mi extra memory (source: pr-15833.md; backports pr-15923.md, pr-15924.md).
+- Open: Spark-aware partial preemption ([[issue-16233]]).
 
 ## Related pages
 

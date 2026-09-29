@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -42,7 +42,14 @@ A Workload's priority is derived once, at creation, from either a stock Priority
 
 ## Eviction, requeueing, deactivation
 
-When an admitted Workload is preempted, or when [[gang-scheduling]]'s WaitForPodsReady timeout fires, the Workload is evicted: `status.conditions.Evicted=True`, `status.admission` cleared, job re-suspended. If `requeuingStrategy` permits, the Workload is re-added to the queue with a backoff. After too many evictions it can be deactivated ([[issue-2174]]). If `spec.active` is false, the Workload stays dormant.
+When an admitted Workload is preempted, or when [[gang-scheduling]]'s WaitForPodsReady timeout fires, the Workload is evicted: `status.conditions.Evicted=True`, `status.admission` cleared, job re-suspended. If `requeuingStrategy` permits, the Workload is re-added to the queue with a backoff. After too many evictions it can be deactivated ([[issue-2174]]). Eviction detail: a preemption sets `Evicted` with reason `Preempted` plus a separate `Preempted` condition whose reason names the trigger (including the Alpha `ConfigurablePreemption`), and `status.schedulingStats.evictions[]` counts evictions per `reason` and `underlyingCause` (for configurable preemption the `PreemptionConfig` name; for `PodsReadyTimeout` the `WaitForStart`/`WaitForRecovery`/`WaitForScheduling` phase) ([[configurable-preemptions]], [[wait-for-pods-ready]]). If `spec.active` is false, the Workload stays dormant.
+
+## Annotations that change Workload behaviour (v0.20)
+
+- `kueue.x-k8s.io/wait-for-pods-ready` (JSON `timeoutSeconds`/`recoveryTimeoutSeconds`) is copied from the job onto the Workload under gate `WorkloadLevelWaitForPodsReady` and overrides the cluster-wide timeouts ([[wait-for-pods-ready]]).
+- `kueue.x-k8s.io/workload-allowed-resource-flavors` marks a ConcurrentAdmission Variant's flavor ([[concurrent-admission]]).
+- `status.conditions[QuotaReserved]` reasons are tiered when `UnadmittedWorkloadsObservability` is on ([[unadmitted-workloads-observability]]); `PodsScheduled` exists with `WaitForPodsReadyUnscheduledTimeout`.
+- The `Info` used by the scheduler carries an *effective* PodSpec view (LimitRange, RuntimeClass, pod-level requests) that is never written back to the object ([[workload-resource-adjustment]]).
 
 ## Finalizer and GC
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-09-29
 
 ---
 
@@ -47,6 +47,10 @@ Each Kubeflow type needs its own MultiKueue adapter; adoption has been increment
 ## TAS
 
 Topology-aware PyTorchJobs ([[issue-1476]] — pytorchjobs scheduling unaware of node resource topology) were an explicit motivator for [[topology-aware-scheduling]]. MPIJob + TAS flakes are actively tracked ([[issue-3696]]).
+
+## MPIJob: nil replica specs
+
+`orderedReplicaTypes()` in `pkg/controller/jobs/mpijob/mpijob_controller.go` checked only key presence in `MPIJobSpec.MPIReplicaSpecs`, so a key with a nil `*ReplicaSpec` value (e.g. `Launcher`) would panic in `PodSets()`. It now skips nil specs. This is defense in depth: the CRD schema is not `nullable`, so API-server pruning already strips null values, and the case was not reachable through a real cluster (only via programmatically built objects) (source: pr-13714.md, issue-12564).
 
 ## Related pages
 

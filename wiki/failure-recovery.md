@@ -2,9 +2,9 @@
 
 **Summary**: Kueue's opt-in failure recovery mechanism detects and force-deletes zombie pods — pods stuck in `Terminating` after a node failure — so that job replacement pods can start and quota is not wasted.
 
-**Sources**: `raw/kueue/keps/6757-failure-recovery/README.md`, `raw/kueue/keps/6757-failure-recovery/kep.yaml`, `raw/kueue/pkg/controller/failurerecovery/failurerecovery.go`, `raw/kueue/pkg/controller/failurerecovery/pod_termination_controller.go`
+**Sources**: `raw/kueue/keps/6757-failure-recovery/README.md`, `raw/kueue/keps/6757-failure-recovery/kep.yaml`, `raw/kueue/pkg/controller/failurerecovery/failurerecovery.go`, `raw/kueue/pkg/controller/failurerecovery/pod_termination_controller.go`, pr-16033.md
 
-**Last updated**: 2026-05-08
+**Last updated**: 2026-09-29
 
 ---
 
@@ -66,6 +66,10 @@ For gang-scheduled workloads (e.g. JobSet with `WaitForPodsReady`), a single zom
 ## Risk: premature replacement
 
 Force-deleting a pod does not guarantee the original pod actually stopped. On a network-partitioned node (not a crashed node), the pod may still be running and writing to shared storage. The annotation is the user's declaration that this race condition is acceptable for their workload. (source: keps/6757-failure-recovery/README.md)
+
+## Duplicate condition and event on retried force-deletes (pr-16033)
+
+With `FailureRecovery` enabled, every reconcile of a Pod still stuck in termination re-ran the forceful delete and added another `KueueFailureRecovery` Pod condition plus another `KueueForcefullyDeleted` warning event. Pod deletion is still retried normally, but the condition is now set **once** and the event is emitted only when the condition actually changes (source: pr-16033.md). Expect one condition and one event per zombie Pod, not a growing list. See also [[wait-for-pods-ready]] for the `WaitForRecovery` timer that runs alongside.
 
 ## Related pages
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -75,6 +75,8 @@ The elastic-job ungater used to ungate `podSet.count` Pods. [[pr-14835]] makes i
 
 When the gate is on, the annotation is `partial`, and the RayCluster worker group sets `minReplicas`, `BuildPodSets` sets the worker PodSet's `MinCount` to the effective minimum worker count. With the gate off there is no behaviour change.
 
+> **Superseded detail.** The `minReplicas` requirement above no longer holds: since [[#Partial scale-up: the baseline/target model]] (pr-16209), `BuildPodSets` bootstraps a worker group's `MinCount` to its own `Replicas` whenever the partial annotation is set, and `MinReplicas` is not consulted at all (source: pr-16209.md).
+
 ## MultiKueue rejects an autoscaling elastic RayCluster
 
 An elastic RayCluster (`ElasticJobsViaWorkloadSlices`) dispatched through [[multikueue]] with `enableInTreeAutoscaling` set is now **rejected at admission** ([[pr-14061]], original #13244). Previously it was accepted and then deleted immediately after admission, because the autoscaler sidecar was accounted for inconsistently between the manager and the worker cluster.
@@ -83,7 +85,41 @@ An elastic RayCluster (`ElasticJobsViaWorkloadSlices`) dispatched through [[mult
 
 Resizing an elastic Workload with a leader/workers PodSet group no longer recomputes the leader's `TopologyAssignment` — see [[topology-aware-scheduling#Elastic workloads: the leader's assignment is preserved]] ([[pr-14064]], [[pr-14076]]).
 
-Open gap worth knowing: a fully reclaimed elastic Workload can switch [[resource-flavor]] when it is re-admitted at count zero ([[issue-14792]], open).
+Formerly open gap: a fully reclaimed elastic Workload could switch [[resource-flavor]] when re-admitted at count zero ([[issue-14792]]). Fixed, see [[#Zero-count PodSets and flavor selection]].
+
+## Partial scale-up: the baseline/target model
+
+Applies to multi-PodSet elastic jobs (RayCluster worker groups, RayJob) with the Alpha `ElasticJobsViaWorkloadSlicesWithPartialReplicaScaleUp` gate and the `partial` scale-up strategy. The replacement slice's `spec.podSets[i]` carries `count` = **target** (what the job now asks for) and `minCount` = **baseline** (the count the job last ran at), so each PodSet's admissible range is `[baseline, target]`.
+
+- **Progress is required once per Workload, not once per PodSet.** Originally the controller set `minCount = granted + 1` on every growing PodSet, forcing every group to grow in the same admission. That blocked scale-up when one group had no room, sent spare capacity to the wrong group, and could stop an evicted job from being re-admitted at its old size. `minCount` is now the granted count itself, and `PodSetReducer.Reduce` takes a `mustGrow` flag that rejects the all-at-baseline assignment. The check runs **after** the give-back phase (with independently constrained flavors the ordered shrink often only fits once everything is at baseline) and applies **only while the replaced slice still holds quota**, so classic `PartialAdmission` (user-authored `minCount`) is unaffected (source: pr-15776.md).
+- **`mustGrow` only when the predecessor is actually admitted.** The old code used `mustGrow := replaceableWorkloadSlice != nil`. If the predecessor held reserved quota but was still waiting on an AdmissionCheck (no replicas running), growth beyond `minCount` was demanded even when quota could not fit it, stalling the scale-up. Now the replacement may first be admitted at `minCount`; the larger target stays in `count` for later scale-up (source: pr-15855.md). `PodSetReducer` was later simplified: the `R` type parameter and the `refine` field were removed, and `giveBack` itself reports whether counts grew above the admitted baseline (source: pr-15887.md).
+- **`minCount` is copied forward, never ratcheted.** `prepareWorkloadSliceForScaleUp` copies the predecessor's *recorded* `minCount` verbatim, so it traces back to the chain's origin. Before, each step recomputed it from the predecessor's live grant, so a later quota shrink below the most recent grant (even to a level the job had already run at) left the probe pending. The scheduler's `effectiveReducerPodSets` swaps the live granted count in as the reducer baseline for the single `mustGrow` check, without mutating the persisted `MinCount` (source: pr-16209.md).
+- **PodSets are matched by name, not position.** Reordering worker groups used to swap minima between groups (RayCluster `analytics`/`serving` example) and adding a PodSet could panic or break the scale-up-probe naming chain. A matched PodSet inherits the predecessor's `minCount`; a new PodSet keeps its initialised `minCount` (source: pr-16216.md, pr-16242.md). A helper `PreviousAdmittedPodSetCounts` in `pkg/workloadslicing` extracts the previous counts (source: pr-16206.md).
+- **`minCount` is capped at the PodSet's own `count`.** If one group shrinks while another grows in the same update, the copied-forward `minCount` could exceed `count`, giving the reducer a negative shrink budget and leaving the scale-up pending (source: pr-16289.md).
+- **Eviction mid scale-up needs no special code.** An evicted slice whose probe sibling is still pending: `normalizeActiveSlices` finishes only the evicted slice and keeps the probe as an ordinary pending replacement. Once the predecessor is gone, `mustGrow` no longer applies and the probe can be admitted at its own `minCount` floor. Known gap (covered by an integration spec): if ClusterQueue quota shrinks below what the job held before eviction, the probe stays pending until quota is restored to at least that floor (source: pr-15417.md, issue-15399.md).
+
+## Evicted slices drain before quota is released
+
+An elastic Job with a pending scale-up slice used to lose its reservation when preempted while its Pods still ran, so a higher-priority Job could be admitted before the victim stopped (with TAS on or off). The evicted slice is now returned to the Job reconciler while it still holds quota, unless an **admitted, non-evicted** replacement has taken over; the normal eviction path then suspends the Job and waits for it to become inactive before clearing the reservation. A replacement that only has quota reserved (waiting on admission checks) does not count as having taken over (source: pr-15661.md; backported to release-0.19 in pr-15667.md/pr-15700.md).
+
+## Zero-count PodSets and flavor selection
+
+With `count = 0` every request is scaled to zero, so every flavor "fits" and the first flavor in the ClusterQueue wins by position. Its `nodeLabels` are then stamped into the Job's pod template at unsuspend, and elastic Jobs never re-suspend, so a later scale-up can never be admitted elsewhere. This happens when an elastic Job is created at `parallelism: 0` as well as after a full drain. The fix probes each flavor against **one pod** of the PodSet (potential capacity, not currently available quota; the probe never enters the request map, so accounted usage stays zero) and skips flavors that cannot hold a single pod. If no flavor passes, assignment falls back to the old behaviour with a warning event, so workloads with only zero-count PodSets are still admitted. It does not repair an already-stuck Job because the damage is in the pod template (source: pr-15444.md; fixes issue-14792.md; backports pr-16078.md, pr-16079.md). A related TAS fix covers mixed groups containing zero-count PodSets (source: pr-16174.md).
+
+## Pod tracking and TAS across slices
+
+- The tracker controller follows only the **active** WorkloadSlice; before, pod tracking could follow a finished or deleted origin slice (source: pr-15531.md).
+- With TAS, Pod annotations keep pointing at the **origin** slice. The topology ungater now resolves the latest active slice before reading its admission and records ungating expectations under the stable origin name; previously grown Pods stayed gated or reconcile reported `pending ungate operations` (source: pr-15578.md, backport pr-15693.md/pr-15706.md).
+- Growing an elastic TAS Workload (e.g. 2 to 4 one-CPU Pods on a 4-CPU node) was classified as needing preemption because the snapshot already charged the old slice and elastic placement counted it again. The replaced slice's TAS usage is temporarily removed during placement, then the snapshot is restored (source: pr-15579.md, backports pr-15586.md/pr-15634.md).
+
+## MultiKueue and elastic slices
+
+- An evicted, quota-less scale-up slice was always treated as "scale-up in progress", so reconciliation returned before deleting its remote Workload and job. Evicted slices are now excluded from that shortcut so the normal no-quota-reservation path removes the remote objects (source: pr-15871.md; backports pr-16178.md, pr-16179.md).
+- For an autoscaling **RayJob** on a worker cluster, the live replica counts sit in the child RayCluster that KubeRay creates. MultiKueue now queues the manager Workload directly from child RayCluster events instead of waiting for KubeRay to mirror the change into `RayJob.status`. KubeRay copies the origin/prebuilt-workload markers onto the child; after the remote job is repointed to a replacement slice the child's marker is stale (names the finished origin), so the handler resolves it through the slice chain (index from pr-14703) and queues the **currently admitted** slice (source: pr-16315.md; issue-13243.md). See [[multikueue]].
+
+## Known open gaps
+
+Slice replacement can overcommit cohort quota ([[issue-16118]]); a replaced slice can remain in the TAS snapshot ([[issue-16119]]); the scheduler can panic when an elastic TAS PodSet group scales workers 0 to 1 ([[issue-16239]]); `SchedulingEquivalenceHashing` does not yet handle slice-replacement state ([[issue-14230]]) (all open at the time of writing; source: the cited issue files).
 
 ## Related pages
 

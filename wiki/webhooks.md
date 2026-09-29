@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -66,6 +66,16 @@ Since [[pr-13749]] Kueue also ships a **static `MutatingAdmissionPolicy` (MAP v1
 - Helm: `charts/kueue/templates/map/`, enabled by `enableMutatingAdmissionPolicy: true` in `values.yaml`
 
 The `mworkload.kb.io` mutating webhook keeps `verbs=create`; an earlier attempt to extend it to UPDATE was reverted. Full context in [[multikueue#Clearing `status.nominatedClusterNames` via MutatingAdmissionPolicy]]. Rendering the MAP templates with `helm template` in GitOps CI is still a gap ([[issue-14592]]).
+
+## Validation additions in v0.20
+
+- **Partial admission bounds** (pr-15499, backports pr-16001/0.18, pr-16002/0.19): the Job webhook rejects `kueue.x-k8s.io/job-min-parallelism` values outside the `int32` range. Previously `"2147483648"` passed after narrowing on 64-bit platforms, the job controller propagated a negative `minCount` into the Workload PodSet, the Workload API rejected it and the job could never create a Workload.
+- **Per-workload PodsReady annotation** (Alpha gate `WorkloadLevelWaitForPodsReady`): `kueue.x-k8s.io/wait-for-pods-ready` must be valid JSON with positive `timeoutSeconds`/`recoveryTimeoutSeconds` not above `waitForPodsReady.maxTimeoutOnWorkload` (default 2h); re-validated on update only when the annotation changed ([[wait-for-pods-ready]]).
+- **ConcurrentAdmission flavor limit**: at most 32 flavors in the single ResourceGroup ([[concurrent-admission]]).
+- **`PreemptionConfig`** is validated by CRD/CEL only (for example `minValue <= maxValue`), not by a webhook (pr-16124).
+- **Workload `resourceUsage` divisibility message** now prints the pod count instead of a pointer address (pr-15736).
+- **`ResourceTransformations`**: no overlap check with `excludeResourcePrefixes` ships; pr-15926 was reverted ([[resource-transformer]]).
+- **`DynamicQuotaOrchestrator`/`CapacityProvider`** use CEL (for example `resources` at most 64 entries; `orchestratedFlavors` 1-64, `controllerName` immutable) ([[dynamic-quota-orchestration]]).
 
 ## Update-rejection webhooks added in v0.19/v0.20
 

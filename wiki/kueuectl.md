@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -39,6 +39,27 @@ The CLI grew incrementally during v0.6–v0.7. Representative tracking issues:
 `list clusterqueue` never set `Options.Limit` in `Complete()`, unlike `list localqueue`, `list workload` and `list resourceflavor`, which all call `listRequestLimit()`. `KUEUECTL_LIST_REQUEST_LIMIT` therefore had no effect and every invocation issued a single unbounded LIST. [[pr-14864]] (cherry-picks [[pr-14880]], [[pr-14881]]) adds the missing call; an invalid limit is now rejected up front instead of silently producing an unusable setting.
 
 Open inconsistency: `kueuectl create clusterqueue` validates resource-group overlap differently from the webhook ([[issue-14926]]).
+
+## `list pods --for` fixes
+
+`--for pod/NAME` derives its selector from the Pod integration's `PodLabelSelector()`, which formats `kueue.x-k8s.io/pod-group-name=<value>` without checking the label exists.
+
+- **Standalone Pod.** The selector became `pod-group-name=` (empty value) and matched nothing (`No resources found`). The CLI now detects a Pod without the group label and selects it by namespace and name through a field selector, merged with any user `--field-selector` and `--selector`; `PodLabelSelector()` is unchanged (source: pr-15435.md).
+- **Annotation-based groups.** When the group name is stored in the `kueue.x-k8s.io/pod-group-name` **annotation** rather than the label (annotation form, see [[integration-leaderworkerset]]), label selectors cannot match. kueuectl now reads the annotation, lists the namespace's Pods without a group selector and filters client-side (source: pr-15739.md, fixes issue-15709.md).
+
+## `list workload --for`
+
+The command lists again without the job-uid label when the first query is empty, then keeps Workloads owned by the target object. The retry test was a substring check, so a `-l` selector already containing the job-uid requirement retried forever. The fallback now runs only while the list uses the selector the command built, and only once (source: pr-16040.md, fixes issue-16038.md). With `DeploymentJobUIDLabel` on, `--for deployment/foo` returns that Deployment's Workloads (previously nothing; source: pr-15641.md).
+
+## `list localqueue`: Active column and filter
+
+`list localqueue` gained an `ACTIVE` column (from the LocalQueue `Active` condition) and `--active=true|false`, mirroring `list clusterqueue`; combinable with `--clusterqueue`; repeated `--active` values are rejected (source: pr-15866.md).
+
+## `version` honours `--namespace`
+
+`kueuectl version` looked up the `kueue-controller-manager` Deployment only in `kueue-system`. An explicit `-n/--namespace` is now honoured; unset keeps `kueue-system` (source: pr-15963.md, fixes issue-15958.md; backports pr-15976.md, pr-15977.md).
+
+Open: `kueuectl delete workload --all` handles only the first list page and ignores the continue token ([[issue-16185]]).
 
 ## Related pages
 

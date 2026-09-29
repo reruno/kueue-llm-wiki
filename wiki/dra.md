@@ -2,13 +2,13 @@
 
 **Summary**: Kueue's alpha integration with Kubernetes Dynamic Resource Allocation (DRA) enables quota management, borrowing, and preemption for workloads that request devices via ResourceClaimTemplates or extended resources backed by DRA DeviceClasses.
 
-**Sources**: `raw/kueue/keps/2941-DRA/README.md`, `raw/kueue/keps/2941-DRA/kep.yaml`, `raw/kueue/pkg/dra/claims.go`, `raw/kueue/pkg/dra/extended_resources.go`, `raw/github/kubernetes-sigs__kueue/pr-14951.md`, `issue-14964.md`
+**Sources**: `raw/kueue/keps/2941-DRA/README.md`, `raw/kueue/keps/2941-DRA/kep.yaml`, `raw/kueue/pkg/dra/claims.go`, `raw/kueue/pkg/dra/extended_resources.go`, `raw/github/kubernetes-sigs__kueue/pr-14951.md`, `issue-14964.md`, pr-14200, pr-14367, pr-15577, pr-15888, pr-15961, pr-15983, pr-16081, pr-16098, pr-16169, pr-16317, issue-14393, issue-15769; `raw/kueue/pkg/features/kube_features.go`, `raw/kueue/pkg/cache/scheduler/dra/`, `raw/kueue/pkg/cache/scheduler/tas_dra.go`
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
-> **Stage: Alpha** — Feature gates `KueueDRAIntegration` (was `DynamicResourceAllocation`) and `KueueDRAIntegrationExtendedResource` (was `DRAExtendedResources`), both disabled by default. Not production-ready; API may change before beta. The gates were **renamed in v0.18** to avoid colliding with the upstream Kubernetes `DynamicResourceAllocation` gate; the old names are deprecated + `LockToDefault` and a migration helper maps old→new. See [[feature-gates]].
+> **Stage (updated 2026-09-29): the banner below is historical.** In main (v0.20 development) `KueueDRAIntegration` is **Beta, on by default** (since v0.18) and `KueueDRAIntegrationExtendedResource` is Beta/on since v0.19 (Alpha/off in v0.18); see *Feature-gate stages* below (source: kube_features.go). Original text: **Stage: Alpha** — Feature gates `KueueDRAIntegration` (was `DynamicResourceAllocation`) and `KueueDRAIntegrationExtendedResource` (was `DRAExtendedResources`), both disabled by default. Not production-ready; API may change before beta. The gates were **renamed in v0.18** to avoid colliding with the upstream Kubernetes `DynamicResourceAllocation` gate; the old names are deprecated + `LockToDefault` and a migration helper maps old→new. See [[feature-gates]].
 
 ## What is DRA?
 
@@ -150,6 +150,53 @@ Out of scope of this fix: `template.spec.overhead`, which `PodRequests` also add
 A Workload kept its DRA-mapped resource names after the referenced DeviceClass was deleted, so requeue re-evaluated it against resources that no longer existed. Fixed in [[pr-14085]] (original #11927).
 
 Still open: a DeviceClass **change** never reaches a Workload that has already reserved quota ([[issue-14563]]).
+
+## Feature-gate stages (main / v0.20 development)
+
+From `pkg/features/kube_features.go` (source: kube_features.go). Contradiction with the older text on this page (Alpha/off): the code marks the first three as Beta and default-on.
+
+| Gate | Stage / default | Depends on |
+|---|---|---|
+| `KueueDRAIntegration` | Beta, on (v0.18) | none |
+| `KueueDRAIntegrationExtendedResource` | Beta, on (v0.19) | `KueueDRAIntegration` |
+| `KueueDRAIntegrationPartitionableDevices` | Beta, on (v0.19) | `KueueDRAIntegration` (counter-based quota, e.g. MIG, via `consumesCounters`) |
+| `KueueDRAIntegrationConsumableCapacity` | Alpha, off (v0.19) | `KueueDRAIntegration` (KEP-5075 consumable capacity) |
+| `KueueDRARejectWorkloadsWhenDRADisabled` | Beta, on (v0.18) | reject DRA workloads when `KueueDRAIntegration` is off |
+| `KueueDRADeviceFeasibility` | Alpha, off (v0.20) | `KueueDRAIntegration`, `TopologyAwareScheduling`, `TASNodeFeasibilityForAllLevels` |
+| `KueueDRAIntegrationDeviceTaints` | Alpha, off (v0.20) | `KueueDRADeviceFeasibility` |
+| `ReservedResourceNameValidation` | Beta, on (v0.20) | see the reserved `pods` section |
+
+The "No Topology-Aware Scheduling" alpha limitation above is superseded for feasibility: `KueueDRADeviceFeasibility` runs inside the TAS placement path.
+
+## Per-node device feasibility (`KueueDRADeviceFeasibility`)
+
+**Problem.** Quota bounds how many devices a ClusterQueue admits, not where they are. A Workload whose ResourceClaims no single node can satisfy was admitted on quota alone; Kueue ungated the Pods, kube-scheduler found no node, and the Workload sat Pending holding quota ([[pr-15577]], part of [[issue-10548]]).
+
+**Behaviour.** Kueue evaluates device availability per node before admission and treats a node that cannot satisfy the claims as unavailable, so a Workload no node can serve stays queued with quota free. It covers `ResourceClaimTemplate`s and DRA-backed extended resources. Implementation shape (source: `pkg/cache/scheduler/dra/`, `tas_dra.go`):
+
+- `dra.Checker` wraps a `simulator.SchedulerSimulator`: it lets the inner simulator pick feasible nodes, then drops candidates whose devices cannot satisfy the Pod's claims. It allocates with the same structured-allocation engine kube-scheduler uses (`k8s.io/dynamic-resource-allocation/structured`), so both reach the same answer. The allocator is built lazily **once per snapshot** from ResourceClaims/ResourceSlices/DeviceClasses as they stand, so device state cannot shift mid-cycle. Compiled CEL selectors live in a shared `CELCache` that outlives snapshots.
+- **Extended-resource delegation** (`DRADelegation`): extended resources a DeviceClass can supply are zeroed out of the domain capacity request and left to the per-node device check (`Undelegated` keeps the original request). A leaf whose Node itself publishes every delegated resource (device plugin) counts them normally (`advertisesAll` / `forLeaf`); domains above the leaf cannot ask a node and keep the delegated request. The leader and workers each have their own delegation.
+- **Preemption limitation**: `Checker.PreemptWorkload` frees the victim's Pods but **not the devices its claims hold**, so preemption cannot make a Workload device-feasible; the check errs restrictive rather than over-admit. Releasing devices is Beta work in the KEP.
+- Because TAS also uses the simulator to ask "what fits if everything is preempted", the fix in [[pr-15436]] (see [[topology-aware-scheduling]]) was motivated by exactly this case, a device held by a preemption candidate.
+- Leader PodSet DRA feasibility is checked when picking a domain (`TASLeaderPodSetFeasibility`, [[pr-15447]]). `TASNodeFeasibilityForAllLevels` makes per-node checks apply to Topologies whose lowest level is not `kubernetes.io/hostname`; without it "a rack of CPU-only nodes passes for a Workload requesting devices".
+- TAS reports node exclusions with reasons (per-node exclusion stats) so a rejected Workload's message shows why nodes were dropped.
+
+**Device taints** ([[pr-16081]], gate added in [[pr-16169]], fixes [[issue-15621]], [[issue-16112]]): the check ignored `DeviceTaintRule` taints, so Kueue could admit onto a device kube-scheduler rejects. `applyDeviceTaintRules` overlays matching rule taints onto the ResourceSlices (equivalent to kube-scheduler's `resourceslice/tracker`, but without a second typed-informer cache of every slice). It only applies when the `DeviceTaintRules` API is served (decided once at startup, to avoid a discovery request per list), `KueueDRAIntegrationDeviceTaints` is on **and** Kubernetes' own `DRADeviceTaintRules` gate is on. Claims that tolerate the taint may still use the device. The separate gate mirrors Kubernetes' `DRADeviceTaints` so taints graduate independently of feasibility; it covers taints in ResourceSlices as well as rules, including the rule watch.
+
+**Requeue** ([[pr-16098]], fixes [[issue-15769]]): Workloads rejected by the check are requeued when a ResourceSlice, DeviceClass, ResourceClaim (deallocated or deleted) or DeviceTaintRule change may free devices. The ResourceSlice watch is not limited to drivers named in `deviceClassMappings`, since the check reads every slice. Alongside, the TAS ResourceFlavor reconciler now requeues only ClusterQueues using the flavor ([[pr-16152]]). Perf: a TAS+DRA scheduler-performance config measures the check's per-cycle cost ([[pr-16317]], part of [[issue-14994]]).
+
+## Extended-resource charge computation
+
+`ResolveExtendedResourceQuota` (`pkg/dra/extended_resources.go`) charges DRA-backed extended resources to a logical `deviceClassMappings` quota key.
+
+- **Aggregate before mapping** ([[pr-14200]]; backports [[pr-14396]], [[pr-14397]]): Pod-level aggregation (max over init containers, sum over regular containers, then max of the two) is non-linear, and it used to run *after* mapping each name to its quota key, so two names mapped to one key collapsed: init `vendor.example/a: 5` plus regular `vendor.example/b: 5` charged `gpu-claims: 5` instead of 10. Now aggregation runs per original name and `charge[key] = sum(PodAggregation(R) for R mapped to key)`. Each name's mapping is resolved once per PodSet (not once per container occurrence), closing a window where a DeviceClass created/deleted between reads gave inconsistent results. The integer-quantity check on extended resources now applies only once a matching DeviceClass is found (a fractional request such as `other.example/d: 1500m` with no DeviceClass is fine on the normal quota path), and still runs per container so two fractional requests cannot sum to a whole one.
+- **Negative requests dropped** ([[pr-14367]], fixes [[issue-14216]]): `extendedResourceRequests` skipped only zero quantities; it now skips `Sign() <= 0`, so a negative request cannot cancel a legitimate charge on the same key. Defence in depth: `WorkloadValidateResourcesAreNonNegative` (default since v0.20) already rejects negatives at write time, but the webhook is not run on reconcile, so pre-existing or gate-off objects could reach this path. `NeedsDRAReconcile` still uses `!IsZero()`, so a negative-only request triggers a reconcile that resolves to nothing.
+- **Init containers** ([[pr-15983]], fixes [[issue-15937]]): collection/charge helpers were extracted and accounting corrected: restartable (sidecar) init containers *add* to regular-container requests; non-restartable ones use max-based accounting. Backports [[pr-16102]], [[pr-16103]].
+- **Preprocessing trigger**: `NeedsDRAReconcile` reads raw container `requests` before `AdjustResources` runs, so an extended resource that appears only via a limit or a LimitRange default skipped DRA preprocessing and reached quota under its raw name ([[issue-14393]], closed; see also [[workload-resource-adjustment]]).
+
+## Requeued condition persistence
+
+When a DRA Workload is marked inadmissible (`Requeued=False`, reason `Inadmissible`) and the cause is later resolved, `handleDRA` used to clear the stale conditions **in memory only**, never calling `PatchAdmissionStatus`, so the Workload stayed excluded ([[issue-13969]]). [[pr-15888]] persists `Requeued=True` with reason `DRAResourcesResolved` (backports [[pr-15959]], [[pr-15960]]). [[pr-15961]] (fixes [[issue-15936]], [[issue-14035]]; folds in #14791) removes the remaining in-memory-only condition mutations: the DRA reconciler preprocesses Workloads before queueing and persists `Requeued` transitions so queue/cache decisions match persisted state, including when a Workload leaves backoff. Invariant: DRA controller state changes must be written through the API, never only to the in-memory copy that is queued. Open: dedicated DRA reasons for `WorkloadQuotaReserved=False` ([[issue-15953]]).
 
 ## Related pages
 

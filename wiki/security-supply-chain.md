@@ -2,9 +2,9 @@
 
 **Summary**: Patterns from the 7 Supply Chain CVEs in `raw/cve/`. Smallest category in the corpus, but the one whose impact scales to every Kueue deployment because a compromised release artifact affects all downstream clusters at once.
 
-**Sources**: `raw/cve/` — representative entries `CVE-2020-8564.md` and other supply-chain category CVEs; CWE-295 (improper cert validation) and CWE-494 (download of code without integrity check) entries broadly.
+**Sources**: `raw/cve/` — representative entries `CVE-2020-8564.md` and other supply-chain category CVEs; CWE-295 (improper cert validation) and CWE-494 (download of code without integrity check) entries broadly; 2026-09 additions `CVE-2026-50166.md`, `CVE-2026-52724.md`, `CVE-2026-100704.md`, `CVE-2026-100833.md`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -67,6 +67,16 @@ Applied to Kueue itself:
 
 - The bundled `config/default/manager.yaml` should reference `registry.k8s.io/kueue/kueue:vX.Y.Z@sha256:...` in release builds (the dev manifest uses `:devel` — that's fine for development).
 - Downstream installers (Helm chart, kustomize) should preserve the digest when pinning.
+
+## 2026-09 additions
+
+- **TLS verification silently off when a CA file is omitted.** Kuma `kumactl` (CVE-2026-50166, CWE-295) and Universal-mode `kuma-dp` (CVE-2026-52724, CWE-295), fixed in 2.7.26, 2.9.16, 2.11.14, 2.12.11, 2.13.7 (no CVSS): connecting to an HTTPS control plane without `--ca-cert-file` disabled peer verification and sent API or dataplane tokens over the unverified connection (source: CVE-2026-50166.md, CVE-2026-52724.md). Rule: the absence of a trust anchor must fall back to the **system trust store or refuse**, never to `InsecureSkipVerify`. Applies to [[multikueue]] kubeconfigs that omit `certificate-authority-data`; keep the existing `InsecureSkipVerify` grep.
+- **Policy exception broader than the exception.** Kyverno 1.14.0-1.19.0, CVE-2026-100704 (CWE-863, 7.7, fixed 1.19.1): the `ImageValidatingPolicy` evaluator ignored `spec.images` and `spec.allowedValues` of a `PolicyException`, so an exception for one trusted image skipped signature verification for **every** image on the matched resource (source: CVE-2026-100704.md). Rule: an exemption must be applied at the granularity in which it is written, and sibling policy types that read the same field differently (partial versus whole) are a bug magnet. For Kueue: a `ManagedJobsNamespaceSelector` exclusion or an AdmissionCheck exemption must not widen from "this object" to "this namespace".
+- **Container image substitution in confidential computing.** Contrast CVE-2026-100833 (CWE-20, 8.2): policy accepted `image_guest_pull` storage without a digest check, so a cluster administrator could swap images (source: CVE-2026-100833.md). Digest pinning only helps if the verifier enforces it.
+- **Untrusted image or artifact formats parsed by the node runtime.** containerd CVE-2026-53493 (crafted OCI index graph, CWE-400/770/834) and CRI-O CVE-2026-92574 (checkpoint restore keeps checkpoint credentials, CWE-250, 8.8); see [[security-denial-of-service]] and [[security-authn-authz]].
+- **Control plane of a bundle-like source.** Flux source-controller CVE-2026-47680 and Fleet CVE-2026-93537 read or write outside their working directory from Git or bucket content; see [[security-injection-and-input-validation]].
+- **CWE-494-style unverified download.** Envoy Gateway CVE-2026-53716/53717 fetch tenant-specified Wasm from a URL or OCI image where the optional sha256 check is not mandatory and no operator allow-list exists (source: CVE-2026-53716.md, CVE-2026-53717.md). If Kueue ever fetches content named in a CR, require a digest and an allow-list.
+- **Insecure defaults in shipped charts.** Eclipse aeriOS CVE-2026-86464 (CWE-798/1188, no CVSS): default Keycloak and PostgreSQL passwords and NodePort exposure in Helm and Docker Compose (source: CVE-2026-86464.md). Fix pattern: generated random credentials in a Secret and internal-only Services.
 
 ## Related pages
 

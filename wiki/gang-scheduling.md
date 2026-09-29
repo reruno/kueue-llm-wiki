@@ -50,3 +50,4 @@ For multi-template jobs (JobSet, RayJob), gang means "all PodSets' replicas must
 - [[admission]] — the admission state machine.
 - [[admission-check]] — AdmissionChecks and their interaction with the PodsReady timer.
 - [[elastic-jobs]] — dynamic Pod-count changes on admitted Workloads.
+- [[wait-for-pods-ready]] — config, defaults and per-workload override.

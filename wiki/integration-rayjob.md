@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -81,6 +81,19 @@ v1.7.0 is the first KubeRay release shipping the top-level `RayService.Spec.Susp
 
 - **MultiKueue + in-tree autoscaling is rejected at admission** ([[pr-14061]]) — see [[elastic-jobs#MultiKueue rejects an autoscaling elastic RayCluster]].
 - **Partial scale-up (Alpha)** — with `ElasticJobsViaWorkloadSlicesWithPartialReplicaScaleUp` on, the `kueue.x-k8s.io/elastic-job-scale-up-strategy: partial` annotation set, and `minReplicas` configured, `BuildPodSets` sets the worker PodSet's `MinCount` to the effective minimum worker count ([[pr-14909]]). No effect with the gate off.
+
+## Head-container validation
+
+A Ray head Pod template with an empty `containers` list is allowed by the CRD schema but breaks Kueue: with `submissionMode: K8sJobMode` and no `submitterPodTemplate`, the default submitter template is built from the head Ray container image, indexing the head containers unchecked (webhook and reconciler panic). A controller-side guard (pr-16055) was **reverted** (pr-16089) in favour of admission validation: the shared `raycluster.ValidateCreate` helper now rejects RayCluster specs whose head Pod has no containers, and RayJob and RayService return those errors before topology validation can consume the spec (source: pr-16055.md, pr-16067.md, pr-16089.md; backports pr-16084.md, pr-16085.md, and reverts pr-16106.md, pr-16107.md). Consequence: RayJobs created before the webhook validation existed are not protected by a controller fallback.
+
+The RayCluster webhook now reuses the same shared `raycluster.ValidateCreate` used for the embedded `RayClusterSpec` in RayJob and RayService, so autoscaling validation, the maximum PodSet count and the reserved head group name are checked in one place; the actionable autoscaling error (which feature gate and annotation enable the supported configuration) is the same for all three. RayCluster-specific elastic-job validation stays in the RayCluster webhook as an additive check (source: pr-16071.md). `RestorePodSetsInfo` skips restoring (and logs at V(2) with expected/actual counts) when the job's pod set count differs from the Workload's, e.g. after a worker group is added to a running RayCluster (source: pr-13114.md; see [[job-framework-interface#`RestorePodSetsInfo` takes a context]]).
+
+## Elastic partial scale-up and MultiKueue autoscaling
+
+- With the partial scale-up annotation, `BuildPodSets` sets each worker PodSet's `MinCount` to its own `Replicas`; `MinReplicas` is no longer consulted, and PodSets are matched by name across slices. Details in [[elastic-jobs#Partial scale-up: the baseline/target model]] (source: pr-16209.md, pr-16242.md, pr-16289.md).
+- RayJob is the top-level Kueue-managed object for in-tree autoscaling, so enabling autoscaling must not change `spec.suspend`; the test helper `EnableInTreeAutoscaling` no longer forces `Suspend=false` (source: pr-15840.md; backports pr-15841.md, pr-15842.md).
+- MultiKueue reverse sync for an autoscaling RayJob is triggered from the child RayCluster on the worker cluster, see [[elastic-jobs#MultiKueue and elastic slices]] (source: pr-16315.md).
+- `RayService.PodSets` uses the `client.Client` passed in (no package-level reconciler state) (source: pr-16042.md).
 
 ## Related pages
 

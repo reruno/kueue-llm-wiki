@@ -2,9 +2,9 @@
 
 **Summary**: MultiKueue dispatches [[workload]]s from a **manager cluster** to one of several **worker clusters**. Users submit jobs on the manager as usual; MultiKueue (implemented as an [[admission-check]]) picks a worker cluster with capacity, forwards the job, and mirrors status back. It's how one Kueue installation governs a fleet of clusters.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15962.md, pr-15986.md, pr-15989.md, pr-16140.md, pr-15871.md, pr-16315.md, pr-16235.md, issue-16172.md, issue-16010.md, issue-15380.md, issue-13243.md, raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go, raw/kueue/pkg/metrics/metrics.go, raw/kueue/pkg/features/kube_features.go
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -148,19 +148,46 @@ The MultiKueue AdmissionCheck reconciler skipped the status update whenever the 
 
 `cmpConditionState` was intentionally **not** changed: event handlers use the same helper to detect meaningful health-state transitions, and broadening it would trigger extra reconciles.
 
-## Manager → worker clients run at client-go's default rate limit
+## Manager → worker clients: `clientConnection` QPS/Burst now applies (v0.20, Beta)
 
-`newClientWithWatch` (`pkg/controller/admissionchecks/multikueue/multikueuecluster.go`) builds each worker cluster's `client.WithWatch` from the kubeconfig **without touching `restConfig.QPS` / `restConfig.Burst`**, so the manager→worker connection falls back to client-go's `rest.Config` defaults of **QPS 5 / Burst 10**. Kueue's *own* API client is far more generous — `clientConnection` defaults to **QPS 300 / Burst 500** — so the remote leg is the throttled one, and there is no configuration field to raise it.
+`newClientWithWatch` (`pkg/controller/admissionchecks/multikueue/multikueuecluster.go`) used to build each worker cluster's client from the kubeconfig without touching `restConfig.QPS`/`Burst`, so the manager→worker leg ran at client-go's defaults (**QPS 5 / Burst 10**) while Kueue's own client uses `clientConnection` (defaults 300/500). A burst of 1000 Workloads across 10 workers took ~15 minutes to admit; a PoC with QPS=Burst=500 brought it to ~1.5 minutes (source: issue-14973.md).
 
-Measured impact (source: issue-14973.md, open feature request): a burst of **1000 Workloads** across 10 worker clusters took **~15 minutes** to be fully admitted; hard-coding `QPS = Burst = 500` on `restConfig` in a PoC brought the same burst down to **~1.5 minutes**. The number of worker clusters was not the significant variable. If you are diagnosing slow MultiKueue dispatch under bursty load, client-side throttling on the remote clients is the first thing to rule out — see [[performance-and-scale#Client-side rate limiting]].
+Gate **`MultiKueueReuseClientConnectionConfigForWorkers`** (**Beta, default on since v0.20**, depends on `MultiKueue`) makes `clientConfig.toRESTConfig()` copy the Configuration's `clientConnection.qps`/`burst` into each worker `rest.Config`. Because `rest.Config` ignores QPS/Burst when a `RateLimiter` is already set, the code clears any existing limiter and installs a fresh **per-cluster** token bucket (unset values fall back to `rest.DefaultQPS/DefaultBurst`); a negative QPS disables throttling. The direct client and the remote informer cache built from that config share the same per-cluster budget. Disable the gate to restore the old 5/10 behaviour (source: raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go, raw/kueue/pkg/features/kube_features.go). See [[performance-and-scale#Client-side rate limiting]].
 
 ## A worker-local WorkloadPriorityClass can overwrite a remote Workload's priority
 
 The manager owns the priority of a dispatched Workload; a same-named class on the worker with a different value can silently re-price it. See [[workload-priority#Worker-cluster classes must not re-price MultiKueue remote Workloads]].
 
-## Elastic RayCluster with in-tree autoscaling is rejected
+## Elastic RayCluster with in-tree autoscaling
 
-See [[elastic-jobs#MultiKueue rejects an autoscaling elastic RayCluster]] ([[pr-14061]]).
+By default an elastic RayCluster with `enableInTreeAutoscaling` is rejected under MultiKueue, because scaling is manager-driven and the adapter clears `enableInTreeAutoscaling` on the remote copy so the worker's autoscaler cannot fight the manager ([[elastic-jobs#MultiKueue rejects an autoscaling elastic RayCluster]], pr-14061). **v0.20 adds an opt-in**: gate `MultiKueueRayInTreeAutoscaling` (**Alpha, off by default**, KEP-13243, depends on `MultiKueue` and `ElasticJobsViaWorkloadSlices`) allows worker-side Ray in-tree autoscaling for MultiKueue-managed elastic RayCluster/RayJob; without the gate the RayCluster webhook keeps rejecting with "in-tree autoscaling for a MultiKueue-managed elastic RayCluster requires enabling the MultiKueueRayInTreeAutoscaling feature gate" (source: raw/kueue/pkg/controller/jobs/raycluster/raycluster_webhook.go, issue-13243.md). Worker-side replica changes flow back to the manager as runtime annotations; for a RayJob the reverse sync is triggered directly by the worker-side child RayCluster (pr-16315), and evicted elastic slices have their remote objects removed (pr-15871). See [[elastic-jobs#MultiKueue and elastic slices]].
+
+## Manager-side gate `MultiKueueRemoteSpecSync`
+
+**Beta, default on since v0.20.** Forwards manager-side spec changes made after admission (currently a RayService `serveConfigV2` edit) onto the worker copy and watches the manager job so the change propagates promptly rather than on the next periodic requeue (source: raw/kueue/pkg/features/kube_features.go).
+
+## Metrics: `multikueue_workloads_evicted_total`
+
+pr-15288 adds counter `multikueue_workloads_evicted_total{cluster_queue, cluster, reason, replica_role}`, next to `multikueue_workloads_dispatched_total` and `multikueue_workloads_admitted_total`, so operators can see Workloads that keep being admitted on a worker and bounced back for re-admission, and attribute the churn to a specific worker and eviction reason. As with `admitted_total`, a Workload can be counted repeatedly if evicted and re-admitted (source: pr-15288.md, raw/kueue/pkg/metrics/metrics.go). See [[metrics]].
+
+## `observedGeneration` refresh on unchanged status (v0.20; MultiKueueCluster and manager ClusterQueue)
+
+The same pattern behind the AdmissionCheck fix above was found in two more reconcilers: they skipped the status write whenever the condition's status/reason/message were unchanged, so an updated spec that was evaluated and left the condition `True` left `observedGeneration` stale.
+
+- **`MultiKueueCluster`** `Active` condition: refreshed after configuration updates that keep the connection healthy (pr-15962; backports pr-15986, pr-15989).
+- **Manager `ClusterQueue`** `MultiKueueManagerQuotaAutomation` condition: refreshed after a spec change that leaves the condition unchanged (pr-16140).
+
+Clients that wait for `observedGeneration == metadata.generation` before trusting a condition depend on this. `cmpConditionState` (renamed `isConditionEqual` in pr-15985) is still used by event handlers to detect meaningful health transitions and must not be broadened.
+
+## Beta: `MultiKueueOrchestratedPreemption`
+
+Graduated to **Beta, on by default, in v0.20** (pr-16235, tracked by issue-13966.md). The KEP still notes that a concrete Configuration API for the preemption behaviour is planned under issue-9852. Details in [[multikueue-orchestrated-preemption]].
+
+## Behaviours worth knowing (from open issues)
+
+- **The manager's flavor assignment is not mirrored to the worker.** Kueue injects the admitted flavor's node labels into the manager's *local* copy; the mirrored Workload on the worker is admitted independently against the worker's own ClusterQueue and flavors. Manager-side per-flavor quota therefore need not describe where work ran (source: issue-16010.md, open feature/bug report).
+- **A worker watch that reconnects does not replay missed events**, and there is no relist on reconnect; state changes during the gap (`Admitted`, `Finished`, `Evicted`) are normally picked up only by the `workerLostTimeout`-based requeue (source: issue-16172.md, open). Suspect this when the manager lags a worker after a network blip.
+- **RayJob + external AdmissionCheck `Retry`** can leave a manager Workload `Admitted` (holding quota) after the worker mirror is deleted, because the worker RayJob's `Suspended` status was not mirrored back first (source: issue-15380.md, open).
 
 ## Related pages
 

@@ -2,9 +2,9 @@
 
 **Summary**: Kueue follows the Kubernetes feature-gate convention: new features land alpha → beta → GA, with a named gate (`--feature-gates=Foo=true|false`) controlling the on/off switch. Each graduation updates the default (alpha defaults off, beta defaults on, GA locked on).
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, `raw/kueue/site/data/featuregates/versioned_feature_list.yaml`, `raw/kueue/site/data/featuregates/removed_feature_list.yaml`, `raw/kueue/pkg/features/kube_features.go`, pr-15889.md, pr-15562.md, pr-15623.md, pr-16235.md, pr-15000.md, pr-15503.md, pr-15734.md, pr-16059.md
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -28,7 +28,7 @@ Representative subset (not exhaustive):
 - **`AdmissionFairSharing`** (KEP-4136) — **Beta**. Admission-time ordering by historical usage; orthogonal to `FairSharing` (which is preemption-based). See [[admission-fair-sharing]].
 - **`TopologyAwareScheduling`** — see [[topology-aware-scheduling]], Alpha-to-Beta tracked in [[issue-3450]].
 - **`MultiKueue`** — see [[multikueue]]; the MultiKueue admission check and its controller sit behind the gate.
-- **`MultiKueueOrchestratedPreemption`** (KEP-8303) — **Alpha**. Serializes preemption across MultiKueue worker clusters via preemption gates. See [[multikueue-orchestrated-preemption]].
+- **`MultiKueueOrchestratedPreemption`** (KEP-8303) — **Beta, on by default since v0.20** (Alpha v0.17-v0.19, [[pr-16235]]). Serializes preemption across MultiKueue worker clusters via preemption gates. See [[multikueue-orchestrated-preemption]].
 - **`ElasticJobsViaWorkloadSlices`** (KEP-77) — graduating to **Beta**; [[pr-11300]] adds the webhook validations that guard the workload-slice elastic-job path (invalid configurations are now rejected at admission time), and [[pr-11327]] hardens the slice-normalization invariant exercised under beta stress testing. See [[elastic-jobs]].
 - **`ConcurrentAdmission`** (KEP-8691) — **Alpha**. Lets one Workload pursue multiple ResourceFlavors concurrently via Variant Workloads. See [[concurrent-admission]].
 - **`AdmissionCheckRetry`** — see [[admission-check]]; governs retry-across-flavors semantics (claim needs verification — no ingested source confirms this gate or its exact semantics).
@@ -128,6 +128,147 @@ Two things worth carrying forward from the discussion: bundling is only appropri
 - **`SchedulerLibraryIntegration`** — **Alpha, off by default**. Delegates work to the upstream `scheduler-library` instead of re-implementing it in Kueue.
   - [[pr-14203]] / [[pr-14613]]: TAS no longer applies node-readiness and `spec.unschedulable` filtering when building the TAS node cache; the scheduler library does it.
   - [[pr-14551]] / [[pr-14796]]: Pods created by Kueue-managed jobs get the `kueue.x-k8s.io/workload` annotation (previously only `TopologyAwareScheduling` added it), so a Workload can be matched back to its Pods in the library's cluster cache. Resolution order is workload → prebuilt-workload → group → slice annotation.
+
+## Gates added or changed in v0.20: core scheduling, admission and configuration
+
+Stages below are read from `pkg/features/kube_features.go` and the generated list (see the full table at the end of this page).
+
+- **`ConfigurablePreemptions`** — **Alpha, off, new in 0.20** (pr-15889). Enables cluster-scoped `PreemptionConfig` rules referenced from a ClusterQueue annotation. No gate dependency. See [[configurable-preemptions]].
+- **`DynamicQuotaOrchestration`** — **Alpha, off, new in 0.20**. Registers the DynamicQuotaOrchestrator controller and makes `status.effectiveQuotas` effective. See [[dynamic-quota-orchestration]].
+- **`MultiKueueOrchestratedPreemption`** — graduated to **Beta/on in 0.20** ([[multikueue-orchestrated-preemption]]).
+- **`MultiKueueReuseClientConnectionConfigForWorkers`** — **Beta, on, new in 0.20**, depends on `MultiKueue`. Applies `clientConnection` QPS/Burst to worker-cluster clients ([[multikueue]]).
+- **`MultiKueueRayInTreeAutoscaling`** — **Alpha, off, new in 0.20**, depends on `MultiKueue` and `ElasticJobsViaWorkloadSlices` (KEP-13243).
+- **`MultiKueueRemoteSpecSync`** — **Beta, on, new in 0.20**. Forwards manager-side spec edits (RayService `serveConfigV2`) to the worker copy.
+- **`WorkloadLevelWaitForPodsReady`** — **Alpha, off, 0.20**. Per-Workload `kueue.x-k8s.io/wait-for-pods-ready` override (pr-15503). See [[wait-for-pods-ready]].
+- **`WaitForPodsReadyUnscheduledTimeout`** — **Alpha, off, 0.20** (KEP-13502): separate timeout for unscheduled Pods.
+- **`WaitForPodsReadyMaxNotReady`** — **Alpha, off, 0.20** (KEP-15423, pr-16059): `pod-group-max-not-ready-count` for Pod groups.
+- **`PodIntegrationCountSucceededPodsAsReady`** — **Beta, on, 0.20** (pr-15734, cherry-picked to 0.19/0.18): a Succeeded Pod counts as ready.
+- **`DisableWaitForPodsReady`** — **Alpha, off, since 0.19**; deprecated migration switch (removal planned in 0.21) for the fact that `waitForPodsReady` is now defaulted on. Enabling `WorkloadLevelWaitForPodsReady` or `WaitForPodsReadyUnscheduledTimeout` together with it is a startup error.
+- **`UnadmittedWorkloadsObservability`** — **Beta, on in 0.20** (Alpha 0.19); pr-15562/pr-15623 corrected the declared stage (the release branches had it as Beta but off). **`UnadmittedWorkloadsExplicitStatus`** — Alpha, off, 0.19; depends on the former. See [[unadmitted-workloads-observability]].
+- **`AdmissionFairSharingAnchorAtQuotaReservation`** — **Beta, on, 0.20**, depends on `AdmissionFairSharing` (pr-15000): AFS charges and samples at quota reservation instead of admission ([[admission-fair-sharing]]).
+- **`FlavorFungibilityPreserveScanProgress`** — Beta, on, 0.20, depends on `FlavorFungibility`.
+- **`FairSharingRefill`** — Alpha, off, 0.20 (KEP-14596 fair-sharing refill; the queue-side prep is the per-Workload inflight map, pr-15844).
+- **`RecomputeAssignmentUponPreemptionTargetsOverlap`** and **`PrioritizePreemptorWorkloads`**: see the scheduling section above; stages in the table below.
+- **Moved to the removed list with an end version of 0.20** (per `removed_feature_list.yaml`; treat as removed from the 0.20 registry, the file records `from`/`to` version ranges): `PropagateBatchJobLabelsToWorkload`, `MultiKueueWaitForWorkloadAdmitted`, `MultiKueueRedoAdmissionOnEvictionInWorker` (GA before removal), `SchedulerLongRequeueInterval`, `SchedulerTimestampPreemptionBuffer` (Alpha, dropped). Earlier removals include `LendingLimit`, `HierarchicalCohorts`, `ObjectRetentionPolicies`, `MultiKueueBatchJobWithManagedBy`, `QueueVisibility`.
+
+### Stage corrections to older bullets on this page
+
+The generated list (main, v0.20) disagrees with several stages stated earlier on this page, which were true when written: `AdmissionGatedBy` is **Beta/on since 0.19**; `KueueDRAIntegration` is **Beta/on since 0.18** and `KueueDRAIntegrationExtendedResource`/`PartitionableDevices` **Beta/on since 0.19**; `QuotaCheckStrategy` is **Beta/on since 0.19**; `TASHandleOverlappingFlavors` is **Beta/on since 0.18**; `WorkloadPriorityClassDefaulting` is Beta/on in 0.20; `MultiKueueKubeConfigPathValidation` is Beta/on in 0.20; `ManagedJobsNamespaceSelectorAlwaysRespected` is **GA (locked)** since 0.19; `TLSOptions` GA in 0.20. `MaxExecTime` and `KubeRayAccountForRedisCleanup` do not appear in the generated list at all (they may have been removed after graduating; verify before relying on the older bullets). `FailureRecovery` is spelled `FailureRecoveryPolicy` in the list (Alpha, off).
+
+### Full stage table at v0.20 (main)
+
+| Gate | Stage history (Kueue version, stage, default) |
+|---|---|
+| `AdmissionFairSharing` | 0.12 Alpha off → 0.15 Beta on |
+| `AdmissionFairSharingAnchorAtQuotaReservation` | 0.20 Beta on |
+| `AdmissionGatedBy` | 0.17 Alpha off → 0.19 Beta on |
+| `AssignQueueLabelsForPods` | 0.17 Beta on |
+| `CleanupProvisioningRequestsOnEviction` | 0.19 Beta on |
+| `ConcurrentAdmission` | 0.18 Alpha off |
+| `ConfigurablePreemptions` | 0.20 Alpha off |
+| `CustomMetricLabels` | 0.17 Alpha off |
+| `DeferRayServiceFinalizationForRedisCleanup` | 0.19 Beta on → 0.20 Deprecated off |
+| `DeploymentJobUIDLabel` | 0.20 Beta on |
+| `DisableWaitForPodsReady` | 0.19 Alpha off |
+| `DynamicQuotaOrchestration` | 0.20 Alpha off |
+| `ElasticJobsViaWorkloadSlices` | 0.13 Alpha off → 0.18 Beta on |
+| `ElasticJobsViaWorkloadSlicesForProvisioningRequests` | 0.20 Alpha off |
+| `ElasticJobsViaWorkloadSlicesWithPartialReplicaScaleUp` | 0.20 Alpha off |
+| `ElasticJobsViaWorkloadSlicesWithTAS` | 0.17 Alpha off |
+| `EnforceProvisioningPodTemplateContents` | 0.20 Beta on |
+| `FailureRecoveryPolicy` | 0.15 Alpha off |
+| `FairSharingPreemptWithinNominal` | 0.17 Beta on |
+| `FairSharingPrioritizeNonBorrowing` | 0.17 Beta on |
+| `FairSharingReevaluatePreemptionCandidates` | 0.20 Alpha off |
+| `FairSharingRefill` | 0.20 Alpha off |
+| `FastQuotaReleaseInPodIntegration` | 0.17 Alpha off |
+| `FinalizeTerminatingPodGroups` | 0.20 Beta on |
+| `FinishOrphanedWorkloads` | 0.18 Beta on |
+| `FlavorFungibility` | 0.5 Beta on |
+| `FlavorFungibilityPreserveScanProgress` | 0.20 Beta on |
+| `KueueDRADeviceFeasibility` | 0.20 Alpha off |
+| `KueueDRAIntegration` | 0.18 Beta on |
+| `KueueDRAIntegrationConsumableCapacity` | 0.19 Alpha off |
+| `KueueDRAIntegrationDeviceTaints` | 0.20 Alpha off |
+| `KueueDRAIntegrationExtendedResource` | 0.18 Alpha off → 0.19 Beta on |
+| `KueueDRAIntegrationPartitionableDevices` | 0.18 Alpha off → 0.19 Beta on |
+| `KueueDRARejectWorkloadsWhenDRADisabled` | 0.18 Beta on |
+| `LocalQueueMetrics` | 0.10 Alpha off → 0.17 Beta on |
+| `LWSImmutableGroupSize` | 0.20 Beta on |
+| `ManagedJobsNamespaceSelectorAlwaysRespected` | 0.13 Alpha off → 0.15 Beta on → 0.19 GA on (locked) |
+| `MetricForWorkloadCreationLatency` | 0.18 Beta on |
+| `MetricsForCohorts` | 0.18 Beta on |
+| `MultiKueue` | 0.6 Alpha off → 0.9 Beta on |
+| `MultiKueueAdaptersForCustomJobs` | 0.14 Alpha off → 0.15 Beta on |
+| `MultiKueueBatchJobClearingTTLSecondsAfterFinishedOnWorkerCluster` | 0.20 Alpha off |
+| `MultiKueueClusterProfile` | 0.15 Alpha off |
+| `MultiKueueIncrementalDispatcherConfig` | 0.19 Beta on |
+| `MultiKueueIncrementalDispatcherRespectConfigOrder` | 0.19 Beta on |
+| `MultiKueueKubeConfigPathValidation` | 0.19 Alpha off → 0.20 Beta on |
+| `MultiKueueManagerQuotaAutomation` | 0.18 Alpha off |
+| `MultiKueueOrchestratedPreemption` | 0.17 Alpha off → 0.20 Beta on |
+| `MultiKueueRayInTreeAutoscaling` | 0.20 Alpha off |
+| `MultiKueueRemoteSpecSync` | 0.20 Beta on |
+| `MultiKueueReuseClientConnectionConfigForWorkers` | 0.20 Beta on |
+| `PartialAdmission` | 0.4 Alpha off → 0.5 Beta on |
+| `PodGroupSchedulingShapeOrdering` | 0.20 Beta on |
+| `PodIntegrationCountSucceededPodsAsReady` | 0.20 Beta on |
+| `PodIntegrationValidateGroupOwner` | 0.18 Beta on |
+| `PrioritizePreemptorWorkloads` | 0.20 Alpha off |
+| `PriorityBoost` | 0.17 Alpha off |
+| `PrioritySortingWithinCohort` | 0.6 Beta on |
+| `QuotaCheckStrategy` | 0.18 Alpha off → 0.19 Beta on |
+| `ReclaimablePods` | 0.15 Beta on |
+| `RecomputeAssignmentUponPreemptionTargetsOverlap` | 0.20 Beta on |
+| `RejectUpdatesToCQWithInvalidOnFlavors` | 0.18 Alpha off → 0.20 Beta on |
+| `RemoveFinalizersWithStrictPatch` | 0.17 Beta on |
+| `ReservedResourceNameValidation` | 0.20 Beta on |
+| `SchedulerLibraryIntegration` | 0.19 Alpha off |
+| `SchedulingEquivalenceHashing` | 0.17 Beta off → 0.18 Beta on |
+| `SchedulingEquivalenceHashingIgnorePodSetName` | 0.20 Beta on |
+| `ShortWorkloadNames` | 0.17 Alpha off |
+| `SkipAncestorCheckForDeletedWorkloads` | 0.20 Beta on |
+| `SkipReassignmentForPodOwnedWorkloads` | 0.19 Beta on |
+| `SparkApplicationIntegration` | 0.17 Alpha off |
+| `TASAssignmentsEncodingByHostnamePrefix` | 0.19 Beta on |
+| `TASBalancedPlacement` | 0.15 Alpha off |
+| `TASCacheNodeMatchResults` | 0.19 Beta on |
+| `TASCacheTopologyTree` | 0.20 Beta on |
+| `TASCachingRemainingResources` | 0.19 Beta on |
+| `TASFailedNodeReplacement` | 0.12 Alpha off → 0.14 Beta on |
+| `TASFailedNodeReplacementFailFast` | 0.13 Alpha off → 0.14 Beta on |
+| `TASGroupedPodSetSlicing` | 0.20 Beta on |
+| `TASHandleOverlappingFlavors` | 0.18 Beta on |
+| `TASLeaderPodSetFeasibility` | 0.20 Beta on |
+| `TASMultiLayerTopology` | 0.17 Alpha off → 0.19 Beta on |
+| `TASNodeFeasibilityForAllLevels` | 0.20 Beta on |
+| `TASPartialSlices` | 0.20 Beta on |
+| `TASProfileMixed` | 0.10 Alpha off → 0.15 Beta on |
+| `TASRecomputeAssignmentWithinSchedulingCycle` | 0.19 Beta on |
+| `TASRejectFalseUnconstrainedTopology` | 0.20 Alpha off |
+| `TASReplaceMultipleFailedNodes` | 0.20 Alpha off |
+| `TASReplaceNodeDueToNotReadyOverFixedTime` | 0.17 Beta on → 0.19 Deprecated off |
+| `TASReplaceNodeOnNodeTaints` | 0.17 Beta on |
+| `TASReplaceNodeOnPodTermination` | 0.13 Alpha off → 0.14 Beta on |
+| `TASRespectNodeAffinityPreferred` | 0.18 Alpha off |
+| `TASTopologySpreading` | 0.20 Alpha off |
+| `TASValidateWorkloadSliceSize` | 0.20 Beta on |
+| `TLSOptions` | 0.16 Beta on → 0.20 GA on (locked) |
+| `TopologyAwareScheduling` | 0.9 Alpha off → 0.14 Beta on |
+| `UnadmittedWorkloadsExplicitStatus` | 0.19 Alpha off |
+| `UnadmittedWorkloadsObservability` | 0.19 Alpha off → 0.20 Beta on |
+| `ValidateRayAndSparkJobUpdates` | 0.18 Beta on |
+| `VectorizedResourceRequests` | 0.19 Beta on |
+| `VisibilityOnDemand` | 0.6 Alpha off → 0.9 Beta on |
+| `WaitForPodsReadyMaxNotReady` | 0.20 Alpha off |
+| `WaitForPodsReadyUnscheduledTimeout` | 0.20 Alpha off |
+| `WorkloadIdentifierAnnotations` | 0.18 Beta on |
+| `WorkloadLevelWaitForPodsReady` | 0.20 Alpha off |
+| `WorkloadPriorityClassDefaulting` | 0.18 Alpha off → 0.20 Beta on |
+| `WorkloadRequestUseMergePatch` | 0.14 Alpha off |
+| `WorkloadValidateResourcesAreNonNegative` | 0.20 Beta on |
+| `WorkloadValidationForPodSetMetadata` | 0.20 Beta on |
+
 
 ## Registering a gate on a release branch
 

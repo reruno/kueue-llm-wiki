@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-09-29
 
 ---
 
@@ -27,6 +27,10 @@ JobSet is well-supported under [[multikueue]] ([[issue-2320]] — a deletion-lag
 ## TAS
 
 JobSets are a natural consumer of [[topology-aware-scheduling]]: ML training JobSets benefit from placing all replicas in one rack. "TAS: Add sanity e2e test for JobSet" ([[issue-3388]]) and related flaky-test noise reflect the breadth of integration testing.
+
+## Restore guard on pod set count mismatch
+
+`RestorePodSetsInfo` returns false and skips the restore when the JobSet's pod set count differs from its admitted Workload; it now logs the mismatch at V(2) with expected and actual counts (source: pr-13114.md; see [[job-framework-interface#`RestorePodSetsInfo` takes a context]]). Open: stale `reclaimablePods` after a JobSet restart can under-count usage and over-admit ([[issue-14609]]).
 
 ## Related pages
 

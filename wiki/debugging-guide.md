@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/controller/core/workload_controller.go`, `raw/kueue/pkg/debugger/`, `raw/github/kubernetes-sigs__kueue/` (issues), `raw/kueue/pkg/controller/core/clusterqueue_controller.go`
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -262,17 +262,21 @@ Both come from the `kueue.x-k8s.io/managed` finalizer not being removed on a **n
 
 If the Workload's `WorkloadRequeued=False` condition carries a derived reason such as `DeactivatedDueToRequeuingLimitExceeded`, versions before [[pr-14874]] never transitioned it, so flipping `spec.active` back to `true` had no effect. Check `.status.conditions[?(@.type=="WorkloadRequeued")].reason`.
 
+## Reading the reason on a pending Workload (v0.20)
+
+With `UnadmittedWorkloadsObservability` (Beta, on by default in v0.20) `QuotaReserved=False` carries a specific reason (`PendingEvaluation`, `WaitingForQuota`, `NoMatchingFlavor`, `ExceedsMaxQuota`, `TopologyPlacementFailed`, `WaitingForPreemptedWorkloads`, `Misconfigured`, `Suspended`, `AdmissionGated`, `WaitingForPodsReady`, `Deactivated`, `OnHold`) instead of `Pending`/`Inadmissible`; `kubectl get clusterqueue|localqueue -o wide` now shows `ACTIVE` and `REASON` columns (pr-15633). Metrics: `kueue_unadmitted_workloads`. See [[unadmitted-workloads-observability]]. An `Evicted` reason of `Preempted` with a `Preempted` condition reason `ConfigurablePreemption` and `underlyingCause` = PreemptionConfig name points to [[configurable-preemptions]]. `PodsReady=False` with `WaitForScheduling`/`WaitForStart`/`WaitForRecovery` is explained in [[wait-for-pods-ready]].
+
 ## A Workload that stays pending after you raise a LimitRange
 
-Event/message: **`resources didn't satisfy LimitRange constraints`**. Raising a container `max` (or lowering `min`, or even deleting the LimitRange) does **not** reliably wake the Workloads that were rejected by it: the workload controller does watch LimitRange, but the recomputed spec is byte-identical for a constraint-only change, so the queue's "spec unchanged" guard parks the Workload again. Under BestEffortFIFO it stays inadmissible until an unrelated event requeues the ClusterQueue's inadmissible set; StrictFIFO is unaffected. Workaround: trigger whatever requeues that ClusterQueue's inadmissible set (a ClusterQueue spec update, or restarting the manager). Open bug [[issue-14965]]; full chain in [[workload-resource-adjustment#Gotcha: relaxing or deleting a LimitRange does not wake the Workloads it rejected]].
+Event/message: **`resources didn't satisfy LimitRange constraints`**. Historically, raising a container `max` (or lowering `min`, or deleting the LimitRange) did not wake the Workloads that had been rejected, because the recomputed spec was byte-identical and the queue only woke parked Workloads on a diff (issue-14965.md). On current main the workload controller compares `Type`, `Max`, `Min`, `Default`, `DefaultRequest` and `MaxLimitRequestRatio` on every LimitRange create/update/delete and requeues the inadmissible Workloads of every affected ClusterQueue, including Workloads the scheduler had popped at that moment (pr-16129, backported to 0.19/0.18). On older versions, nudge the ClusterQueue (any event that requeues its inadmissible set) unless you run StrictFIFO. See [[workload-resource-adjustment#LimitRange changes now wake rejected and in-flight Workloads]].
 
 ## Slow MultiKueue dispatch under a burst
 
-If manager→worker dispatch is minutes-slow with an idle scheduling loop, suspect **client-side throttling**: MultiKueue's remote clients use client-go's defaults (QPS 5 / Burst 10) and are not covered by `clientConnection`. 1000 Workloads across 10 workers measured ~15 min. See [[multikueue#Manager → worker clients run at client-go's default rate limit]].
+If manager→worker dispatch is minutes-slow with an idle scheduling loop, suspect **client-side throttling**: before v0.20 (or with `MultiKueueReuseClientConnectionConfigForWorkers` off) MultiKueue's remote clients use client-go's defaults (QPS 5 / Burst 10) and are not covered by `clientConnection`. 1000 Workloads across 10 workers measured ~15 min. See [[multikueue#Manager → worker clients: `clientConnection` QPS/Burst now applies (v0.20, Beta)]]. If the manager lags a worker after a network blip instead, see the reconnect note in [[multikueue#Behaviours worth knowing (from open issues)]].
 
 ## ClusterQueue usage that drifts below what is actually admitted
 
-If a ClusterQueue reports less usage than the sum of its admitted Workloads (or a negative-looking gap that only clears on manager restart), check whether any admitted Workload's per-flavor total saturates to `math.MaxInt64` — that value is the `Unlimited` sentinel, and additions onto an unlimited amount are silently dropped while removals still subtract. See [[cache-architecture#Workload usage can reach the `Unlimited` sentinel]].
+Before v0.20 (pr-15026), a workload whose per-flavor total saturated to `math.MaxInt64` collided with the `Unlimited` quota sentinel: additions onto an unlimited amount were silently dropped while removals still subtracted, leaving usage negative-looking until a manager restart (issue-14105.md). Quota `Amount`s are now exact integers with no sentinel, so this drift should not occur on v0.20+. On older versions, look for an admitted Workload with a huge per-flavor total. See [[cache-architecture#Quota amounts are exact past int64 (pr-15026)]].
 
 ## A ClusterQueue that stops admitting after a snapshot error
 
@@ -286,7 +290,7 @@ A quota-reserved Workload whose owner drops its `WorkloadPriorityClass` label us
 
 - [[kueue-overview]]
 - [[workload]]
-- [[workload-resource-adjustment]] — LimitRange defaults/constraints and the raw-vs-adjusted request views.
+- [[workload-resource-adjustment]] — LimitRange defaults/constraints and the effective request view.
 - [[admission]]
 - [[cluster-queue]]
 - [[local-queue]]

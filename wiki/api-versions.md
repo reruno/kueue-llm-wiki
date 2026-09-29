@@ -2,9 +2,9 @@
 
 **Summary**: Kueue's `kueue.x-k8s.io`, visibility and Configuration APIs moved from `v1beta1` to `v1beta2`. In **v0.20** the `v1beta1` versions stop being **served** (`served: false`) and the v1beta1 conversion support is removed — an action-required upgrade for any client, manifest or GitOps repo still writing v1beta1.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/pr-14558.md`, `raw/github/kubernetes-sigs__kueue/pr-14720.md`, `raw/github/kubernetes-sigs__kueue/pr-13224.md`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/pr-14558.md`, `raw/github/kubernetes-sigs__kueue/pr-14720.md`, `raw/github/kubernetes-sigs__kueue/pr-13224.md`, pr-15913.md, pr-16300.md, pr-16168.md, raw/kueue/config/components/crd/alpha/kustomization.yaml.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -19,6 +19,18 @@ Concretely:
 - All examples and docs (English and Chinese) reference `v1beta2`.
 
 Individual API changes still land in *both* versions while v1beta1 exists — e.g. `scheduling.quotaReleaseStrategy` ([[pr-13224]]) and the `PodSet.minCount >= 0` relaxation ([[pr-14720]]) were applied to v1beta1 and v1beta2 — but new fields are increasingly added to `v1beta2` only, deliberately, to nudge migration (the MultiKueue `incrementalDispatcherConfig.stepSize` field is an earlier example).
+
+## Alpha APIs (`kueue.x-k8s.io/v1alpha1`) added in v0.20
+
+Three cluster-scoped, opt-in CRDs live in `v1alpha1`, are built from `config/components/crd/alpha/` (not installed by default) and are shipped in the Helm chart only when `enableAlphaAPIs: true`:
+
+| Kind (short name) | Purpose | Gate |
+|---|---|---|
+| `PreemptionConfig` (`preempcfg`) | Configurable preemption rules, referenced from a ClusterQueue annotation ([[configurable-preemptions]]) | `ConfigurablePreemptions` |
+| `DynamicQuotaOrchestrator` (`dqo`) | Aggregates provider capacity, writes `status.effectiveQuotas` ([[dynamic-quota-orchestration]]) | `DynamicQuotaOrchestration` |
+| `CapacityProvider` (`cp`) | Capacity published by an external controller | `DynamicQuotaOrchestration` |
+
+Alpha means field changes without a deprecation window; for example pr-16168 relaxed the CEL on capacity `resources` from 1-64 to at most 64 entries. Editor/viewer ClusterRoles exist for `PreemptionConfig` (pr-15992); every manager-managed resource must have both roles (`hack/testing/rbac/verify.sh`, pr-16240). API linting (KAL) was extended to v1alpha1 and the existing alpha CRDs were fixed to pass (pr-16300, issue-16272.md), so new alpha fields are held to the same API-lint rules as beta ones. `PreemptionConfigNameAnnotation` on the ClusterQueue is a stop-gap that becomes a field when the API graduates.
 
 ## Action required before upgrading to v0.20
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -74,11 +74,25 @@ Preempting Workloads from the **preemptor's own** ClusterQueue lowers that CQ's 
 
 Under the Alpha, off-by-default `FairSharingReevaluatePreemptionCandidates` gate, the first strategy is re-run over the retry candidates in exactly that situation ([[pr-14128]], fixes [[issue-14122]]; cherry-picks [[pr-14767]], [[pr-14768]]). The release note carries an explicit caveat: enabling the gate increases exposure to the known fair-sharing infinite preemption loop, [[issue-14543]] (open).
 
+## LocalQueue weight lookup: one cached path for heap and snapshot (AFS ordering)
+
+With [[admission-fair-sharing]] the pending queue orders Workloads by LocalQueue usage divided by LocalQueue weight. Two code paths sort pending Workloads: the live heap comparator (`queueOrderingFunc`) and the lock-free `Snapshot()` used by the [[visibility-api]] (`buildSnapshotSort`). The heap always read weights from the per-ClusterQueue cache `c.lqWeights` (kept in sync by LocalQueue add/update/delete hooks, no API read). The snapshot path used to call `afs.ResolveLQWeight`, i.e. a LocalQueue `client.Get` per sort, and on a transient lookup error **fell back to base ordering for the whole snapshot**, so the visibility API could show a different order than the scheduler would use.
+
+pr-16241 (fixes issue-13602; backports pr-16307 to 0.19 and pr-16308 to 0.18) makes both paths use the shared helper `lookupLQWeight(lqWeights, lqKey)` (default weight `1.0` when the LocalQueue is unknown). `Snapshot()` clones the map with `maps.Clone(c.lqWeights)` under the same `c.rwm.RLock()` that dumps the pending Workloads, then sorts after releasing the lock; that keeps comparisons transitive even if `UpdateLocalQueueWeight`, `addLocalQueue` or `deleteLocalQueue` run concurrently. Release note: "AdmissionFairSharing: Fix incorrect pending-workload ordering in the visibility API caused by failed LocalQueue lookups." (source: pr-16241.md, issue-13602.md, raw/kueue/pkg/cache/queue/cluster_queue.go)
+
+Invariant to preserve when touching this code: never read `c.lqWeights` during the sort without either the lock or a pre-taken copy.
+
+## Performance note
+
+`dominantResourceShare` recomputes the cohort's lendable capacity (`calculateLendable`, which walks to the root and sums `potentialAvailable` for every FlavorResource) once per preemption candidate in the fair-sharing tournament, although nothing it reads (`SubtreeQuota`, local quota, `BorrowingLimit`) changes during the tournament. A profile of two preemption-heavy production clusters on v0.19.3 attributed ~11.5% of sampled CPU to it; maintaining lendable per Cohort next to `SubtreeQuota` is proposed but **not merged** in this batch (source: issue-15957.md, open).
+
 ## Preemption logging volume
 
 The per-candidate fair-sharing log was collapsed into **one entry per ClusterQueue**, with the `DominantResourceShare` values serialized into that entry, cutting scheduler log volume at `V(4)` ([[pr-14531]], [[pr-14532]]; original #14348). Companion to the `+Inf` skip above.
 
 ## Related pages
+
+- [[configurable-preemptions]] — **[Alpha]** configurable candidates are merged after both fair-sharing strategies fail.
 
 - [[cohort]] — the scope fair-share is computed over.
 - [[borrowing-and-lending]] — what unused capacity means.

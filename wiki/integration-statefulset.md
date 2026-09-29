@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/controller/jobs/statefulset/statefulset_controller.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_webhook.go`
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -47,6 +47,14 @@ Note the related hazard the pod-group fix called out but deliberately left alone
 A StatefulSet-owned Pod that was evicted (not deleted) could keep the `kueue.x-k8s.io/managed` finalizer forever, and the API server refuses to create a replacement with the same ordinal name while the old object exists in etcd — a circular deadlock. Fixed for serving pod groups in [[pr-14632]]; see [[integration-plain-pod#Finalizer removal on eviction (serving pod groups)]].
 
 Open: a Pod list failure still prevents the StatefulSet Workload reconcile from starting ([[issue-14211]]).
+
+## Validation and label sync fixes
+
+- **TAS metadata is validated.** The reconciler builds a topology request from `spec.template.metadata` annotations (`jobframework.NewPodSetTopologyRequest(...).PodIndexLabel(...)`) when `TopologyAwareScheduling` is enabled, but the validating webhook did not validate them on create (source: pr-15857.md; backports pr-15881.md, pr-15882.md) or on update (source: pr-16039.md, fixes issue-15880.md; backports pr-16104.md, pr-16105.md). Conflicting annotations are now rejected; corrected ones accepted; skipped when the gate is off.
+- **`queue-name` is synced only onto gated Pods.** The reconciler copies the StatefulSet's `kueue.x-k8s.io/queue-name` onto its Pods, but the Pod webhook rejects queue-name changes on ungated Pods, while the StatefulSet webhook allows the change while `ReadyReplicas == 0`. Changing it after ungating but before any Pod was Ready made every reconcile fail, and could keep a Pod scheduling-gated during a rolling update. Now only Pods still gated are updated (source: pr-16270.md; backports pr-16334.md, pr-16335.md).
+- **Pod indexing.** The pod-owner index uses `metadata.ownerReferences.name`, and `podList` is scoped inside `ungatePods` (source: pr-15609.md, issue-15563.md).
+- **`WorkloadAnnotation` on Pods.** `kueue.WorkloadAnnotation` should be on every Pod of a Kueue-managed job so `wasSimulator.TrackPod` can map Pods to Workloads; the StatefulSet path was fixed first (issue-14975, pr-15056) and LWS followed (see [[integration-leaderworkerset]]) (source: pr-15142.md).
+- Empty PodGroup eviction: see [[integration-plain-pod#Empty PodGroups of StatefulSet / LeaderWorkerSet]] (source: pr-14578.md).
 
 ## Related pages
 

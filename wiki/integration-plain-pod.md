@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -84,6 +84,47 @@ See [[security-code-patterns]]: a client-supplied string used as a cross-object 
 
 - It fed the scheduling-equivalence hash, so a client stamping a unique role hash per Workload got one equivalence class per Workload — fixed by excluding the PodSet name from the hash (see [[scheduler-internals#Scheduling-equivalence hash: what it does and does not include]], [[pr-14784]]).
 - Because the client controls it, it also controls **PodSet order**, which changes flavor assignment and the representative mode ([[issue-14802]], open).
+
+## All-terminating groups are finalized, not re-adopted
+
+Production incident: a pod stuck `Terminating` (kubelet-stuck teardown) whose Workload the platform had deleted regained a Workload on the next controller restart. The rebuild used the admission-mutated spec (TAS `kubernetes.io/hostname` pin), was permanently `NoFit`, and as an inadmissible head consumed ~78% of scheduling cycles of its ClusterQueue for ~16 h.
+
+`Pod.Load` now treats a group whose **every member is terminating**, once **no (child) Workload remains**, like a terminating job: it returns `ShouldFinalize`, so the framework removes the pods' remaining Kueue finalizers instead of creating a Workload. Design points (source: pr-15154.md):
+
+- The gate keys on "no Workload remains", not on pod finalizers: finalizer removal tied to Workload deletion (`Stop` with `StopReasonWorkloadDeleted`) only runs while the Workload is observable mid-deletion.
+- While a child Workload exists nothing changes, so eviction/quota-release bookkeeping is still observed. With `PodIntegrationValidateGroupOwner`, a same-named foreign-owned Workload is not mistaken for "no Workload".
+- It runs before pod-set composition, so it also covers fast-admission groups; the `ErrWorkloadCompose` warning event is no longer emitted for all-terminating groups.
+- The removal of the reconcile-request key rewrite (`key.Name = p.pod.Name`) is an independent, ungated fix.
+- The finalization is behind the Alpha, default-off gate **`FinalizeTerminatingPodGroups`** (registered for v0.20); gate off returns the legacy `Load` result and re-creates a Workload (source: pr-15628.md; backports pr-15554.md, pr-15555.md, pr-15665.md, pr-15666.md). Open question: whether finalization should also require the `pod-group-total-count` to be met.
+
+## `PodsReady` counts Succeeded pods as ready
+
+The kubelet sets `PodReady=False` once a pod completes, so a pod group reported `PodsReady=False` as soon as any member finished; with `waitForPodsReady.recoveryTimeout` the Workload entered `WaitForRecovery` and was evicted, deleting pods that were still running. A `Succeeded` pod now counts as ready (matching batch/Job, which counts `Status.Succeeded`). Serving pod groups still require all pods to be ready. Behind **`PodIntegrationCountSucceededPodsAsReady`** (Beta, on by default; disable to restore the old behaviour) (source: pr-15734.md; backports pr-15910.md, pr-15912.md).
+
+## Deployments: `job-uid` label
+
+A Deployment yields one Workload per Pod, each labelled `kueue.x-k8s.io/job-uid` with its own Pod UID, so nothing tied a Deployment's Workloads together and topology spreading had to use `workloadLabelSelectors`. Behind **`DeploymentJobUIDLabel`** (Beta, on by default) the Pod integration resolves the owning Deployment while building the Workload (via `FindAncestorJobManagedByKueue`; the ReplicaSet hop is metadata-only) and labels it with the **Deployment UID**, like StatefulSet and LeaderWorkerSet. Details (source: pr-15641.md; backports pr-16004.md, pr-16005.md):
+
+- A Pod not managed through a Deployment keeps its own UID; a failed owner read is returned for retry, no fallback.
+- Existing Workloads keep the label they were created with (never re-synced).
+- Adds a Deployment informer (the integration previously registered a noop reconciler); reads are cache-backed.
+- `kueuectl list workload --for deployment/foo` matched nothing before; with the gate it returns that Deployment's Workloads (see [[kueuectl]]).
+
+## Failure recovery: no duplicate conditions
+
+With `FailureRecoveryPolicy` on, retries of forceful termination of a Pod stuck in termination added a duplicate `KueueFailureRecovery` Pod condition and a duplicate `KueueForcefullyDeleted` warning event on every reconcile. The condition is now set once and the event emitted only when the condition changes; deletion is still retried (source: pr-16033.md; backport pr-16113.md, pr-16133.md).
+
+## Empty PodGroups of StatefulSet / LeaderWorkerSet
+
+When the last member Pod of a StatefulSet/LWS-backed PodGroup is gone, `Pod.Load()` reports an empty composable job (`jobFound=false`) and finalization ran before the normal eviction branch, so a Workload evicted by `PodsReadyTimeout` kept its admission and quota, or was finished as an orphan while the owner was still live. The empty-PodGroup path now reads the owner through the `IntegrationManager` and checks UID and deletion state; for an unfinished Workload with a live, Kueue-managed non-Pod owner it retains the Workload and finalizer and completes eviction via the same admission-clearing helper as the normal inactive-job path (which re-checks eviction and quota-reservation state inside the status patch). Deleted, terminating or UID-mismatched owners still let the Workload be finished (source: pr-14578.md; backports pr-16127.md, pr-16128.md). Separate, still open at writing: scale-to-zero of a StatefulSet with active Pods can release quota prematurely ([[issue-16043]]); the pod-group activity check double-counts the deletion grace period ([[issue-16075]]).
+
+## Pod-level requests and quota
+
+`resourcehelpers.PodRequests` let an explicit pod-level request smaller than the aggregate container request replace it, so a directly created Workload could reserve less quota than its containers ask for. A shared `PodRequests` helper (in `pkg/resources`) now keeps effective requests at least the aggregate container requests, then adds Pod overhead; valid specs are unchanged (source: pr-16047.md, issue-14255.md). Open: pod-level CPU defaulting from limits ([[issue-15702]]).
+
+## Webhook-side defaulting of WorkloadPriorityClass
+
+The Pod webhook enforces `managedJobsNamespaceSelector` earlier in admission, so it passes `nil` to `ApplyDefaultWorkloadPriorityClass` (see [[workload-priority#Defaulting respects the namespace selector]]).
 
 ## Related pages
 

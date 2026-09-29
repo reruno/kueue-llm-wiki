@@ -2,9 +2,9 @@
 
 **Summary**: The Kueue scheduler runs a continuous scheduling cycle that snapshots the cluster state, assigns resource flavors to pending workloads, and admits or preempts them according to quota and fair-sharing rules.
 
-**Sources**: `raw/kueue/pkg/scheduler/scheduler.go`, `raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go`, `raw/kueue/pkg/scheduler/logging.go`
+**Sources**: `raw/kueue/pkg/scheduler/scheduler.go`, `raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go`, `raw/kueue/pkg/scheduler/logging.go`, pr-15444.md, pr-16078.md, pr-15829.md, pr-15844.md, pr-16167.md, pr-16290.md, pr-16130.md, issue-14792.md
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -106,6 +106,19 @@ Within a ResourceGroup, flavors are tried in order. The assigner scores each fla
 
 The `FlavorFungibility` field (`whenCanPreempt`, `whenCanBorrow`) controls how aggressively the assigner searches beyond the first candidate. (source: pkg/scheduler/flavorassigner/flavorassigner.go)
 
+### Zero-count PodSets: probe one pod per empty group (pr-15444, backports pr-16078/0.19, pr-16079/0.18)
+
+A PodSet with `count: 0` (an elastic Job at `parallelism: 0`, a drained RayCluster worker group, fully reclaimed pods) has all-zero requests, so `fitsResourceQuota` said "0 fits" for every flavor and the **first flavor in the list won by position**. Its `nodeLabels` were then stamped into the pod template at unsuspend (elastic Jobs never re-suspend), and after scaling up the replacement slice fit neither flavor (`gpu` failed node affinity, `on-demand` failed capacity) and the Job was stuck forever (issue-14792.md; damage is in the template, so an already-stuck Job is not recovered). Current behaviour (`probeRequestsFor`, `raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go`):
+
+- The probe is applied **per PodSet group, only when every PodSet of the group has count 0**: each flavor is checked against **one pod per PodSet** (per-pod requests; `pods` is set to the number of PodSets when the ClusterQueue has a `pods` resource group). If any PodSet in the group has a non-zero count, actual requests drive flavor selection and the zero-count members ride along.
+- The probe compares against **potential capacity, not currently available quota** (a busy flavor is still fine for a PodSet not asking for anything yet), and the probe value never enters the request map, so accounted usage stays 0 and preemption is never reached.
+- If no flavor passes the probe, assignment falls back to the pre-fix behaviour so workloads whose PodSets are all zero-count still get admitted; the assignment records `ZeroCountFlavorFallback`, which becomes a warning after quota reservation ("Assigned flavor X to zero-count PodSets [...] ... Review capacity and flavor constraints before scaling up.").
+- PodSets missing from the assignment or the replaced slice in `TotalRequestsFor`/the replaced-slice flavor check are logged at V(1) (pr-16290; the same wave used V(2) for missing-PodSet scheduler logs, issue-16302.md).
+
+### Preempt mode is also entered for `PreemptionConfig` ClusterQueues
+
+`canPreemptWhileBorrowing()` is true if `borrowWithinCohort.policy != Never`, or fair sharing is on with `reclaimWithinCohort != Never`, **or** (Alpha `ConfigurablePreemptions`) the CQ references a `PreemptionConfig`. See [[configurable-preemptions]].
+
 ### Second-pass seeding (multi-resource workloads)
 
 `assignFlavors` runs in two passes for workloads that already hold a partial reservation: the first pass picks flavors from scratch; the second pass seeds the result with whatever the workload had previously reserved (used by ProvisioningRequests and TAS NodeHotSwap re-admission). The seed loop must copy **every** preexisting flavor for each PodSet — copying only the first one (the original behaviour) leaves the remaining resources unassigned, and they fall through to `fitsResourceQuota`, which double-counts the workload's own first-pass reservation. The result was that a multi-resource workload (e.g. CPU + memory) could fail second-pass admission for a resource it had already correctly reserved. Fixed in [[pr-11005]] (Fixes #9048); the TAS scheduler test harness was updated to seed reserved-but-not-admitted workloads into `cqCache` so the regression is observable in unit tests. See [[topology-aware-scheduling#Multi-resource second-pass double-counting]].
@@ -128,7 +141,19 @@ Quota arithmetic is done in `int64` (milli-units for CPU, absolute units otherwi
 - **`resources.ResourceValue`** ([[pr-11139]]): converting a near-`MaxInt64` CPU quantity to milliCPU multiplies by 1000 and overflowed; now **clamps/saturates** to `math.MaxInt64`/`MinInt64` via `SafeMilliValue` (`pkg/util/math/math.go`).
 - **`TotalRequests`** ([[pr-11182]]): per-pod-request × pod-count overflowed for a Workload with many pods; now uses a saturating multiply `SaturatingMul(a, b int64) int64` (overflow detected via `res/b != a`, returns `MaxInt64`/`MinInt64` by sign).
 
-The strategic consolidation is the **`resources.Amount`** quota type ([[pr-11156]], fixes #9843) — quota *storage* now flows through one saturating type with an `Unlimited` sentinel, so per-site clamps become a type-enforced invariant. Note `ResourceValue` (the workload-*request* path) deliberately keeps legacy truncate-on-overflow behaviour; only the quota side migrated to `Amount`. See [[cache-architecture#Quota amount type and overflow safety]].
+The strategic consolidation is the **`resources.Amount`** quota type ([[pr-11156]], fixes #9843) — quota *storage* flows through one type so per-site clamps become a type-enforced invariant. That type first saturated at an `Unlimited` sentinel; **pr-15026 (v0.20) made `Amount` exact** (`int64` while it fits, immutable `big.Int` otherwise; no sentinel), so the saturation caveats above now apply only to the workload-*request* path (`ResourceValue`, `SaturatingMul`), which keeps legacy truncate/saturate behaviour. See [[cache-architecture#Quota amounts are exact past int64 (pr-15026)]].
+
+## `Admitted` event reports the real reservation wait time (pr-15829)
+
+The `Admitted` event ("Admitted by ClusterQueue X, wait time since reservation was Ns") used to hardcode `0s`. It now computes `workload.QuotaReservedWaitTime`, the time since the `QuotaReserved` condition's `LastTransitionTime` (0 when the condition is missing). The admission-check metric behaviour is unchanged. This matters for Workloads that wait on [[admission-check]]s between reservation and admission; the "Quota reserved ... wait time since queued" event is the separate queue-side number.
+
+## Preemption target selection uses the assignment
+
+`GetTargets` sizes the preemptor from the flavor assignment (assigned PodSet counts and `pods` quota), not from the raw spec; see [[preemption#Target selection sizes the preemptor from the assignment (v0.20, cherry-picked to 0.19/0.18)]].
+
+## Inflight (popped) Workloads are tracked per Workload
+
+`Manager.Heads` pops heads before the snapshot; the queue now records each popped Workload in an `inflight` map keyed by `workload.Reference` instead of a single slot per ClusterQueue (pr-15844). Behaviour is unchanged today; it enables popping more than one head per cycle for the fair-sharing refill KEP (issue-14596, open, `scheduler/refill.go` still has a `TODO(#14190)` for making it configurable). Inflight cleanup still happens inside `RequeueWorkload` ([[cache-architecture#`RequeueWorkload` owns the inflight cleanup]]).
 
 ## Fair-sharing iterator
 

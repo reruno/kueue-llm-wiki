@@ -1,10 +1,10 @@
 # Security — Information Disclosure
 
-**Summary**: Patterns from the 137 Information Disclosure CVEs in `raw/cve/`. Covers logging hygiene, error-response content, [[metrics]] label cardinality (as a covert channel), [[visibility-api]] cross-tenant exposure, and credential handling.
+**Summary**: Patterns from the 148 Information Disclosure CVEs in `raw/cve/`. Covers logging hygiene, error-response content, [[metrics]] label cardinality (as a covert channel), [[visibility-api]] cross-tenant exposure, and credential handling.
 
-**Sources**: `raw/cve/` — representative entries `CVE-2019-1002101.md` (kubectl cp path traversal also exposes file contents), `CVE-2020-8554.md` (man-in-the-middle via ExternalIP), `CVE-2020-8563.md` (sensitive info in logs), `CVE-2021-25741.md` (subpath symlink), CWE-200/CWE-532/CWE-522/CWE-552 entries broadly.
+**Sources**: `raw/cve/` — representative entries `CVE-2019-1002101.md` (kubectl cp path traversal also exposes file contents), `CVE-2020-8554.md` (man-in-the-middle via ExternalIP), `CVE-2020-8563.md` (sensitive info in logs), `CVE-2021-25741.md` (subpath symlink), CWE-200/CWE-532/CWE-522/CWE-552 entries broadly; 2026-09 additions `CVE-2025-71425.md`, `CVE-2025-71423.md`, `CVE-2026-47701.md`, `CVE-2026-86332.md`, `CVE-2026-94611.md`, `CVE-2026-45726.md`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -71,6 +71,42 @@ The first sentence is the load-bearing rule for Kueue — `klog.InfoS("admitted"
 - `git grep -n 'klog.*Secret\b' pkg/` — secret-typed logging.
 - `git grep -nE 'WithValues.*token|WithValues.*password' pkg/`.
 - For any new metric, verify the label set in `pkg/metrics/`: namespace and cluster-queue are OK; workload/pod name are not.
+
+## 2026-09 additions
+
+### Secrets and credentials read through an over-trusted operator
+
+| CVE | Product / versions | CWE, CVSS | Mechanism and Kueue rule |
+| --- | --- | --- | --- |
+| CVE-2026-47701 | OpenTelemetry Operator < 0.152.0 (TargetAllocator) | CWE-200, 7.7 | `ServiceMonitor.bearerTokenFile` preserved as `CredentialsFile`; a tenant points it at the Collector's own ServiceAccount token file (source: CVE-2026-47701.md). Same class as `CVE-2026-75889`; never accept a filesystem path from a CR |
+| CVE-2026-86332 | odh-dashboard (Red Hat OpenShift AI) | CWE-862, 6.5 | backend route reads Secrets with the dashboard ServiceAccount and returns the whole object, including NGC API key and image pull secret, to any authenticated user while create and delete were admin-gated (source: CVE-2026-86332.md). A UI backend that reads with its own identity must repeat the user's authorization (`SubjectAccessReview`); relevant to [[dashboard]] |
+| CVE-2026-94611 | authentik < 2026.2.7 / 2026.5.7 / 2026.8.2 | CWE-200/522, 8.1 | API serializers return stored credentials to accounts that only have *view* permission (source: CVE-2026-94611.md). Separate read-config from read-secret fields and mark secret fields write-only |
+| CVE-2026-45726 | Omni 1.3.0-1.6.5, 1.7.0-1.7.2 | CWE-200/522/732, 7.6 | `ImportedClusterSecrets` holds the whole CA bundle and the Reader role may fetch it (source: CVE-2026-45726.md) |
+| CVE-2026-93537 | Rancher Fleet | CWE-23, 6.5 | file contents of the processing environment, including Helm registry credentials, land in a readable `Bundle` (source: CVE-2026-93537.md) |
+| CVE-2026-59341 | Sealed Secrets | CWE-203, 4.2 | decryption oracle via template errors; see [[security-injection-and-input-validation]] |
+| CVE-2026-19283 | Instana Agent Operator | CWE-863, 7.7 | etcd mTLS client credentials copied across namespaces; see [[security-authn-authz]] |
+| CVE-2026-93991 | Argo Workflows 4.1.0-4.1.3 | CWE-639, 7.7 | `metadata.namespace!=` selector bypasses the access review, leaking archived workflow arguments and parameters; see [[security-authn-authz]] |
+| CVE-2026-54246 | Skipper routesrv < 0.27.13 | CWE-306, 5.7 | unauthenticated cluster-wide route data (source: CVE-2026-54246.md) |
+| CVE-2026-86464 | Eclipse aeriOS (development version) | CWE-200/306/798/1188/1392 | Helm chart exposed Keycloak and PostgreSQL via NodePort with fixed default credentials (source: CVE-2026-86464.md) |
+
+**Rules for Kueue:** the visibility API and [[dashboard]] must impose the caller's permissions, not the server's; list and watch endpoints must apply the *same* namespace filter for every selector form; Helm values must not ship default credentials or NodePort services (the Kueue chart exposes only metrics and webhook ClusterIP Services, verify on review); any resource that bundles secrets with non-secret config should be split so `get` on the config does not reveal the secret.
+
+### Secrets in logs and confidential-computing failures (Contrast)
+
+The Contrast (Edgeless Systems) runtime supplies four log or key-handling lessons:
+
+- **CVE-2025-71425** (< 1.8.1, CWE-532, 7.3): the initializer logged the workload secret at the **default** `info` level to pod logs. **CVE-2025-71423** (1.9.0-1.12.1, CWE-532, 7.3): a regression of the same bug, where the full `NewMeshCert` response was logged (source: CVE-2025-71425.md, CVE-2025-71423.md). Rule: a fixed log-leak needs a test that greps captured logs for the secret, otherwise refactors reintroduce it; log defaults are the exposure, not the debug level.
+- **CVE-2025-71422** (< 1.12.1, CWE-347, 5.7): `cryptsetup open` succeeding was taken as proof of an encrypted volume even though a LUKS2 header may specify `cipher_null-ecb` (source: CVE-2025-71422.md). Rule: "the operation succeeded" is not evidence of the property you wanted; verify the property.
+- **CVE-2026-100833** (1.14.0-1.23.0, CWE-20, 8.2): a bad rebase added an `allow_storage` rule that accepted `image_guest_pull` entries without checking the image digest (source: CVE-2026-100833.md). Rule: security policy files need their own tests that prove the negative case, especially after vendored-code rebases.
+- **CVE-2025-71426** (< 1.4.1, CWE-285, 7.1) and **CVE-2025-71424** (<= 1.9.0, CWE-693, 3.5): a recovering Coordinator that does not verify the seed, and a Dockerfile `VOLUME` mount requiring the runtime to push data to the Kata agent (source: CVE-2025-71426.md, CVE-2025-71424.md).
+
+### Other low-signal entries
+
+| CVE | Product | CWE, CVSS | Note |
+| --- | --- | --- | --- |
+| CVE-2026-78600 | ECK up to 3.5.0 | CWE-459, 3.5 | credentials persist after RBAC denied an association |
+| CVE-2026-91164 | Warpgate 0.23.0-0.27.3 | CWE-284/863, 4.3 | API token ignores `allowed_ip_ranges` |
+| CVE-2026-50166, CVE-2026-52724 | Kuma < 2.7.26 / 2.9.16 / 2.11.14 / 2.12.11 / 2.13.7 | CWE-295 | TLS peer verification silently disabled when no CA file is given; see [[security-supply-chain]] |
 
 ## Related pages
 

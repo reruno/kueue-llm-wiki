@@ -2,9 +2,9 @@
 
 **Summary**: Resource transformers let cluster admins define global rules that rewrite a workload's resource requests into different quota units before Kueue applies admission and quota calculations — without touching the actual Pod resource requests seen by kube-scheduler.
 
-**Sources**: `raw/kueue/keps/2937-resource-transformer/README.md`, `raw/kueue/keps/2937-resource-transformer/kep.yaml`
+**Sources**: `raw/kueue/keps/2937-resource-transformer/README.md`, `raw/kueue/keps/2937-resource-transformer/kep.yaml`, pr-15926.md, pr-15974.md, pr-15954.md, pr-16041.md, issue-14204.md, issue-15979.md, raw/kueue/pkg/workload/workload.go
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -109,7 +109,7 @@ example.com/accelerator-memory in flavor default-flavor, 20G more needed
 
 - Transformations are **global** — applied to all workloads at startup. There is no per-ClusterQueue or per-Workload scoping in the current implementation.
 - Changing the transformation list requires a Kueue manager restart.
-- `excludeResourcePrefixes` is applied **before** transformations; a resource that matches an exclusion prefix will never reach a matching transformation rule.
+- Since v0.20-era fixes (pr-15954, pr-16041), transformations run **before** `excludeResourcePrefixes`; see the next section. (Earlier text of KEP-2937 says exclusions run first; that is no longer the implementation.)
 - Workload resource requests are not retroactively updated if transformations change after admission.
 
 (source: keps/2937-resource-transformer/README.md)
@@ -121,6 +121,22 @@ Both mechanisms allow Kueue's quota view to differ from pod requests, but:
 - [[dra]]: pod uses `ResourceClaimTemplates`; Kueue maps `DeviceClasses` to logical names via `deviceClassMappings`.
 
 They can coexist — a cluster might use resource transformers for legacy MIG resources while adopting DRA for new workloads.
+
+## Order of operations: transformations first, exclusions on what is retained
+
+`totalRequestsFromPodSets` (`pkg/workload/workload.go`) builds a PodSet's effective requests in this order (source: raw/kueue/pkg/workload/workload.go, pr-15954.md, pr-16041.md, issue-14204.md):
+
+1. `resources.PodRequests(podSpec)` gives the raw (LimitRange/RuntimeClass-adjusted) requests.
+2. `applyResourceTransformations(specRequests, specRequests, transforms)` returns two lists: **retained** (inputs not transformed, plus inputs of `Retain` strategy) and **generated** (outputs). `multiplyBy` looks up the multiplier in the *full* raw request list, so an excluded resource still works as a multiplier.
+3. `dropExcludedResources(retained, excludeResourcePrefixes)` filters **only the retained** list. Generated outputs are never dropped by an exclusion.
+4. DRA logical resources are merged into `generated` (see [[dra]]); `effectiveRequests = retained + generated` (summed per name), floored at zero, then multiplied by the PodSet count.
+
+Why this order (both bugs let a tenant bypass ClusterQueue quota):
+
+- **Excluded multiplier** (pr-15954): with `excludeResourcePrefixes: [acme.io/vgpu-count]` and `input: acme.io/cores-per-vgpu, multiplyBy: acme.io/vgpu-count`, exclusions used to run first, so `multiplyBy` could not find `vgpu-count` and 2 vGPUs x 20 cores were accounted as 20 cores instead of 40. Excluded resources stay out of direct CQ accounting but remain available to transformations.
+- **Excluded input** (pr-16041, backports pr-16053/0.19, pr-16054/0.18): with `excludeResourcePrefixes: [acme.io/]` and `input: acme.io/vgpu-count`, the input was removed before it could generate `quota.acme.io/total-vgpu-cores`, so usage recorded 0. Now the input is transformed first and only then excluded.
+- **No validation error for the overlap.** pr-15926 tried to reject configurations where a transformation `input` matches an exclude prefix (KEP-2937 graduation criterion; issue-14204.md). It was **reverted before release (pr-15974)** because such configurations can be sensible (an input that is `Replace`d, so the exclusion just keeps the raw resource out of quota) and because the docs themselves show `excludeResourcePrefixes: ["example.com"]` next to a transformation on `example.com/gpu-type1`; rejecting it would turn a running cluster into one that fails to start (config errors call `os.Exit(1)`). Validation rules for transformations are to be defined separately (issue-15979.md, open). If a KEP text still says "raise a config error", treat it as not implemented.
+- **Negative output factors** are how an "allowance" is written: outputs from different inputs are summed so they can cancel each other, but the per-resource generated total is clamped to zero and can never reduce an ordinary request under the same name or the DRA charge merged afterwards.
 
 ## `pods` is refused in every transformation position
 

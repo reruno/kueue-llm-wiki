@@ -2,9 +2,9 @@
 
 **Summary**: Admission fair sharing orders workloads at admission time based on each LocalQueue's or ClusterQueue's historical resource consumption, ensuring teams that have used less get priority for new admissions — without requiring preemption.
 
-**Sources**: `raw/kueue/keps/4136-admission-fair-sharing/README.md`, `raw/kueue/keps/4136-admission-fair-sharing/kep.yaml`
+**Sources**: `raw/kueue/keps/4136-admission-fair-sharing/README.md`, `raw/kueue/keps/4136-admission-fair-sharing/kep.yaml`, pr-15000.md, pr-16034.md, pr-16241.md, issue-15221.md, issue-13602.md
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-29
 
 ---
 
@@ -61,13 +61,26 @@ A half-life of 24 hours means yesterday's usage counts half as much as today's. 
 
 ## Entry penalty
 
-To prevent a tenant from exploiting the sampling delay (submitting thousands of jobs before the next usage update), Kueue adds an **entry penalty** immediately on admission:
+To prevent a tenant from exploiting the sampling delay (submitting thousands of jobs before the next usage update), Kueue adds an **entry penalty** immediately (on admission in v0.19 and earlier; on quota reservation by default since v0.20, see below):
 
 ```
 penalty = A * requested_resource
 ```
 
 This is equivalent to a job's usage that has been running since the last sampling interval. (source: keps/4136-admission-fair-sharing/README.md)
+
+## Accounting anchor: quota reservation, not admission (v0.20, Beta)
+
+Until v0.19 the entry penalty was charged and the LocalQueue's usage was sampled only once a Workload was **Admitted**. A Workload holding quota while waiting on [[admission-check]]s therefore counted only a tiny entry penalty (about 0.034% of the request in the docs example with a 5m sampling interval and 168h half-life). Gate **`AdmissionFairSharingAnchorAtQuotaReservation`** (Beta, **default on since v0.20**, depends on `AdmissionFairSharing`) moves both sides of the boundary together to "actively holds a quota reservation" (source: pr-15000.md, raw/kueue/pkg/features/kube_features.go):
+
+- **Penalty settlement** happens when `HasActiveQuotaReservation` flips false to true (`reachedAfsAnchor`); reactivating a Workload that still has a reservation crosses the anchor. With the gate off the old admission transition (`Admitted` and active) is used.
+- **Sampled usage** used by the decay (`afsAccountedUsage`) is the LocalQueue's `ReservedUsage()` instead of `AdmittedUsage()`, but only for ClusterQueues that actually admit on usage (`ClusterQueueUsesAdmissionFairSharing`); other CQs keep admitted usage. Sampling behind the anchor would let a Workload's cost decay away while it still holds quota.
+- Disabling `AdmissionFairSharing` now requires disabling the anchor gate too (dependency validated at startup).
+- pr-16034 renamed the internal LocalQueue cache fields/getters for consistency (`totalReserved` to `reservedUsage`, `GetReservedUsage()`/`GetAdmittedUsage()` to `ReservedUsage()`/`AdmittedUsage()`); no behaviour change, backported to 0.19/0.18.
+
+Penalty bookkeeping lives in `AfsUsageLedger` (`pkg/cache/queue/afs`), which stores a **per-Workload** pending-penalty record per LocalQueue. Settlement folds exactly the pushed amount into `consumed` and removes that record in the same write, so a repeated settlement folds nothing and other Workloads' penalties are untouched; a Workload deleted, deactivated without reservation, finished, or moved to another LocalQueue before settling has its penalty dropped (`SubPenalty`). A record missing (for example pushed before a manager restart) folds nothing; restart recovery is out of scope (source: raw/kueue/pkg/controller/core/workload_controller.go).
+
+Known accounting quirks called out in pr-15000.md: (1) every reservation can settle another entry penalty, including retries that are not tenant-driven, and `TryPreferredFlavors` / [[concurrent-admission]] can amplify this when more-preferred Variants obtain further reservations; deduplication per Workload and LocalQueue is not implemented (open: issue-15221.md). (2) A LocalQueue reserving faster than `usageSamplingInterval` can defer its next published usage sample and heap rebuild until the burst pauses.
 
 ## Weight configuration on LocalQueue / ClusterQueue
 
@@ -88,6 +101,10 @@ Admission fair-sharing preemption orders candidate Workloads from different Loca
 [[pr-14547]] (cherry-picks [[pr-14875]], [[pr-14876]]) compares the full namespace-qualified reference via `utilqueue.KeyFromWorkload`. The regression test uses exactly `team-a/default` vs `team-b/default` and asserts the higher-usage LocalQueue stays first in the candidate order; it fails on the unpatched code.
 
 This is the "namespace confusion" class — see [[security-code-patterns]] and the analogous ecosystem CVE noted in [[security-authn-authz]].
+
+## Weight lookup
+
+The pending heap and the visibility snapshot both read LocalQueue weights from the same cached per-ClusterQueue map (`lqWeights`, default `1.0`); see [[fair-sharing#LocalQueue weight lookup: one cached path for heap and snapshot (AFS ordering)]] (pr-16241).
 
 ## Known gap
 
