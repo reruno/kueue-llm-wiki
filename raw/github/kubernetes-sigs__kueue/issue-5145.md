@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5145
 
-**Last updated**: 2026-06-09T08:21:27Z
+**Last updated**: 2026-10-09T11:52:58Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@kannon92](https://github.com/kannon92)
 - **Created**: 2025-04-30T15:29:16Z
-- **Updated**: 2026-06-09T08:21:27Z
+- **Updated**: 2026-10-09T11:52:58Z
 - **Closed**: —
-- **Labels**: _none_
+- **Labels**: `area/testing`
 - **Assignees**: _none_
-- **Comments**: 22
+- **Comments**: 23
 
 ## Description
 
@@ -224,3 +224,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-09T08:21:25Z
 
 /remove-lifecycle stale
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-10-09T11:52:55Z
+
+/area testing

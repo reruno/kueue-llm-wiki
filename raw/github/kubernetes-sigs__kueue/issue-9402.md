@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9402
 
-**Last updated**: 2026-05-26T16:48:05Z
+**Last updated**: 2026-10-06T06:25:17Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@kannon92](https://github.com/kannon92)
 - **Created**: 2026-02-20T16:02:47Z
-- **Updated**: 2026-05-26T16:48:05Z
+- **Updated**: 2026-10-06T06:25:17Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `help wanted`
-- **Assignees**: _none_
-- **Comments**: 8
+- **Assignees**: [@andrewseif](https://github.com/andrewseif)
+- **Comments**: 12
 
 ## Description
 
@@ -125,3 +125,36 @@ cc @Amy  / @kannon92
 ### Comment by [@amy](https://github.com/amy) — 2026-05-26T16:48:05Z
 
 cc/ @varunsyal @rajatphull ^ PTAL and offer guidance for this issue
+
+### Comment by [@marivenkatakrishnan](https://github.com/marivenkatakrishnan) — 2026-08-05T12:02:51Z
+
+Hi! 
+
+Is it still open. I like to contribute to this feature.
+
+My understanding is that we should replace the PrioritySortingWithinCohort feature gate with a supported configuration field and document the migration.
+
+could you please confirm the below, 
+Should this be a global Configuration API setting or configurable per Cohort?
+Is a KEP/design document required for this API change?
+Are there existing API types or a similar graduated feature that you recommend as a reference?
+
+Once confirmed, I can prepare a short design proposal covering API shape, backward compatibility, tests, and docs.
+
+### Comment by [@andrewseif](https://github.com/andrewseif) — 2026-10-05T15:51:30Z
+
+/assign
+
+ill work on this after a brief discussion with @mimowo , ill start with small KEP then the implementation.
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-10-06T00:24:43Z
+
+> /assign
+> 
+> ill work on this after a brief discussion with [@mimowo](https://github.com/mimowo) , ill start with small KEP then the implementation.
+
+IIUC, we haven't found a prod use case to justify introducing a dedicated knob.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-10-06T06:25:17Z
+
+@tenzen-y IRC @varunsyal @anguszzzz are users of this setting to disable priority sorting within cohorts when fair sharing is disabled.

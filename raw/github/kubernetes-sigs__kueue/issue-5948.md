@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5948
 
-**Last updated**: 2026-06-19T04:19:32Z
+**Last updated**: 2026-10-07T10:25:29Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@alexandear](https://github.com/alexandear)
 - **Created**: 2025-07-11T14:28:51Z
-- **Updated**: 2026-06-19T04:19:32Z
-- **Closed**: —
+- **Updated**: 2026-10-07T10:25:29Z
+- **Closed**: 2026-10-07T10:25:29Z
 - **Labels**: `kind/cleanup`
-- **Assignees**: _none_
-- **Comments**: 8
+- **Assignees**: [@abdelrahmanmagdii](https://github.com/abdelrahmanmagdii)
+- **Comments**: 11
 
 ## Description
 
@@ -124,3 +124,17 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-06-19T04:19:30Z
 
 /remove-lifecycle stale
+
+### Comment by [@abdelrahmanmagdii](https://github.com/abdelrahmanmagdii) — 2026-09-30T15:39:56Z
+
+Hey! I'm interested in picking this up
+
+Is the direction demonstrated in #8377 still the preferred approach? or should this be split into multiple PRs? thanks!
+
+### Comment by [@alexandear](https://github.com/alexandear) — 2026-09-30T16:00:23Z
+
+@abdelrahmanmagdii feel free to open a PR. Take whichever approach you think works best.
+
+### Comment by [@abdelrahmanmagdii](https://github.com/abdelrahmanmagdii) — 2026-10-02T20:32:36Z
+
+/assign

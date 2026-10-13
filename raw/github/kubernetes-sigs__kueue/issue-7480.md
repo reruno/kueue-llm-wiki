@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7480
 
-**Last updated**: 2026-06-09T09:52:47Z
+**Last updated**: 2026-10-01T16:25:11Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-10-31T11:20:13Z
-- **Updated**: 2026-06-09T09:52:47Z
+- **Updated**: 2026-10-01T16:25:11Z
 - **Closed**: —
 - **Labels**: `priority/important-soon`, `kind/cleanup`, `lifecycle/frozen`
-- **Assignees**: [@amy](https://github.com/amy), [@mbobrovskyi](https://github.com/mbobrovskyi)
-- **Comments**: 15
+- **Assignees**: [@amy](https://github.com/amy)
+- **Comments**: 16
 
 ## Description
 
@@ -148,3 +148,7 @@ yeah... eventually. But someone else can pick it up if they want.
 ### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-06-09T09:52:47Z
 
 /uassign
+
+### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-10-01T16:25:11Z
+
+/unassign

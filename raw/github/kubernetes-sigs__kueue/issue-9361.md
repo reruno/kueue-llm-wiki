@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9361
 
-**Last updated**: 2026-06-25T20:27:18Z
+**Last updated**: 2026-10-07T20:59:00Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@varunsyal](https://github.com/varunsyal)
 - **Created**: 2026-02-19T08:54:08Z
-- **Updated**: 2026-06-25T20:27:18Z
+- **Updated**: 2026-10-07T20:59:00Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `lifecycle/rotten`
+- **Labels**: `kind/feature`
 - **Assignees**: _none_
-- **Comments**: 3
+- **Comments**: 11
 
 ## Description
 
@@ -103,3 +103,43 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@amy](https://github.com/amy) — 2026-07-19T01:39:26Z
+
+@varunsyal bump. Curious if you're looking for behavior similar to kai's hierarchical gangs: https://developer.nvidia.com/blog/deploying-disaggregated-llm-inference-workloads-on-kubernetes/
+
+### Comment by [@amy](https://github.com/amy) — 2026-07-19T01:40:32Z
+
+/remove-lifecycle rotten
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-10-06T20:56:14Z
+
+cc @sohankunkerkar @mimowo @tenzen-y @kshalot @olekzabl 
+
+This came up with the Kueue integration with Grove (https://github.com/ai-dynamo/grove/issues/871) and I'm curious if we have an alternative for this issue.
+
+Seems this didn't get much traction.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-10-07T07:26:28Z
+
+So the idea is `required=block` and `preferred=rack` ? 
+
+You get this behavior already relying on our BestFit bin-packing by setting just `required=block` , because the bin-packing will try to squeeze under one "rack" if possible - if not possible it will spill over to the neighbour rack within the same block, so this is the expected behavior IIUC.
+
+### Comment by [@sohankunkerkar](https://github.com/sohankunkerkar) — 2026-10-07T20:33:37Z
+
+IIUC, I don't think `required: block` alone covers it. BestFit picks the block by its total free capacity and ignores how that capacity is split across racks. So a job can span two racks in the tightest block while another block has a rack that fits it whole. I'd keep that default and let users opt into rack locality with `required: block` + `preferred: rack`.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-10-07T20:44:18Z
+
+> BestFit picks the block by its total free capacity and ignores how that capacity is split across racks. So a job can span two racks in the tightest block while another block has a rack that fits it whole.
+
+true, though this is a bit of a corner case. I'm wondering if this scenario what indeed the intention for the issue.
+
+### Comment by [@sohankunkerkar](https://github.com/sohankunkerkar) — 2026-10-07T20:54:22Z
+
+Yeah, I can't tell what the original intent was, because the issue doesn't say why it's needed. What brought it back is Grove (ai-dynamo/grove#871). Grove lets users set `required: block` and `preferred: rack` on the same group, and Kueue can't take both today, so the Grove backend has to reject it or drop one. I think that's the real reason to support the pair, more than this placement case.
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-10-07T20:59:00Z
+
+forgot to tag @alaypatel07

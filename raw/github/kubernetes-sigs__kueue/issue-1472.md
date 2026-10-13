@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/1472
 
-**Last updated**: 2025-02-18T03:41:02Z
+**Last updated**: 2026-10-07T10:24:54Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@psschwei](https://github.com/psschwei)
 - **Created**: 2023-12-15T21:25:09Z
-- **Updated**: 2025-02-18T03:41:02Z
-- **Closed**: —
+- **Updated**: 2026-10-07T10:24:54Z
+- **Closed**: 2026-10-07T10:24:54Z
 - **Labels**: `kind/feature`, `good first issue`, `help wanted`, `sig/release`
 - **Assignees**: [@OMNARAYANYU](https://github.com/OMNARAYANYU)
-- **Comments**: 10
+- **Comments**: 11
 
 ## Description
 
@@ -155,3 +155,7 @@ Instructions for interacting with me using PR comments are available [here](http
 ### Comment by [@OMNARAYANYU](https://github.com/OMNARAYANYU) — 2025-02-18T03:41:00Z
 
 /assign
+
+### Comment by [@Not-Dhananjay-Mishra](https://github.com/Not-Dhananjay-Mishra) — 2026-04-24T14:54:58Z
+
+Hello @tenzen-y, can I work on this? If it still needed to be added.

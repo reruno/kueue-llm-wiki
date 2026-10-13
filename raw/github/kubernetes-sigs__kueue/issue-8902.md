@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8902
 
-**Last updated**: 2026-06-03T04:05:18Z
+**Last updated**: 2026-10-05T17:12:36Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@monabil08](https://github.com/monabil08)
 - **Created**: 2026-01-30T10:32:43Z
-- **Updated**: 2026-06-03T04:05:18Z
+- **Updated**: 2026-10-05T17:12:36Z
 - **Closed**: —
 - **Labels**: `kind/feature`
 - **Assignees**: _none_
-- **Comments**: 8
+- **Comments**: 12
 
 ## Description
 
@@ -116,3 +116,21 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@sohankunkerkar](https://github.com/sohankunkerkar) — 2026-06-03T04:05:15Z
 
 /remove-lifecycle stale
+
+### Comment by [@sanjay7178](https://github.com/sanjay7178) — 2026-09-09T20:06:29Z
+
+ I'd like to take this forward , I'll use https://github.com/kubernetes-sigs/kueue/pull/9251 as the base KEP and open an updated KEP PR that addresses the remaining review comments .
+
+### Comment by [@jackfrancis](https://github.com/jackfrancis) — 2026-10-05T16:46:38Z
+
+@sanjay7178 Are you still eager to move this forward? We can help coordinate w/ @kannon92 and the kueue community to prioritize if you have priority cycles in the near term.
+
+Thanks!
+
+### Comment by [@sanjay7178](https://github.com/sanjay7178) — 2026-10-05T17:07:39Z
+
+Hi @jackfrancis , I would like to continue writing this proposal , Sorry for the delay I didn’t get a chance to open the PR in the meantime .
+
+### Comment by [@jackfrancis](https://github.com/jackfrancis) — 2026-10-05T17:12:35Z
+
+@sanjay7178 sgtm, let me know if you'd like some help coordinating, I'll stand by :)
