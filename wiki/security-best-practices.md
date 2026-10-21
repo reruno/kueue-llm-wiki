@@ -2,7 +2,7 @@
 
 **Summary**: Actionable checklist a Kueue contributor or reviewer can apply to a PR. Distilled from the `Mitigation` sections of `raw/cve/` and adapted to Kueue's code shape (controller-runtime, webhooks, scheduler cache).
 
-**Sources**: `raw/cve/CVE-*.md` mitigation blocks (which repeat per category); the category pages [[security-denial-of-service]], [[security-authn-authz]], [[security-information-disclosure]], [[security-injection-and-input-validation]], [[security-supply-chain]]; [[code-quality]] for the project's existing review bar; 2026-10 CVE additions (`CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-26287.md`, `CVE-2026-7767.md`, `CVE-2026-86671.md`, `CVE-2026-109358.md`).
+**Sources**: `raw/cve/CVE-*.md` mitigation blocks (which repeat per category); the category pages [[security-denial-of-service]], [[security-authn-authz]], [[security-information-disclosure]], [[security-injection-and-input-validation]], [[security-supply-chain]]; [[code-quality]] for the project's existing review bar; 2026-10 CVE additions (`CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-26287.md`, `CVE-2026-7767.md`, `CVE-2026-86671.md`, `CVE-2026-109358.md`). 2026-10-21 additions: pr-17143.md, pr-17249.md, pr-17246.md, pr-17088.md, pr-16035.md, `CVE-2026-113727.md`, `CVE-2026-113708.md`, `CVE-2026-77524.md`.
 
 **Last updated**: 2026-10-21
 
@@ -68,6 +68,16 @@
 - [ ] Defaulting and multi-phase setup never overwrite a security-relevant value set earlier. A test asserts the final effective configuration (CVE-2026-26287).
 - [ ] HTTP clients that carry credentials do not follow cross-host redirects. URLs from config or CRs pass a scheme allow-list before the host check (CVE-2026-7767, CVE-2026-86671).
 - [ ] New file writes use `0600`/`0644` and `0700`/`0755`, never world-writable (CVE-2026-109358).
+
+### Modes, cache keys and authorization scope (added 2026-10-21)
+
+- [ ] Security-relevant modes (auth mode, access-control mode) are enums validated at startup; an unknown value is an error (Kueue pr-17143).
+- [ ] Cache keys that represent an identity use a length-prefixed or structured encoding, hashed; no delimiter joins of groups or extra values (Kueue pr-17249).
+- [ ] Every resource kind whose data appears in a response is authorized for the caller; an authorizer error denies; live streams require `watch` (Kueue pr-17246, pr-17088).
+- [ ] Ownership checks read the stored object, not the request body (CVE-2026-113727).
+- [ ] Commands built from input use `--` before positional arguments (CVE-2026-113708).
+- [ ] No CR or config field can direct Kueue's own ServiceAccount token to an endpoint (CVE-2026-77524).
+- [ ] An "authentication off" option is feature-gated, limited to loopback, keeps TLS and logs a warning, as `metrics.accessControlMode: None` does (pr-16035).
 
 ### Supply chain
 

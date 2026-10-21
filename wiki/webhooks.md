@@ -2,7 +2,7 @@
 
 **Summary**: Kueue ships validating and mutating admission webhooks for every CRD it defines and for every job type it integrates with. Validation enforces API-level invariants (flavor existence, immutability of certain fields). Mutation defaults fields, stamps finalizers, and — crucially — injects `.spec.suspend` or Pod scheduling gates so jobs are gated the instant they are created.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13375.md, pr-16972.md, pr-16973.md, pr-16705.md, pr-16710.md, pr-17060.md, pr-13996.md, pr-16779.md, raw/kueue/pkg/controller/jobframework/defaults.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13375.md, pr-16972.md, pr-16973.md, pr-16705.md, pr-16710.md, pr-17060.md, pr-13996.md, pr-16779.md, raw/kueue/pkg/controller/jobframework/defaults.go, pr-17090.md, pr-17201.md, pr-17202.md, issue-13991.md, pr-17147.md, raw/kueue/pkg/webhooks/workload_webhook.go
 
 **Last updated**: 2026-10-21
 
@@ -75,6 +75,8 @@ The `mworkload.kb.io` mutating webhook keeps `verbs=create`; an earlier attempt 
 - **`PreemptionConfig`** is validated by CRD/CEL only (for example `minValue <= maxValue`), not by a webhook (pr-16124).
 - **Workload `resourceUsage` divisibility message** now prints the pod count instead of a pointer address (pr-15736).
 - **`ResourceTransformations`**: no overlap check with `excludeResourcePrefixes` ships; pr-15926 was reverted ([[resource-transformer]]).
+- **Negative Pod overhead** (pr-17090, fixes issue-13991; v0.20.2 #17201, v0.19.9 #17202): under `WorkloadValidateResourcesAreNonNegative` the Workload webhook's `validatePodSetOverhead` rejects negative `podSets[].template.spec.overhead` quantities, which are part of the quota charge; on update only new or changed negative values are rejected, so existing objects stay updatable ([[workload#Negative Pod overhead is rejected (pr-17090, fixes issue-13991)]]).
+- **Lowering `status.reclaimablePods` while quota is reserved** is rejected by the Workload webhook; since pr-17147 the job reconciler no longer attempts it for an evicted Workload that still holds quota, which had blocked eviction (v0.20.2 / v0.19.9; [[workload#`reclaimablePods` must not block eviction (pr-17147, fixes issue-14811)]]).
 - **`DynamicQuotaOrchestrator`/`CapacityProvider`** use CEL (for example `resources` at most 64 entries; `orchestratedFlavors` 1-64, `controllerName` immutable) ([[dynamic-quota-orchestration]]).
 
 ## Update-rejection webhooks added in v0.19/v0.20

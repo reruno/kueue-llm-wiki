@@ -2,7 +2,7 @@
 
 **Summary**: `PreemptionConfig` (KEP-13396, `kueue.x-k8s.io/v1alpha1`, cluster-scoped) lets an administrator declare extra preemption rules with triggers and candidate selectors; a [[cluster-queue]] opts in through an annotation. **Alpha, feature gate `ConfigurablePreemptions`, off by default, new in v0.20.** Rules add *fallback candidates* on top of the classical and fair-sharing algorithms; they never replace them.
 
-**Sources**: pr-15889.md, pr-15913.md, pr-15992.md, pr-16062.md, pr-16124.md, pr-16130.md, pr-16139.md, pr-16202.md, pr-16208.md, pr-16269.md, pr-16324.md, issue-15892.md, issue-15893.md, issue-16295.md, raw/kueue/apis/kueue/v1alpha1/preemptionconfig_types.go, raw/kueue/pkg/scheduler/preemption/config/, raw/kueue/keps/13396-configurable-preemptions/README.md, pr-16374.md, pr-16390.md, pr-16598.md, pr-17091.md, pr-16695.md, pr-16343.md
+**Sources**: pr-15889.md, pr-15913.md, pr-15992.md, pr-16062.md, pr-16124.md, pr-16130.md, pr-16139.md, pr-16202.md, pr-16208.md, pr-16269.md, pr-16324.md, issue-15892.md, issue-15893.md, issue-16295.md, raw/kueue/apis/kueue/v1alpha1/preemptionconfig_types.go, raw/kueue/pkg/scheduler/preemption/config/, raw/kueue/keps/13396-configurable-preemptions/README.md, pr-16374.md, pr-16390.md, pr-16598.md, pr-17091.md, pr-16695.md, pr-16343.md, pr-17216.md, pr-17128.md
 
 **Last updated**: 2026-10-21
 
@@ -63,6 +63,7 @@ Candidates are deduplicated by Workload UID across rules and selectors of a trig
 - **Classical** (`classicalPreemptionStrategy`): after the classical candidate iterator is exhausted (`cont == true`), the evaluator is run for each `allowBorrowing` attempt.
 - **Fair sharing** (`fairPreemptionStrategy`): run after both fair-sharing strategies fail and the simulation was reverted; `noCandidates()` does not short-circuit when the config has any rule.
 - The shared `getTargets` loop still applies: yielded candidates are removed from the snapshot, `workloadFits` (quota **and** topology) is checked after each, then `fillBackWorkloads` re-adds candidates that turned out unnecessary.
+- **KEP aligned with the code (pr-17128, docs only, merged 2026-10-16).** KEP-13396 used to say classical/fair-sharing and `PreemptionConfig` candidates are "gathered into two separate sets, merged, deduplicated, and ordered". The actual Alpha order is sequential: (1) the classical or fair-sharing algorithm yields its candidates first, unchanged; (2) only if the preemptor still does not fit, rules are evaluated tier by tier (`Always`, `InsufficientQuota`, `QuotaFeasibleAndInsufficientTopology`), deduplicated and ordered within each tier; (3) a Workload already yielded is never selected again, because each yielded candidate is removed from the snapshot; (4) classical preemption appends configurable candidates at the end of each borrowing / non-borrowing attempt, fair sharing after all its strategies; (5) reverse-order fill-back runs over the combined sequence. Beta parity is to be defined against this behaviour (source: pr-17128.md).
 - **Flavor assignment**: `canPreemptWhileBorrowing()` returns true whenever the gate is on and the CQ references a PreemptionConfig, so `FlavorAssigner` can enter `Preempt` mode even if the CQ would borrow afterwards and the classical policies (`borrowWithinCohort: Never`) would forbid it. Whether any rule fires is decided later by the preemption algorithm (source: raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go). This widening is scheduled for removal (issue-15893.md).
 
 ## Eviction reasons and observability (pr-16208, pr-16324)
@@ -94,7 +95,7 @@ With `TASHandleOverlappingFlavors`, TAS flavors whose lowest level is `kubernete
 ## Internal API cleanups
 
 - `PreemptionConfigReference` and `PreemptionConfigRuleReference` named types for config and rule identifiers; candidate metadata and `strings.JoinMap` (now generic over string-like keys) use them; eviction messages are unchanged. Fixes issue-16210 (pr-16598; backport pr-16605).
-- `PreemptionEvaluator` binds the preemptor at construction (`NewEvaluatorForClusterQueue` and friends); `FindCandidates`, `orderedCandidates`, `candidatesFor` no longer take it, and the unused `clock` field was removed (pr-17091, no behaviour change).
+- `PreemptionEvaluator` binds the preemptor at construction (`NewEvaluatorForClusterQueue` and friends); `FindCandidates`, `orderedCandidates`, `candidatesFor` no longer take it, and the unused `clock` field was removed (pr-17091, no behaviour change; release-0.20 backport pr-17216, merged 2026-10-14).
 
 ## Interaction with fair-sharing final-target verification
 

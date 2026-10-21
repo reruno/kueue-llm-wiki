@@ -2,7 +2,7 @@
 
 **Summary**: Combined coverage for Injection (27), Path Traversal (12), and Code Execution (218) CVE categories — they share the same root cause (untrusted input crossing a parse/exec boundary) and the same mitigations (validate at boundary, allowlist, type-safe builders).
 
-**Sources**: `raw/cve/` — representative entries `CVE-2018-17450.md` (Jenkins SSRF), `CVE-2019-10165.md` (OpenShift command injection), `CVE-2019-11246.md` (kubectl cp tar extraction path traversal), `CVE-2019-1002101.md` (related path traversal), `CVE-2021-25741.md` (subpath symlink), `CVE-2022-23524-26.md` (Helm SSRF), `CVE-2025-15613.md` (Kyverno Service Call SSRF), 2026-09 additions `CVE-2026-80352.md` (Camel K YAML injection), `CVE-2026-77180.md`, `CVE-2026-52831.md`, `CVE-2026-53713.md`, `CVE-2026-84721.md`, `CVE-2026-59341.md`, and CWE-20/22/74/77/78/89/94/502/918/601 entries; 2026-10 additions `CVE-2026-55797.md`, `CVE-2026-18529.md`, `CVE-2026-108546.md`, `CVE-2026-86671.md`, `CVE-2026-7767.md`, `CVE-2026-55252.md`, `CVE-2026-105985.md`, `CVE-2026-108570.md`.
+**Sources**: `raw/cve/` — representative entries `CVE-2018-17450.md` (Jenkins SSRF), `CVE-2019-10165.md` (OpenShift command injection), `CVE-2019-11246.md` (kubectl cp tar extraction path traversal), `CVE-2019-1002101.md` (related path traversal), `CVE-2021-25741.md` (subpath symlink), `CVE-2022-23524-26.md` (Helm SSRF), `CVE-2025-15613.md` (Kyverno Service Call SSRF), 2026-09 additions `CVE-2026-80352.md` (Camel K YAML injection), `CVE-2026-77180.md`, `CVE-2026-52831.md`, `CVE-2026-53713.md`, `CVE-2026-84721.md`, `CVE-2026-59341.md`, and CWE-20/22/74/77/78/89/94/502/918/601 entries; 2026-10 additions `CVE-2026-55797.md`, `CVE-2026-18529.md`, `CVE-2026-108546.md`, `CVE-2026-86671.md`, `CVE-2026-7767.md`, `CVE-2026-55252.md`, `CVE-2026-105985.md`, `CVE-2026-108570.md`. 2026-10-21 additions `CVE-2026-113708.md`, `CVE-2026-113672.md`, `CVE-2026-113709.md`, `CVE-2026-92982.md`, `CVE-2026-47218.md`, `CVE-2026-77934.md`.
 
 **Last updated**: 2026-10-21
 
@@ -142,6 +142,33 @@ The Argo CD case shows the field need not look like a command: a **proxy host** 
 ### Template injection
 
 **Craft CMS 5.10.13.2, CVE-2026-105985** (CWE-1336, 8.8): request-controlled component classes and property overrides made `renderObjectTemplate()` evaluate attacker Twig outside a sandbox, reaching `system()`. **Furion <= 4.9.9.95, CVE-2026-108570** (CWE-1336, 6.3): `ViewEngine.RunCompile` compiled attacker-supplied template content (source: CVE-2026-105985.md, CVE-2026-108570.md). Both are outside Kubernetes and restate the existing rule: never evaluate a tenant-supplied string as a template. In Go, `text/template` with a FuncMap that reaches `os`/`exec` is the equivalent.
+
+## 2026-10-21 additions
+
+None is a Kueue CVE ([[security#2026-10-21 wave: what the 20 new CVEs add]]). Kueue still has no `os/exec` in `pkg/`. The only `os/exec` in the shipped Go code is `cmd/kueuectl/app/passthrough/passthrough.go`, which runs `kubectl` for passthrough subcommands, and the only template package is `html/template` in the docs generator `cmd/kueuectl-docs` (source: `raw/kueue` grep).
+
+### Argument injection: missing end-of-options separator
+
+**Argo CD 2.7.0 until 3.3.15 / 3.4.10 / 3.5.4, CVE-2026-113708** (CWE-88, 9.9): Kustomize passed the `ref`/`version` query value of a remote resource URL to `git fetch` without a `--` separator. A value starting with `-` was parsed as `--upload-pack=<cmd>` and ran a command in the repo-server when the remote used a local transport such as `file://`. Blocking egress did not help because the transport never left the Pod (source: CVE-2026-113708.md). **Rule:** argv-slice `exec.Command` prevents shell injection but **not option injection**. Put `--` before positional arguments taken from input, or reject values starting with `-`. This applies to `kueuectl` passthrough and to release scripts under `hack/` that pass refs, versions or branch names to `git`, `gh` or `kubectl`.
+
+### File reads and plugins under a repository's control
+
+- **Argo CD, CVE-2026-113672** (CWE-22, 9.9): the jsonnet importer did not confine `import`, `importstr` and `importbin` to the repo root (absolute paths, `..`, symlinks), so manifests could read `/proc/self/environ`, SA tokens and keys (source: CVE-2026-113672.md).
+- **Argo CD, CVE-2026-113709** (CWE-829, 9.9): `helmGlobals.configHome` pointed Helm's config and data directories into the repo, and Helm loaded a downloader plugin from `<configHome>/.data/plugins` without an install step (source: CVE-2026-113709.md).
+
+**Rule:** a tool run on tenant content must have its search paths, config directories and plugin directories fixed by the controller, never by the content. Confine includes with a resolved-path prefix check after `filepath.EvalSymlinks`.
+
+### Template injection in operators
+
+**Ansible Operator Plugins, CVE-2026-92982** (CWE-1336, 8.5): CR spec values were rendered by Ansible, so embedded Jinja2 expressions ran in the operator Pod with its cluster-wide ServiceAccount (source: CVE-2026-92982.md). Same rule as the 2026-10 template entries; it is the operator-framework version.
+
+### Trusted-artefact bypass
+
+**runwasi < 0.6.1, CVE-2026-47218** (CWE-502): `containerd-shim-wasmtime-v1` treated Wasmtime precompiled bytes found in an OCI image layer as a trusted precompile-cache artefact and deserialized them as native code, skipping WebAssembly validation (source: CVE-2026-47218.md). **Rule:** data that arrives with untrusted input must never be read through the code path meant for the component's own cache. Kueue analogue: anything Kueue reads back from an object annotation it normally writes itself (for example `kueue.x-k8s.io/workload` on Pods and Pod templates) must be validated on read, because a tenant can write the same annotation on objects they create.
+
+### Denylist "sandboxes"
+
+**Coze Studio < 0.5.0, CVE-2026-77934** (CWE-1188, 8.8): a regex filter on Python imports was bypassed with `__import__('subprocess')` (source: CVE-2026-77934.md). Filtering code text is not isolation.
 
 ## Related pages
 

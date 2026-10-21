@@ -2,7 +2,7 @@
 
 **Summary**: Master checklist of code patterns reviewers should flag, distilled from the `Security Code Patterns` section of every CVE in `raw/cve/`. Grouped by category and mapped to CWE.
 
-**Sources**: `raw/cve/CVE-*.md` (775 entries); 2026-10 additions `CVE-2026-26287.md`, `CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-106563.md`, `CVE-2026-7767.md`, `CVE-2026-86671.md`, `CVE-2026-105216.md`, `CVE-2026-105223.md`, `CVE-2026-109358.md`, `CVE-2026-107446.md`; Kueue `pr-16379.md`. Pattern text is taken verbatim from the CVE files where the same checklist repeats per category.
+**Sources**: `raw/cve/CVE-*.md` (795 entries); 2026-10 additions `CVE-2026-26287.md`, `CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-106563.md`, `CVE-2026-7767.md`, `CVE-2026-86671.md`, `CVE-2026-105216.md`, `CVE-2026-105223.md`, `CVE-2026-109358.md`, `CVE-2026-107446.md`; 2026-10-21 additions `CVE-2026-113727.md`, `CVE-2026-113708.md`, `CVE-2026-77524.md`, `CVE-2026-53999.md`, `CVE-2026-110248.md`, `CVE-2026-47218.md`; Kueue fixes pr-17143.md, pr-17249.md, pr-17246.md, pr-17088.md, pr-16035.md; Kueue `pr-16379.md`. Pattern text is taken verbatim from the CVE files where the same checklist repeats per category.
 
 **Last updated**: 2026-10-21
 
@@ -187,6 +187,23 @@ The 26 CVEs added by the 2026-10 data-collection are all non-Kueue and none affe
 | Privileged component writes files world-writable | `CVE-2026-109358` (Contrast node installer wrote the containerd config `0666`) | any `os.WriteFile`/`MkdirAll` uses `0600`/`0700` (or `0644` for non-secret), never `0666`/`0777` |
 | A failed parse is represented by the **same value as "no restriction"** (`nil` selector, empty list), so an invalid rule silently widens scope | Kueue's own, no CVE: before v0.20.0, `NewLocalQueueMetricsConfig` discarded the parse error from `metrics.localQueueMetrics.localQueueSelector` and returned `nil`, which downstream treated as "no LocalQueue filtering". With `LocalQueueMetrics` on, an invalid selector (for example `operator: InvalidOp`) emitted LocalQueue metrics for **all** queues: wider monitoring scope and higher cardinality, with no error reported. Fixed in v0.20.0 by returning the error to callers, so the controller fails startup (ACTION REQUIRED: correct invalid selectors before upgrading) (source: pr-16379.md) | a parse or validation error is returned, never mapped to the zero value. Where `nil`/empty means "match everything", test that an invalid input is rejected rather than matching everything. Same fail-closed rule as the Traefik conflict fallback row above. See [[metrics]] |
 | Length field from an untrusted binary format overflows | `CVE-2026-107446` (overlaybd `index_bytes`, CWE-190) | see [[security-denial-of-service]] |
+
+## Identity, option and ownership patterns (2026-10-21 additions)
+
+The 20 CVEs added by the 2026-10-21 data-collection are non-Kueue and none affects a Kueue dependency ([[security#2026-10-21 wave: what the 20 new CVEs add]]). Four of the rows below come from Kueue's own KueueViz fixes in the same window.
+
+| Pattern | Example | What to check in Kueue code |
+|---|---|---|
+| A security mode compared with `==` against one "on" value, so any other string means "off" | Kueue KueueViz `KUEUEVIZ_AUTH_MODE` (pr-17143, issue-17142): `tokenreview` disabled authentication | security-relevant modes are validated enums; unknown values fail startup. `switch` with an explicit `default:` error, not `if mode == X` |
+| A cache key built by joining strings with a delimiter that can occur in the strings | Kueue KueueViz SAR cache (pr-17249, issue-17248): `["a,b"]` and `["a","b"]` shared a decision | keys for identities or authz decisions use a structured or length-prefixed encoding (then hash); never `strings.Join` of tenant-controlled values. Sort copies, not the caller's slice |
+| A response embeds data of a second kind that was never authorized | Kueue KueueViz `/ws/cohorts` ClusterQueue names (pr-17246); `/ws/namespaces` live updates without `watch` (pr-17088) | each kind contributing to a response has its own check; authorizer errors deny; streams need `watch`, snapshots need `list` |
+| The authorized object differs from the modified object | `CVE-2026-113727` (OpenChoreo: labels in the body authorized, object loaded by URL path) | webhooks and handlers decide ownership from the **stored** object; `ValidateUpdate` compares old to new |
+| An argv value from input is parsed as an option | `CVE-2026-113708` (Argo CD `git fetch` without `--`, `--upload-pack`) | `exec.Command` callers (only `kueuectl` passthrough today) and `hack/` scripts put `--` before positional input or reject a leading `-` |
+| The controller's own token is sent to a tenant-chosen URL | `CVE-2026-77524` (KEDA Vault auth with the operator's SA token) | no CR field selects an endpoint that receives Kueue's in-cluster credentials |
+| A tenant-writable status/marker annotation chooses a deletion target | `CVE-2026-53999` (Radius `radapp.io/status`) | Kueue-owned annotations read from tenant objects are cross-checked with an owner reference or UID before a destructive action |
+| Credentials in subprocess or client error text are logged verbatim | `CVE-2026-110248` (SageMaker git clone error) | errors that may contain URLs with userinfo or tokens are wrapped or redacted before logging |
+| Untrusted input read through the component's trusted-cache path | `CVE-2026-47218` (runwasi precompiled Wasm from an image layer) | annotations Kueue normally writes are validated on read, since tenants can set them too |
+| An authentication opt-out is not confined to a safe listener | Kueue `metrics.accessControlMode: None` (pr-16035) is the positive model: Alpha gate, literal loopback IP and port required, HTTPS kept, startup warning | any new "auth off" switch is gated, validated against the bind address, and logged |
 
 ## Related pages
 

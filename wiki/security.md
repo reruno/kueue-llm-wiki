@@ -1,8 +1,8 @@
 # Security in Kueue
 
-**Summary**: Landing page for code-security guidance applied to Kueue. Synthesizes 749 Kubernetes-ecosystem CVEs (`raw/cve/`) into the vulnerability classes and review patterns that matter for a Kueue contributor or reviewer.
+**Summary**: Landing page for code-security guidance applied to Kueue. Synthesizes 795 Kubernetes-ecosystem CVEs (`raw/cve/`) into the vulnerability classes and review patterns that matter for a Kueue contributor or reviewer.
 
-**Sources**: `raw/cve/CVE-*.md` (775 entries spanning 2018–2026, vendors include `kubernetes`, `kubernetes-sigs`, `fluxcd`, `argoproj`, `jenkins`, `redhat`, `fedoraproject`); 2026-10 batch: CVE-2026-101919.md, CVE-2026-103413.md, CVE-2026-103546.md, CVE-2026-105216.md, CVE-2026-105223.md, CVE-2026-105985.md, CVE-2026-106487.md, CVE-2026-106561.md, CVE-2026-106563.md, CVE-2026-107446.md, CVE-2026-108546.md, CVE-2026-108570.md, CVE-2026-109358.md, CVE-2026-18517.md, CVE-2026-18529.md, CVE-2026-18533.md, CVE-2026-18537.md, CVE-2026-26287.md, CVE-2026-55252.md, CVE-2026-55797.md, CVE-2026-71895.md, CVE-2026-7767.md, CVE-2026-86671.md, CVE-2026-92393.md, CVE-2026-95837.md, CVE-2026-95838.md; Kueue code `pkg/controller/admissionchecks/multikueue/multikueuecluster.go`, `pkg/controller/jobframework/validation.go`.
+**Sources**: `raw/cve/CVE-*.md` (795 entries spanning 2018–2026, vendors include `kubernetes`, `kubernetes-sigs`, `fluxcd`, `argoproj`, `jenkins`, `redhat`, `fedoraproject`); 2026-10 batch: CVE-2026-101919.md, CVE-2026-103413.md, CVE-2026-103546.md, CVE-2026-105216.md, CVE-2026-105223.md, CVE-2026-105985.md, CVE-2026-106487.md, CVE-2026-106561.md, CVE-2026-106563.md, CVE-2026-107446.md, CVE-2026-108546.md, CVE-2026-108570.md, CVE-2026-109358.md, CVE-2026-18517.md, CVE-2026-18529.md, CVE-2026-18533.md, CVE-2026-18537.md, CVE-2026-26287.md, CVE-2026-55252.md, CVE-2026-55797.md, CVE-2026-71895.md, CVE-2026-7767.md, CVE-2026-86671.md, CVE-2026-92393.md, CVE-2026-95837.md, CVE-2026-95838.md; Kueue code `pkg/controller/admissionchecks/multikueue/multikueuecluster.go`, `pkg/controller/jobframework/validation.go`; 2026-10-21 batch: CVE-2026-103314.md, CVE-2026-105311.md, CVE-2026-105312.md, CVE-2026-110248.md, CVE-2026-112778.md, CVE-2026-113672.md, CVE-2026-113708.md, CVE-2026-113709.md, CVE-2026-113727.md, CVE-2026-47218.md, CVE-2026-53999.md, CVE-2026-65162.md, CVE-2026-65172.md, CVE-2026-77459.md, CVE-2026-77524.md, CVE-2026-77564.md, CVE-2026-77934.md, CVE-2026-87354.md, CVE-2026-92982.md, CVE-2026-94197.md; raw/kueue/go.mod; KueueViz fixes pr-17088.md, pr-17143.md, pr-17246.md, pr-17249.md; pr-16035.md; raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md.
 
 **Last updated**: 2026-10-21
 
@@ -17,7 +17,7 @@ Kueue is a privileged in-cluster controller. It runs with a ServiceAccount that 
 - Let a low-privileged tenant escape their [[cluster-queue|ClusterQueue]] or [[cohort]] quota ([[security-authn-authz|authn/authz]])
 - Be exploited by a malicious workload spec that the [[admission|admission flow]] doesn't validate ([[security-injection-and-input-validation|injection]])
 
-The CVE corpus in `raw/cve/` is not a list of *Kueue* CVEs — Kueue has not had a published CVE as of 2026-10 (none of the 775 entries is a Kueue advisory). The corpus is a curated set of vulnerabilities from the broader Kubernetes ecosystem that teach the *patterns* a reviewer should flag in Kueue code. Every CVE file shares the same structure and ends with a `Security Code Patterns` checklist scoped by `Category`.
+The CVE corpus in `raw/cve/` is not a list of *Kueue* CVEs — Kueue has not had a published CVE as of 2026-10-21 (none of the 795 entries is a Kueue advisory). The corpus is a curated set of vulnerabilities from the broader Kubernetes ecosystem that teach the *patterns* a reviewer should flag in Kueue code. Every CVE file shares the same structure and ends with a `Security Code Patterns` checklist scoped by `Category`.
 
 ## Threat model for Kueue
 
@@ -45,7 +45,7 @@ External attackers without cluster credentials are *not* a direct Kueue threat: 
 | Path Traversal | 12 | CWE-22, CWE-61, CWE-363 |
 | Supply Chain | 7 | CWE-295, CWE-494 |
 
-Recomputed 2026-09-29 from `raw/cve/` (749 files; 67 added by the 2026-09-29 data-collection). The 2026-10 data-collection added 26 more (775 total), not folded into the table: 11 Code Execution, 9 Information Disclosure, 2 Other, and one each of Authentication Bypass, Privilege Escalation, Supply Chain and Unauthorized Write Access; 14 High, 7 Medium, 1 Low, 4 Unknown. Publication years skew recent: 320 entries published in 2026, 103 in 2025, and 326 across 2018–2024. The `Category` label is assigned by the data collector and is often wrong for the real bug class (for example Traefik authz bypasses and Envoy Gateway DoS bugs are tagged `Code Execution`); read the CWE and description, not the category.
+Recomputed 2026-09-29 from `raw/cve/` (749 files; 67 added by the 2026-09-29 data-collection). Later additions are not folded into the table. The 2026-10 data-collection added 26 more (775 total): 11 Code Execution, 9 Information Disclosure, 2 Other, and one each of Authentication Bypass, Privilege Escalation, Supply Chain and Unauthorized Write Access; 14 High, 7 Medium, 1 Low, 4 Unknown. The 2026-10-21 data-collection added 20 (795 total): 7 Code Execution, 5 Information Disclosure, 2 Other, 2 Privilege Escalation, and one each of Authentication Bypass, Denial of Service, Path Traversal and Unauthorized Write Access; 7 Critical, 8 High, 2 Medium, 1 Low, 2 Unknown. Publication years skew recent (counts as of 2026-09-29): 320 entries published in 2026, 103 in 2025, and 326 across 2018–2024. The `Category` label is assigned by the data collector and is often wrong for the real bug class (for example Traefik authz bypasses and Envoy Gateway DoS bugs are tagged `Code Execution`); read the CWE and description, not the category.
 
 Severity skews Medium (289) and High (271); Critical (109); Low (28); plus 49 Unknown and 3 None. Kueue's direct exposure is concentrated in **DoS**, **info disclosure**, and **unauthorized write access** — categories where the controller-pattern code patterns map almost one-for-one onto Kueue's reconciler, scheduler, and webhook code.
 
@@ -78,7 +78,7 @@ Reviewer takeaway, generalised: **any lookup keyed only on a name the tenant con
 - `kueuectl delete workload` deleted an owner **by name**, destroying a same-named replacement object; now uses a **UID delete precondition** ([[pr-14831]]).
 - Admission fair-sharing compared LocalQueues by `spec.queueName` alone, so `team-a/default` and `team-b/default` were the same queue; now namespace-qualified ([[pr-14547]]).
 - The scheduling-equivalence hash consumed the client-settable `kueue.x-k8s.io/role-hash` annotation via the PodSet name ([[pr-14784]], [[issue-14802]]).
-- **A second pod-group quota bypass**: a forged `kueue.x-k8s.io/role-hash` let an oversized Pod run under a cheaper role's PodSet. It is fixed at **ungate time**, not in the webhook: before a pod-group Pod is ungated Kueue checks that it fits the PodSet its role maps to, and an oversized Pod stays gated with a `PodExceedsRoleRequests` event (#13382, gate `PodIntegrationVerifyRoleRequests`, Beta/on on main; backports pr-17123/pr-17124, in v0.20.2 / v0.19.9 per CHANGELOG at kueue@3bbb8cce4, released after this snapshot). See [[integration-plain-pod]].
+- **A second pod-group quota bypass**: a forged `kueue.x-k8s.io/role-hash` let an oversized Pod run under a cheaper role's PodSet. It is fixed at **ungate time**, not in the webhook: before a pod-group Pod is ungated Kueue checks that it fits the PodSet its role maps to, and an oversized Pod stays gated with a `PodExceedsRoleRequests` event (#13382, gate `PodIntegrationVerifyRoleRequests`, Beta/on on main; shipped in **v0.20.2 / v0.19.9** as **Alpha/off** via backports pr-17123/pr-17124, so on those releases you must enable the gate to get the check) (source: CHANGELOG-0.20.md, CHANGELOG-0.19.md). See [[integration-plain-pod]].
 
 ## 2026-09 wave: what the 67 new CVEs add
 
@@ -90,7 +90,7 @@ The 2026-09-29 batch is dominated by **Kubernetes operators and gateways that ac
 4. **Decompression, tar-header and unbounded-`io.ReadAll` size bugs on tenant-supplied URLs** (CVE-2026-53716/53717, CVE-2026-50125, CVE-2026-54247, CVE-2026-53493). See [[security-denial-of-service]].
 5. **Tenant-controlled URL or file path read with the controller's own credentials** (CVE-2026-47701, CVE-2026-84721, CVE-2026-92568, CVE-2026-86590, CVE-2026-93537). See [[security-injection-and-input-validation]] and [[security-information-disclosure]].
 
-Kueue's exposure is still the same: it dials only MultiKueue worker endpoints, reads no tenant URLs or files, and has no HTTP endpoint besides metrics and the visibility API. The most relevant analogues are [[multikueue]] kubeconfigs, `prebuilt-workload-name`/`pod-group-name` lookups, and the webhook validators.
+Kueue's exposure is still the same: it dials only MultiKueue worker endpoints, reads no tenant URLs or files, and the manager has no HTTP endpoint besides metrics, webhooks and the visibility API. The separately deployed [[dashboard|KueueViz]] backend is the other user-facing HTTP surface. The most relevant analogues are [[multikueue]] kubeconfigs, `prebuilt-workload-name`/`pod-group-name` lookups, and the webhook validators.
 
 ## 2026-10 wave: what the 26 new CVEs add
 
@@ -107,6 +107,22 @@ The batch is again dominated by operators and portals that act on tenant input w
 7. **TLS verification off by default, or off when no CA is given** (CVE-2026-105216, CVE-2026-105223), and world-writable files written by a privileged installer (Contrast CVE-2026-109358). See [[security-supply-chain]].
 
 Eight entries are outside Kueue's surface and are recorded only as reinforcing examples: Craft CMS (CVE-2026-105985) and Furion (CVE-2026-108570) template injection, Spotweb (CVE-2026-108546) shell injection, OpenRun open redirect (CVE-2026-55252), the IBM Maximo NetworkPolicy egress gap (CVE-2026-18517; Kueue ships no NetworkPolicy), and the containerd runtime bugs above.
+
+## 2026-10-21 wave: what the 20 new CVEs add
+
+> **Direct impact on Kueue: none.** No entry is a Kueue advisory, and none affects a module Kueue ships. The products are Argo CD (4 entries: CVE-2026-77459, CVE-2026-113672, CVE-2026-113708, CVE-2026-113709), KEDA, Traefik, F5 NGINX Ingress Controller, Radius, OpenChoreo, Talos, runwasi, Red Hat ACS, StreamsHub Console, Ansible Operator Plugins, NVIDIA AIStore (2), Amazon SageMaker Python SDK, Coze Studio and Oracle TimesTen. None of them appears in `raw/kueue/go.mod` (checked for argo, keda, traefik, nginx, radius, talos, wasm, strimzi, ansible, helm). Kueue's Argo Workflows integration does not import Argo CD code (source: raw/kueue/go.mod).
+
+The batch is again about operators acting on tenant input with their own credentials. New rules, each on the page named:
+
+1. **Authorize the stored object, not the submitted one** (OpenChoreo CVE-2026-113727). See [[security-authn-authz]].
+2. **Never present the controller's token to a tenant-chosen endpoint** (KEDA CVE-2026-77524), and **namespace-confine every reference a CR or annotation can make** (StreamsHub CVE-2026-105311/105312, Traefik CVE-2026-112778). See [[security-authn-authz]].
+3. **A tenant-writable status annotation must not select a deletion target** (Radius CVE-2026-53999). See [[security-authn-authz]] and [[security-denial-of-service]].
+4. **Option injection survives argv-slice exec** (Argo CD CVE-2026-113708, missing `--`). See [[security-injection-and-input-validation]].
+5. **Search paths, config homes and plugin directories must not come from tenant content** (Argo CD CVE-2026-113672, CVE-2026-113709). See [[security-injection-and-input-validation]] and [[security-supply-chain]].
+6. **Error text and support bundles leak credentials** (SageMaker CVE-2026-110248, Talos CVE-2026-77564). See [[security-information-disclosure]].
+7. **Bytes from untrusted input must not take the trusted-cache path** (runwasi CVE-2026-47218). See [[security-supply-chain]].
+
+Kueue's own fixes in the same window teach more than the corpus does: four KueueViz authorization bugs (fail-open auth mode, delimiter-joined SAR cache keys, unauthorized secondary fields in `/ws/cohorts`, live updates without `watch` in `/ws/namespaces`) and the new opt-in, loopback-only `metrics.accessControlMode: None` (Alpha, main). See [[security-authn-authz#KueueViz fixes in this window: in-repo examples]] and [[security-code-patterns]].
 
 ## Related pages
 

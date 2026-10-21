@@ -2,7 +2,7 @@
 
 **Summary**: A Workload is the Kueue-internal CRD that wraps an underlying job (Job, JobSet, RayJob, …) and exposes the fields Kueue needs: PodSets, priority, queue-name, admission state, conditions. Every admitted job has exactly one Workload, owned by the job via an ownerReference.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16479.md, pr-14520.md, pr-13671.md, pr-16627.md, pr-13956.md, pr-17069.md, issue-16486.md, pr-16779.md, pr-16881.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16479.md, pr-14520.md, pr-13671.md, pr-16627.md, pr-13956.md, pr-17069.md, issue-16486.md, pr-16779.md, pr-16881.md, pr-17147.md, pr-17215.md, pr-17220.md, pr-17269.md, issue-14811.md, issue-17221.md, pr-17090.md, pr-17201.md, pr-17202.md, issue-13991.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/webhooks/workload_webhook.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
 **Last updated**: 2026-10-21
 
@@ -47,6 +47,20 @@ A Workload's priority is derived once, at creation, from either a stock Priority
 ## Eviction, requeueing, deactivation
 
 When an admitted Workload is preempted, or when [[gang-scheduling]]'s WaitForPodsReady timeout fires, the Workload is evicted: `status.conditions.Evicted=True`, `status.admission` cleared, job re-suspended. If `requeuingStrategy` permits, the Workload is re-added to the queue with a backoff. After too many evictions it can be deactivated ([[issue-2174]]). Eviction detail: a preemption sets `Evicted` with reason `Preempted` plus a separate `Preempted` condition whose reason names the trigger (including the Alpha `ConfigurablePreemption`), and `status.schedulingStats.evictions[]` counts evictions per `reason` and `underlyingCause` (for configurable preemption the `PreemptionConfig` name; for `PodsReadyTimeout` the `WaitForStart`/`WaitForRecovery`/`WaitForScheduling` phase) ([[configurable-preemptions]], [[wait-for-pods-ready]]). If `spec.active` is false, the Workload stays dormant.
+
+## `reclaimablePods` must not block eviction (pr-17147, fixes issue-14811)
+
+The Workload webhook refuses to **lower** `status.reclaimablePods` while the Workload holds quota (both "cannot be removed" when an entry disappears and "cannot be less than N" when a count drops; the `scaledDownPodSets` exemption applies only to elastic slices). `JobReconciler.ReconcileGenericJob` updates reclaimable counts (step 4) **before** it handles eviction, and returned on that rejected update, so eviction never released quota: the job was suspended and its Pods deleted, yet `status.admission` stayed populated with `Admitted`, `QuotaReserved` and `Evicted` all `True`, and the Workload was never requeued. The ClusterQueue kept charging the reservation indefinitely (source: issue-14811.md).
+
+Trigger seen in production: a JobSet with `failurePolicy.restartStrategy: Recreate` recreated child Jobs that had already succeeded (their reclaimable count went back down), then a `waitForPodsReady` recovery timeout (`underlyingCause: WaitForRecovery`) evicted the Workload. An elastic batch Job shrink with fixed completions hit the same path (source: issue-14811.md).
+
+Fix: the reconciler skips the reclaimable-pods update when the Workload is evicted **and** still holds a quota reservation (`evictedAndHoldingQuota`), so the eviction path runs, suspends the job, clears `status.admission` once Pods are inactive, and the stale reclaimable entries go away with the reservation (source: raw/kueue/pkg/controller/jobframework/reconciler.go, pr-17147.md). Release note: "JobSet: Fixed a bug where an evicted Workload could keep its quota reserved, and was not requeued, if a JobSet restart had recreated child Jobs that had already succeeded." Shipped in **v0.20.2 (#17215)** and **v0.19.9 (#17220)**. An envtest regression test with the real webhook followed (pr-17269, fixes issue-17221; backports pr-17426/0.20, pr-17425/0.19) (source: raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md, pr-17269.md).
+
+Invariant for job-framework code: any status write that the webhook can reject while quota is reserved must not run ahead of eviction handling, or eviction can deadlock on it.
+
+## Negative Pod overhead is rejected (pr-17090, fixes issue-13991)
+
+`spec.podSets[].template.spec.overhead` is added to the per-Pod requests charged against quota, but `WorkloadValidateResourcesAreNonNegative` (Beta, on; introduced in v0.20.0 and v0.19.1 per the changelogs) only checked container requests, so a negative overhead could offset them and admit a Workload with too little quota charged. The Workload webhook now runs `validatePodSetOverhead` under the same gate: on create, any negative overhead quantity is rejected; on update, only **new or changed** negative quantities are rejected, so an existing object can still be updated (for example to remove Kueue's finalizer). With the gate off, negative overhead is accepted as before. Release note: "Workload: Reject negative Pod overhead when WorkloadValidateResourcesAreNonNegative is enabled." Shipped in **v0.20.2 (#17201)** and **v0.19.9 (#17202)** (source: pr-17090.md, raw/kueue/pkg/webhooks/workload_webhook.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md).
 
 ## Annotations that change Workload behaviour (v0.20)
 

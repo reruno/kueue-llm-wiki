@@ -2,7 +2,7 @@
 
 **Summary**: Integration tests run Kueue's controllers and webhooks against a controller-runtime `envtest` (an etcd + kube-apiserver pair; no kubelet, no kube-scheduler). They are Ginkgo + Gomega suites under `test/integration/`. This page covers the suites, the CI variants (main / baseline / extended / multikueue), how to write one, and the flake patterns that recur.
 
-**Sources**: `raw/kueue/Makefile-test.mk`, `raw/kueue/test/integration/`, `raw/kueue/test/util/constants.go`, `raw/kueue/test/util/util.go`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[pr-2415]], [[pr-6906]]; pr-16793.md, issue-16789.md, pr-16781.md, pr-16791.md, pr-16723.md; `raw/kueue/test/integration/framework/framework.go`, `raw/kueue/test/util/behavioral/`.
+**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/test/integration/`, `raw/kueue/test/util/constants.go`, `raw/kueue/test/util/util.go`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[pr-2415]], [[pr-6906]]; pr-16793.md, issue-16789.md, pr-16781.md, pr-16791.md, pr-16723.md; `raw/kueue/test/integration/framework/framework.go`, `raw/kueue/test/util/behavioral/`.; pr-17282.md, issue-16873.md
 
 **Last updated**: 2026-10-21
 
@@ -57,7 +57,7 @@ test/integration/
 
 ## CI variants
 
-Four flavors exist in `Makefile-test.mk`. They differ only by label filter:
+Four flavors exist in `hack/make/test.mk`. They differ only by label filter:
 
 | Target | Label filter | Purpose |
 |---|---|---|
@@ -66,7 +66,7 @@ Four flavors exist in `Makefile-test.mk`. They differ only by label filter:
 | `make test-integration-extended` | `slow \|\| redundant` | Catches specs marked `slow` or `redundant` that `baseline` skips. |
 | `make test-multikueue-integration` | (none) | Two envtest instances — one acting as the MultiKueue manager, one as a worker. Has its own CI jobs `pull-kueue-test-integration-multikueue-main` (presubmit) and `periodic-kueue-test-integration-multikueue-main` (periodic) ([[issue-9954]]). |
 
-There is no separate `feature-gates` integration variant in `Makefile-test.mk` — feature-gate combinations are exercised by enabling them inside specific specs rather than by a dedicated target.
+There is no separate `feature-gates` integration variant in `hack/make/test.mk` — feature-gate combinations are exercised by enabling them inside specific specs rather than by a dedicated target.
 
 ## Running
 
@@ -96,7 +96,7 @@ TEST_LOG_LEVEL=-5 INTEGRATION_API_LOG_LEVEL=4 make test-integration
 
 ### Label taxonomy
 
-From `Makefile-test.mk`:
+From `hack/make/test.mk`:
 
 - **Controllers**: `controller:workload`, `controller:localqueue`, `controller:clusterqueue`, `controller:admissioncheck`, `controller:resourceflavor`, `controller:provisioning`.
 - **Job types**: `job:batch`, `job:pod`, `job:jobset`, `job:pytorch`, `job:tensorflow`, `job:mpi`, `job:paddle`, `job:xgboost`, `job:jax`, `job:train`, `job:ray`, `job:appwrapper`, `job:sparkapplication`.
@@ -192,6 +192,10 @@ Fixes that actually work:
 ### `Consistently` racing with cleanup
 
 [[issue-9954]] — A MultiKueue spec used `Consistently` to assert that a Workload never transitioned; it flaked with `"workloads.kueue.x-k8s.io \"...\" not found"` because the cleanup path beat the assertion. Fix was structural: align the integration spec with what the e2e version already did.
+
+### Restarting the manager drops in-flight Events
+
+The scheduler emits `QuotaReserved` from a detached admission goroutine (`admissionRoutineWrapper.Run`), and stopping the manager does not wait for it; the event recorder stops with the caches, so an Event emitted after that is lost. A test that restarts the manager right after admission and then expects exactly one `QuotaReserved` Event flakes. Wait for the first Event **before** the restart, then keep the post-restart `Consistently(count == 1)` check, which still catches a second reservation (source: pr-17282.md, fixes issue-16873; backports pr-17340, pr-17342).
 
 ### Missing ResourceFlavor during test setup
 

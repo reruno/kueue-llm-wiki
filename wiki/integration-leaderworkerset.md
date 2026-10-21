@@ -2,7 +2,7 @@
 
 **Summary**: LeaderWorkerSet is a SIG-Apps API for running groups of Pods where each group has a designated leader and a number of followers. It targets inference serving (disaggregated prefill/decode) and training with tightly-coupled worker groups. Kueue integrates per-group, treating a leader+workers as one gang.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-14405.md, pr-16402.md, pr-16423.md, pr-13316.md, pr-16401.md, pr-13775.md, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_reconciler.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-14405.md, pr-16402.md, pr-16423.md, pr-13316.md, pr-16401.md, pr-13775.md, pr-17255.md, pr-17307.md, pr-17310.md, issue-17251.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, pr-17504.md, pr-15142.md, pr-15412.md, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_reconciler.go, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_webhook.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
 **Last updated**: 2026-10-21
 
@@ -52,6 +52,10 @@ A race in the jobframework reconciler could revert a **manual `queue-name` label
 
 When `status.readyReplicas == 0` (no live group), `kueue.x-k8s.io/queue-name` may now be re-labeled on the LWS itself — useful for moving an LWS to a different LocalQueue without recreating it. Released as #4932 in v0.18.0.
 
+**Not while a group Workload holds quota.** `readyReplicas == 0` does not mean "no reservation". A group's Workload can already hold quota while its Pods pull images. The Workload's `spec.queueName` is immutable while quota is reserved, so the webhook accepted the new label and the reconciler then failed on every retry with `queueName is immutable while workload quota reserved`. The Workload stayed in the old queue ([[issue-17251]]). [[pr-17255]] makes the webhook reject the change if **any** Workload of the LWS holds a quota reservation. LWS has one Workload per group, so `hasWorkloadWithQuotaReservation` lists them all through the `OwnerReferenceUID` index. The lookup runs only when the queue name changes to a non-empty value on an LWS with no Ready replicas. The check is the shared `jobframework.ValidateQueueNameUpdate`, also used by StatefulSet (see [[integration-statefulset#Queue changes are rejected while the Workload holds quota]]). The webhook reads from the informer cache, so a reservation made just before the update can still slip through (source: pr-17255.md, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_webhook.go).
+
+Releases: `main` (merged 2026-10-16), release-0.20 ([[pr-17307]]) and release-0.19 ([[pr-17310]]). All merged after v0.20.2 / v0.19.9, so the next patch releases are the first to include it. The 0.19 backport keeps the StatefulSet lookup on `findWorkloadName` + `client.Get` and has unit tests only, because that branch has no LWS controller integration suite (source: pr-17310.md).
+
 ### `WorkloadKeyForLeaderWorkerSet` helper
 
 The integration's lookup key (used to map LWS objects back to their owning Workload) was unified into `WorkloadKeyForLeaderWorkerSet()` in #8843. The helper reduces several duplicated key-derivation paths to a single function. Cherry-picked to release-0.16 in [[pr-10945]].
@@ -94,7 +98,9 @@ Go binds `&&` tighter, so this is `A || (B && C)`; `(B && C)` requires `UpdateRe
 
 ## `WorkloadAnnotation` on LWS Pods
 
-LWS's `setDefault` in `leaderworkerset_reconciler.go` builds Pod annotations by hand for its pod-group mechanism and never set `kueue.WorkloadAnnotation`, which `wasSimulator.TrackPod` needs to map Pods to their Workload. It is now written in two places, gated like the shared write site (`TopologyAwareScheduling || SchedulerLibraryIntegration`): the main annotation path (after the leader/worker `RoleHashAnnotation` branch) and the "already managed" early-return branch (Pods labelled `ManagedByKueueLabelKey`), which backfills Pods handled by an earlier reconcile (source: pr-15142.md).
+`wasSimulator.TrackPod` needs `kueue.x-k8s.io/workload` on every Pod to map it to its Workload. LWS Pods get it from the shared write site, `getPodSetsInfoFromStatus`, when the Pod integration ungates them. Since [[pr-15412]] (`main` only, merged 2026-10-19) that write is unconditional; before, it required `TopologyAwareScheduling`, `SchedulerLibraryIntegration` or `WaitForPodsReadyUnscheduledTimeout` (source: raw/kueue/pkg/controller/jobframework/reconciler.go, pr-15412.md). See [[job-framework-interface#`kueue.x-k8s.io/workload` is always set on the PodTemplate]].
+
+**Correction (2026-10-21)**: this section said [[pr-15142]] writes the annotation in LWS `setDefault` in two places. That is what the PR description proposed, but the merged commit (98e61efd7, +341/-0) only adds integration and e2e tests that assert the annotation. `leaderworkerset_reconciler.go` does not reference `WorkloadAnnotation` at the snapshot (source: pr-15142.md, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_reconciler.go).
 
 ## Empty PodGroups and quota
 
@@ -113,6 +119,14 @@ Shared with StatefulSet. During a rolling update, current-revision Pods were ung
 ## Legacy finalizer cleanup removed (v0.20)
 
 The migration code that removed the legacy `kueue.x-k8s.io/managed` finalizer from parent-suspended Pods is gone from the LWS reconciler, together with the `SkipFinalizersForPodsSuspendedByParent` gate. See [[integration-statefulset#Legacy parent-suspended Pod finalizer cleanup removed (v0.20)]] ([[pr-13316]]).
+
+## Default WorkloadPriorityClass is not added on update to a running LWS
+
+The LWS mutating webhook also runs on update. With `WorkloadPriorityClassDefaulting` it used to add `kueue.x-k8s.io/priority-class: default` to an LWS created before the `default` class existed, and the validating webhook then rejected every update to a Ready LWS, even one Kueue does not manage. `Default` now reads the old object and applies the default class only if `CanSetWorkloadPriorityClassName(old.status.readyReplicas == 0, old)` is true ([[pr-16474]]). See [[workload-priority#Default WorkloadPriorityClass is skipped on updates to running serving workloads]] (source: raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_webhook.go).
+
+## LWS v1.0.0 (main)
+
+`main` vendors `sigs.k8s.io/lws` **v1.0.0**, the first stable LWS release (was v0.11.1). The e2e operator install and the integration-test CRDs follow the `go.mod` version. Kueue code did not change: the new API is additive and opt-in. It adds `spec.podTerminationPolicy` (`Sequential` default, or `Parallel`), `leaderWorkerTemplate.maxGroupRestarts` and `restartBackoff`, a `Degraded` condition, and annotations plus a Pod finalizer used only when `maxGroupRestarts` is set. The CRD now defaults `spec.rolloutStrategy` to `{type: RollingUpdate}`. Kueue does not read any of the new fields (source: pr-17504.md).
 
 ## Missing WorkloadPriorityClass
 

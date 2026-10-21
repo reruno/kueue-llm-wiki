@@ -2,7 +2,7 @@
 
 **Summary**: Table of contents for the Kueue knowledge base. Each entry is one link and a one-line blurb.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-10-13), `raw/kueue/` (source snapshot) and `raw/cve/` (Kubernetes-ecosystem CVE corpus, 775 entries).
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-10-21), `raw/kueue/` (source snapshot, kueue@3bbb8cce4) and `raw/cve/` (Kubernetes-ecosystem CVE corpus, 795 entries).
 
 **Last updated**: 2026-10-21
 
@@ -31,7 +31,7 @@
 - [[provisioning-request]] — Canonical capacity-gating check; creates a Cluster Autoscaler `ProvisioningRequest` per Workload and passes once nodes are provisioned.
 - [[queueing-strategy]] — StrictFIFO vs BestEffortFIFO and priority-within-queue behavior.
 - [[preemption]] — Within-ClusterQueue, reclaim-within-cohort, and preemption-while-borrowing.
-- [[fair-sharing]] — DRF-style sharing of unused quota across a cohort; preemption strategies, final-target verification, weighted-share edge cases.
+- [[fair-sharing]] — DRF-style sharing of unused quota across a cohort; preemption strategies, final-target verification, partial-borrowing loop fix, weighted-share edge cases.
 - [[admission-fair-sharing]] — **[Beta]** Admission-time ordering by historical usage; fairness without preemption.
 - [[borrowing-and-lending]] — Borrowing limits, lending limits, and how cohorts redistribute idle capacity.
 - [[workload-priority]] — PriorityClass vs WorkloadPriorityClass, priority-sorting within cohort.
@@ -49,7 +49,7 @@
 
 - [[topology-aware-scheduling]] — Pack pods within a topology domain (rack/block/zone) to reduce cross-node latency.
 - [[multikueue]] — Dispatch Workloads across multiple worker clusters from a manager cluster.
-- [[multikueue-orchestrated-preemption]] — **[Alpha]** Serialize preemption across MultiKueue worker clusters to avoid unnecessary disruptions.
+- [[multikueue-orchestrated-preemption]] — **[Alpha]** Serialize preemption across MultiKueue worker clusters to avoid unnecessary disruptions; a missing gate state means closed.
 - [[dra]] — **[Alpha]** Quota management for DRA-based devices (GPUs via ResourceClaimTemplates or extended resources).
 - [[resource-transformer]] — **[Stable]** Rewrite workload resource requests into quota units (MIG GPU slicing, budget credits).
 
@@ -73,8 +73,8 @@
 
 - [[kueuectl]] — The `kubectl-kueue` CLI.
 - [[visibility-api]] — Pending-workload visibility (per-queue and per-cohort).
-- [[metrics]] — Prometheus metrics surface; custom metric labels, execution-time histograms, gauge-staleness fixes.
-- [[dashboard]] — KueueViz web UI.
+- [[metrics]] — Prometheus metrics surface; custom metric labels, execution-time histograms, gauge-staleness fixes, **[Alpha]** `MetricsAccessControl` for loopback scraping.
+- [[dashboard]] — KueueViz web UI; per-user SubjectAccessReview authz on WebSockets, auth-mode validation, shutdown behaviour.
 - [[webhooks]] — Validating and mutating admission webhooks.
 - [[importer]] — The `kueue-importer` tool for onboarding existing workloads.
 - [[local-queue-defaulting]] — **[Stable]** Auto-assign a default LocalQueue to jobs that lack a queue-name label.
@@ -85,7 +85,7 @@
 
 ## Lifecycle and performance
 
-- [[release-process]] — Release cycle and timelines, branching, versioning, release table (v0.20.x / v0.19.x / v0.18.x), ChatOps release automation.
+- [[release-process]] — Release cycle and timelines, branching, versioning, release table (v0.20.2 / v0.19.9 and earlier), ChatOps release automation.
 - [[performance-and-scale]] — Scalability benchmarks and known bottlenecks.
 
 ## Developer workflow
@@ -94,9 +94,9 @@
 - [[testing-integration]] — `envtest`-based integration suites; main/baseline/extended/multikueue variants; writing and labeling tests.
 - [[testing-e2e]] — Kind-based e2e; `E2E_MODE=dev` loop; full MultiKueue invocation; per-suite matrix.
 - [[testing-performance]] — Scheduler perf benchmarks and TAS perf variant.
-- [[debugging-guide]] — Diagnosing workloads stuck in pending (quota, flavors, admission checks, TAS, zombie pods), plus symptom→cause tables for scheduling, integrations, metrics, CLI and dashboard.
-- [[scheduler-internals]] — The 6-phase scheduling cycle, FlavorAssigner modes and `FlavorScanState`, quota tiers, exact request arithmetic, fair-sharing iterator.
-- [[cache-architecture]] — In-memory scheduler cache, per-cycle snapshot, hierarchy manager, queue manager.
+- [[debugging-guide]] — Diagnosing workloads stuck in pending (quota, flavors, admission checks, TAS, zombie pods), plus symptom→cause tables for scheduling, integrations, metrics, CLI and dashboard (incl. every v0.20.2 / v0.19.9 fix).
+- [[scheduler-internals]] — Startup wait for the initial cache sync, the 6-phase scheduling cycle, FlavorAssigner modes and `FlavorScanState`, quota tiers, exact request arithmetic, fair-sharing iterator.
+- [[cache-architecture]] — In-memory scheduler cache, initial-sync barrier, per-cycle snapshot, hierarchy manager, queue manager and per-LocalQueue pending counts.
 
 ## Reviewers and code quality
 
@@ -110,7 +110,7 @@
 
 ## Code security
 
-- [[security]] — Threat model for Kueue and how the 775-CVE corpus in `raw/cve/` maps to its code surface.
+- [[security]] — Threat model for Kueue and how the 795-CVE corpus in `raw/cve/` (none a Kueue advisory) maps to its code surface.
 - [[security-code-patterns]] — Master checklist of patterns to flag in review, grouped by category and CWE.
 - [[security-denial-of-service]] — DoS patterns: unbounded loops, missing timeouts, nil-pointer crashes, invalid-spec wedges.
 - [[security-authn-authz]] — Authentication bypass, RBAC misconfiguration, privilege escalation, MultiKueue credential boundary.

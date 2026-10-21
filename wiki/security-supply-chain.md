@@ -2,7 +2,7 @@
 
 **Summary**: Patterns from the 7 Supply Chain CVEs in `raw/cve/`. Smallest category in the corpus, but the one whose impact scales to every Kueue deployment because a compromised release artifact affects all downstream clusters at once.
 
-**Sources**: `raw/cve/` — representative entries `CVE-2020-8564.md` and other supply-chain category CVEs; CWE-295 (improper cert validation) and CWE-494 (download of code without integrity check) entries broadly; 2026-09 additions `CVE-2026-50166.md`, `CVE-2026-52724.md`, `CVE-2026-100704.md`, `CVE-2026-100833.md`; 2026-10 additions `CVE-2026-105216.md`, `CVE-2026-105223.md`, `CVE-2026-109358.md`, `CVE-2026-107446.md`.
+**Sources**: `raw/cve/` — representative entries `CVE-2020-8564.md` and other supply-chain category CVEs; CWE-295 (improper cert validation) and CWE-494 (download of code without integrity check) entries broadly; 2026-09 additions `CVE-2026-50166.md`, `CVE-2026-52724.md`, `CVE-2026-100704.md`, `CVE-2026-100833.md`; 2026-10 additions `CVE-2026-105216.md`, `CVE-2026-105223.md`, `CVE-2026-109358.md`, `CVE-2026-107446.md`. 2026-10-21 additions `CVE-2026-47218.md`, `CVE-2026-113709.md`; pr-17377.md.
 
 **Last updated**: 2026-10-21
 
@@ -86,6 +86,13 @@ None of these libraries or runtimes is a Kueue dependency: `go-micro`, `maclof/k
 - **Verification dropped when the kubeconfig has no CA.** maclof kubernetes-client 0.17.0 to before 0.32.0, CVE-2026-105223 (CWE-295, 7.4): `parseKubeconfig()` turned verification off when `certificate-authority-data` was missing and ignored `insecure-skip-tls-verify` (source: CVE-2026-105223.md). This is the third instance of the Kuma rule above. client-go falls back to system roots in this case, and Kueue's [[multikueue]] `validateKubeconfig` additionally rejects `insecure-skip-tls-verify: true` and CA *file* paths.
 - **World-writable files from a privileged installer.** Edgeless Contrast 1.8.0 to before 1.24.1, CVE-2026-109358 (CWE-732, 7.8): the node installer wrote the containerd config with mode `0666`, so a local unprivileged user could change the `runc` path and escalate (source: CVE-2026-109358.md). Kueue's `pkg/` and `cmd/` contain no `os.WriteFile` calls; webhook serving certificates are written by the vendored `open-policy-agent/cert-controller`. Rule: file modes in new code are reviewed like RBAC.
 - **Untrusted image formats parsed by the runtime.** containerd overlaybd <= 1.0.18, CVE-2026-107446 (CWE-190, 6.8): an integer overflow in `do_load_index` on `index_bytes` led to an out-of-bounds heap access from an untrusted registry blob (source: CVE-2026-107446.md). This is a node-side issue and reinforces digest pinning of every image Kueue's charts reference, including KueueViz.
+
+## 2026-10-21 additions
+
+None of the 20 new entries is in a Kueue dependency ([[security#2026-10-21 wave: what the 20 new CVEs add]]). Two supply-chain lessons:
+
+- **Trusted-artefact path reachable from an image.** runwasi < 0.6.1, CVE-2026-47218 (CWE-502): precompiled Wasmtime bytes in an OCI image layer were treated as the shim's own precompile cache and run as native code (source: CVE-2026-47218.md). Integrity decisions must depend on where bytes came from, not on their format.
+- **Tooling loaded from the input repository.** Argo CD CVE-2026-113709: Helm downloader plugins loaded from a repository-controlled `configHome` (source: CVE-2026-113709.md). Kueue's own build pins its tools in `hack/tools` and builds the API linter with the repository's Go toolchain (`GOTOOLCHAIN=$(go env GOVERSION)`, pr-17377), so a stale local toolchain cannot silently build the linter. See [[code-quality]].
 
 ## Related pages
 

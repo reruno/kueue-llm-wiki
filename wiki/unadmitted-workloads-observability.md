@@ -2,7 +2,7 @@
 
 **Summary**: With `UnadmittedWorkloadsObservability` (KEP-10852) a Workload without quota reservation reports a specific reason on `QuotaReserved=False` (`WaitingForQuota`, `NoMatchingFlavor`, `PendingEvaluation`, ...) instead of the generic `Pending`/`Inadmissible`, and two gauges count unadmitted Workloads per reason. **Beta and on by default from v0.20**; off by default on the release-0.18/0.19 branches (declared Beta there but default `false`, see below).
 
-**Sources**: pr-15553.md, pr-15562.md, pr-15623.md, issue-15564.md, issue-15547.md, raw/kueue/keps/10852-inadmissible-workloads-observability/README.md, raw/kueue/pkg/features/kube_features.go, raw/kueue/apis/kueue/v1beta2/workload_types.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/metrics/metrics.go, pr-13063.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: pr-15553.md, pr-15562.md, pr-15623.md, issue-15564.md, issue-15547.md, raw/kueue/keps/10852-inadmissible-workloads-observability/README.md, raw/kueue/pkg/features/kube_features.go, raw/kueue/apis/kueue/v1beta2/workload_types.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/metrics/metrics.go, pr-13063.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16483.md, pr-17093.md, pr-17294.md, issue-11843.md
 
 **Last updated**: 2026-10-21
 
@@ -53,6 +53,15 @@ Read from `apis/kueue/v1beta2/workload_types.go` at the snapshot and the v0.20 c
 - **`AssignmentError`** — Kueue failed to build an assignment because of an unexpected downstream error.
 - **`PreemptionGated`** — a Workload blocked by a closed preemption gate used to keep a stale `QuotaReserved` condition and `status.resourceRequests` and showed `AdmissionGated`; since v0.20.1 (#16699) it reports `PreemptionGated` on `QuotaReserved` (the separate `BlockedOnPreemptionGates` condition also uses `PreemptionGated`). See [[multikueue-orchestrated-preemption]].
 
+- **`SchedulingSimulationFailed`** — main only (v0.21 dev): with the Alpha `SchedulerLibraryDeepIntegration` gate, the scheduler-library planner reports this reason when its scheduling simulation cannot place the Workload's Pods (source: raw/kueue/apis/kueue/v1beta2/workload_types.go, pr-16483.md). See [[topology-aware-scheduling]].
+
+## Logging of reason changes (pr-17093)
+
+The workload controller logs each `QuotaReserved` reason change as `Workload status updated` with `reason` and `message` at **V(3)**, and only **after** the status write succeeds, so a failed write does not produce a misleading log line. DRA validation failures no longer log an error on every reconcile. The `queue`/`prevQueue` log keys were renamed to `localQueue`/`prevLocalQueue` and now include the namespace (`klog.KRef(namespace, name)`). A follow-up (pr-17294) replaced the Warning Events that pr-17093 had added for these transitions with logs, before either was released (source: pr-17093.md, pr-17294.md, raw/kueue/pkg/controller/core/workload_controller.go). Backported to release-0.20 (pr-17332) and release-0.19 (pr-17410) after v0.20.2 / v0.19.9, so the log-key rename reaches users in the next patch releases.
+
+## A `reason` label on `kueue_pending_workloads`?
+
+issue-11843 asked for one; it was closed in favour of this feature's `kueue_unadmitted_workloads` gauges, which already carry `reason` and `underlying_cause` (source: issue-11843.md). Use those for per-cause alerting.
 
 ## Related pages
 

@@ -2,7 +2,7 @@
 
 **Summary**: The Kueue job framework defines the `GenericJob` interface and base reconciler that any new job type must implement to get full Kueue integration — suspend/resume lifecycle, quota accounting, condition propagation, and webhook scaffolding — for free.
 
-**Sources**: `raw/kueue/keps/369-job-interface/README.md`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`, pr-16370.md, pr-16436.md, pr-16460.md, pr-16461.md, pr-16470.md, pr-13375.md, pr-16773.md, pr-16774.md, pr-16779.md, pr-16881.md, pr-16972.md, pr-16973.md, pr-13775.md, pr-12948.md, raw/kueue/pkg/controller/jobframework/defaults.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/kueue/keps/369-job-interface/README.md`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`, pr-16370.md, pr-16436.md, pr-16460.md, pr-16461.md, pr-16470.md, pr-13375.md, pr-16773.md, pr-16774.md, pr-16779.md, pr-16881.md, pr-16972.md, pr-16973.md, pr-13775.md, pr-12948.md, pr-16994.md, pr-17529.md, pr-17530.md, issue-16736.md, pr-15412.md, issue-15400.md, pr-17053.md, raw/kueue/pkg/controller/jobframework/defaults.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
 **Last updated**: 2026-10-21
 
@@ -169,9 +169,33 @@ What the keys protect: `multikueue-origin` marks a Workload as MultiKueue-placed
 
 The configuration is still **accepted**, because refusing it would break existing setups. Instead, since #16779 the manager logs any `labelKeysToCopy` entries that `NonInheritableLabelsIn` reports, once at startup at Info level (v0.20.1 pr-16874, v0.19.8 pr-16878). #16881 removed the log mention from the API field comment and added a "keep in sync" note on the two lists. Workload-scoped custom metric sources are not checked, because a metric naming an internal key reports the Workload's own value (source: pr-16779.md, pr-16881.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md). Copying annotations generally (`integrations.annotationKeysToCopy`) is an open feature request (issue-16471).
 
+## A finished prebuilt Workload is not adopted
+
+A job that names a prebuilt Workload (`kueue.x-k8s.io/prebuilt-workload-name`) is matched in the prebuilt branch of `ensureOneWorkload`. That branch already ignored a Workload controlled by another object. It did not check whether the Workload was finished. If a deleted predecessor had left a finished Workload with that name, a new job adopted it and was finalized at once: the Workload finalizer was removed and the job kept running **unmanaged and without a quota reservation** ([[issue-16736]]).
+
+[[pr-16994]] adds a second guard right after the controller check (source: raw/kueue/pkg/controller/jobframework/reconciler.go):
+
+- `workloadfinish.IsFinished(wl) && !workloadOwnedBy(wl, job)` → log `"WARNING: The prebuilt workload is already finished"` at V(2) and return no Workload. The job is then stopped with the usual missing-workload message and `ErrPrebuiltWorkloadNotFound`, the same path as a missing prebuilt Workload. The leftover Workload is not modified.
+- A finished Workload that the job **does** own is still returned, so normal completion is unchanged: the job is finalized and the Workload finalizer is removed.
+- The check is in the shared branch, so it covers every integration that supports prebuilt Workloads, including composable jobs, before `EnsureWorkloadOwnedByAllMembers` / `EnsurePrebuiltWorkloadOwnership` adds owner references.
+
+Releases: `main` (merged 2026-10-20), release-0.20 (pr-17529) and release-0.19 (pr-17530), merged 2026-10-21, after v0.20.2 / v0.19.9. The automated cherry-picks (pr-17506, pr-17507) were closed and replaced by manual ones (source: pr-17529.md, pr-17530.md). The refusal emits no event, only the V(2) log. Issue-17542 asks for a Warning event (open).
+
+## `kueue.x-k8s.io/workload` is always set on the PodTemplate
+
+When a job starts, `getPodSetsInfoFromStatus` builds each PodSet's `PodSetInfo` from the admission, and `RunWithPodSetsInfo` merges it into the Pod template. Since [[pr-15412]] (fixes issue-15400; `main` only, merged 2026-10-19, not backported) the info **always** carries the annotation `kueue.x-k8s.io/workload: <workload name>`. Before, it was added only if `TopologyAwareScheduling` or `SchedulerLibraryIntegration` was enabled, or `WaitForPodsReadyUnscheduledTimeout` was enabled together with pod-scheduled tracking. The function lost its `annotateWorkload` parameter (source: raw/kueue/pkg/controller/jobframework/reconciler.go, pr-15412.md).
+
+TAS, the scheduler-library (WAS) simulator, unscheduled-Pod tracking, the TAS node controller and the workload-slice Pod index all look Pods up by this annotation. With the write unconditional, out-of-tree consumers can rely on it whatever gates are set. The TAS KEP was updated to describe it as a generic Kueue annotation (source: issue-15400.md, pr-15412.md).
+
+## Single-Pod Workloads: eviction depends on `IsSuspended()`
+
+`clearAdmissionAfterEviction(ctx, job, wl)` now takes the job. With `SkipReassignmentForPodOwnedWorkloads`, a Workload that `workload.OwnedBySinglePod` matches is parked (`Requeued=False`) after preemption or node-failure eviction **only if `!job.IsSuspended()`**. A suspended (still gated) Pod's Workload is requeued. When quota is already released, the function also repairs Workloads that an older version parked in that state (source: raw/kueue/pkg/controller/jobframework/reconciler.go, pr-17053.md). Only the Pod integration matches `OwnedBySinglePod`. See [[integration-plain-pod#Single-Pod Workloads evicted while still gated are requeued]].
+
 ## Queue-name format is validated on update
 
-`ValidateJobOnUpdate` now validates a **changed, non-empty** `kueue.x-k8s.io/queue-name`. Before, webhooks that do not re-run `ValidateJobOnCreate` on update (Pod, AppWrapper, and the Kubeflow jobs served by `BaseWebhook`) let a suspended job switch to a valid label value that is not a valid LocalQueue name, such as `Bad_Queue`. The reconciler then failed to update `spec.queueName` on every retry. Unchanged values are not re-validated, so a job already stored with an invalid name stays updatable. Integrations that also re-run create validation (Job, JobSet, MPIJob, Ray, Spark, TrainJob) now put the error into the `field.ErrorList` twice. `ToAggregate()` deduplicates it, so users see it once (#16221; backports pr-16972 / release-0.20 and pr-16973 / release-0.19, not yet released at the snapshot; fixed in v0.20.2 and v0.19.9 per CHANGELOG at kueue@3bbb8cce4, released after this snapshot) (source: pr-16973.md, raw/github/kubernetes-sigs__kueue/pr-16221.md).
+`ValidateJobOnUpdate` now validates a **changed, non-empty** `kueue.x-k8s.io/queue-name`. Before, webhooks that do not re-run `ValidateJobOnCreate` on update (Pod, AppWrapper, and the Kubeflow jobs served by `BaseWebhook`) let a suspended job switch to a valid label value that is not a valid LocalQueue name, such as `Bad_Queue`. The reconciler then failed to update `spec.queueName` on every retry. Unchanged values are not re-validated, so a job already stored with an invalid name stays updatable. Integrations that also re-run create validation (Job, JobSet, MPIJob, Ray, Spark, TrainJob) now put the error into the `field.ErrorList` twice. `ToAggregate()` deduplicates it, so users see it once (#16221). Shipped in **v0.20.2** (pr-16972) and **v0.19.9** (pr-16973) (source: pr-16973.md, raw/github/kubernetes-sigs__kueue/pr-16221.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md).
+
+The serving integrations (StatefulSet, LeaderWorkerSet) have a separate, stricter rule: a queue-name change is rejected while a Workload holds quota, even when no replica is Ready. They share `ValidateQueueNameUpdate(old, new, isSuspended, hasQuotaReservation)`. The callback runs only when the name changes to a non-empty value while the object counts as suspended. The helper reads from the cache and is not atomic with quota reservation (source: raw/kueue/pkg/controller/jobframework/validation.go). See [[integration-statefulset#Queue changes are rejected while the Workload holds quota]] and [[integration-leaderworkerset]].
 
 ## Priority lookup takes an event recorder
 

@@ -2,7 +2,7 @@
 
 **Summary**: Kueue has scheduler-focused performance benchmarks under `test/performance/scheduler/`. They measure admission-loop throughput, not correctness, and are driven by a generator/runner that replays synthetic Workload traffic against a minimal Kueue controller. This page covers how to run them locally and which make targets wrap them.
 
-**Sources**: `raw/kueue/hack/make/test.mk` (formerly `Makefile-test.mk`), `raw/kueue/test/performance/scheduler/`, `raw/kueue/hack/testing/performance-test.sh`, `raw/kueue/hack/testing/compare-performance.sh`; pr-16652.md, pr-16923.md.
+**Sources**: `raw/kueue/hack/make/test.mk` (formerly `Makefile-test.mk`), `raw/kueue/test/performance/scheduler/`, `raw/kueue/hack/testing/performance-test.sh`, `raw/kueue/hack/testing/compare-performance.sh`; pr-16652.md, pr-16923.md.; pr-17158.md, pr-16463.md, `raw/kueue/test/performance/multikueue/README.md`, `raw/kueue/test/performance/multikueue/configs/baseline/expectations.yaml`
 
 **Last updated**: 2026-10-21
 
@@ -26,7 +26,7 @@ test/performance/
 └── e2e/                 # (separate; exercises perf in a Kind cluster)
 ```
 
-Two binaries are built from this tree by `hack/make/test.mk` (the former `Makefile-test.mk`, split up in #14127):
+Two binaries are built from this tree by `hack/make/test.mk` (the former `hack/make/test.mk`, split up in #14127):
 
 - `bin/performance-scheduler-runner` — the scenario driver (`make performance-scheduler-runner`).
 - `bin/minimalkueue` — a reduced Kueue that the runner targets (`make minimalkueue`).
@@ -42,7 +42,7 @@ make test-performance-scheduler         # same, but wrapped by hack/testing/perf
 make run-performance-scheduler-in-cluster   # variant used inside a cluster: no minimalkueue, higher QPS/burst, 15m timeout
 ```
 
-Controls (`Makefile-test.mk`):
+Controls (`hack/make/test.mk`):
 
 - `SCALABILITY_GENERATOR_CONFIG` (default `test/performance/scheduler/configs/baseline/generator.yaml`).
 - `SCALABILITY_CPU_PROFILE` — set (truthy) to enable CPU profiling (`--withCPUProfile=true`).
@@ -84,6 +84,14 @@ The `rangespec.yaml` thresholds were set from **10 CI runs**: wall time and per-
 ### Large-scale config
 
 `run-large-scale-performance-scheduler` / `test-large-scale-performance-scheduler[-once]` (and an `-in-cluster` variant with `--qps=1000 --burst=2000`) use `configs/large-scale`: 10 cohorts × 100 ClusterQueues = 1,000 CQs, with 50 single-pod Workloads per queue (50,000 total) and a 30-min timeout (source: `hack/make/test.mk`, `configs/large-scale/generator.yaml`).
+
+### MultiKueue throughput floor
+
+The MultiKueue performance periodic (`periodic-kueue-test-multikueue-perf-main`, tool under `test/performance/multikueue/`) checks `minThroughputPerSecond: 35` in `configs/baseline/expectations.yaml`, about 22% below the slowest CI attempt (CI measured 44-47 workloads/s). A lint-enablement PR (#15982) had silently reverted this calibration to the 75 workloads/s floor measured on a laptop, which no CI run reaches; pr-17158 restored it (backport pr-17217). Replaying the restored checker on saved runs showed the floor catches a real regression from #16235 (29-34 workloads/s), addressed by pr-17157 (source: pr-17158.md, raw/kueue/test/performance/multikueue/README.md). Lesson: thresholds must be calibrated on CI hardware, and the README records the calibration so a later diff can be checked against it.
+
+### More knobs in the scheduler performance generator
+
+pr-16463 (main; backports pr-17218, pr-17231) lets scheduler perf configs describe nested Cohorts, ClusterQueue lending limits, delayed (staged) Workload submission, runner QPS/burst and Workload concurrency, and scheduled CPU profiles; `SCALABILITY_EXTRA_ARGS` given on the command line no longer drops the profiling and logging arguments. It was added for the preemption candidate-ordering experiment behind `ClassicalPreemptionCandidateOrderCache` (source: pr-16463.md).
 
 ## CI
 

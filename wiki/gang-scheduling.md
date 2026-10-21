@@ -2,7 +2,7 @@
 
 **Summary**: "Gang scheduling" in Kueue means: if a [[workload]] can't get *all* its Pods running within a deadline, tear it down and requeue — rather than leave it partially running and holding quota. The mechanism is `WaitForPodsReady`, an opt-in config gate per ClusterQueue (and globally in the Kueue configuration).
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` (this update: pr-16904.md, `raw/kueue/pkg/cache/scheduler/was/virtual_podgroups.go`).
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (this update: pr-16904.md, pr-16483.md, pr-17181.md, pr-17209.md, pr-17250.md, pr-17397.md, pr-17400.md, `raw/kueue/pkg/cache/scheduler/was/virtual_podgroups.go`, `raw/kueue/pkg/scheduler/assignment/was/was_planner.go`).
 
 **Last updated**: 2026-10-21
 
@@ -46,7 +46,7 @@ For multi-template jobs (JobSet, RayJob), gang means "all PodSets' replicas must
 
 ## Not the same thing: Kubernetes gang `PodGroup`s in the WAS simulator
 
-Kubernetes workload-aware scheduling has its own gang object, `scheduling.k8s.io/v1beta1` `PodGroup` with `spec.schedulingPolicy.gang.minCount`. For the Alpha, main-only `SchedulerLibraryDeepIntegration` work, Kueue gained `was.BuildVirtualPodGroup(wl)`. It builds one **in-memory** gang PodGroup per Workload, named `virtual-pg-<workload>-<sha1>` with `minCount` equal to the sum of PodSet counts, so the scheduler library's `ScheduleWorkload()` can simulate all-or-nothing placement. Nothing is written to the API server. At this snapshot the builder has no callers, and real PodGroups are ignored. It does not change `WaitForPodsReady` semantics (source: pr-16904.md, virtual_podgroups.go). See [[topology-aware-scheduling]] (section "Deep integration").
+Kubernetes workload-aware scheduling has its own gang object, `scheduling.k8s.io/v1beta1` `PodGroup` with `spec.schedulingPolicy.gang.minCount`. For the Alpha, main-only `SchedulerLibraryDeepIntegration` work, Kueue gained `was.BuildVirtualPodGroup(wl)`. It builds one **in-memory** gang PodGroup per Workload, named `virtual-pg-<workload>-<sha1>` with `minCount` equal to the sum of PodSet counts, so the scheduler library's `ScheduleWorkload()` can simulate all-or-nothing placement. Nothing is written to the API server. **Update (2026-10-21)**: the WAS planner (pr-16483) now uses it on every plan. It registers the PodGroup in the simulator with `SchedulerSimulator.AddPodGroup` (pr-17209), links each candidate virtual Pod to it through `spec.schedulingGroup.podGroupName` (pr-17181; only candidate Pods, not Pods of already-placed Workloads, pr-17250), calls `ScheduleWorkload`, and removes the PodGroup again with `RemovePodGroup` (pr-17400). If any Pod cannot be placed, the Workload is `NoFit` with reason `SchedulingSimulationFailed`. Real PodGroups are still ignored. It does not change `WaitForPodsReady` semantics (source: pr-16904.md, pr-16483.md, pr-17397.md, virtual_podgroups.go, was_planner.go). See [[topology-aware-scheduling]] (section "Deep integration").
 
 ## Related pages
 

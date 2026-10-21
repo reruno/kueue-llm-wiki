@@ -2,7 +2,7 @@
 
 **Summary**: KueueViz is a web UI for Kueue: it reads the Kueue API (and, partially, the [[visibility-api]]) to show per-[[cluster-queue]] usage, pending workloads, cohort utilization, and per-namespace quotas. It's a separate component (backend + frontend) deployed alongside Kueue, not part of the controller-manager.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-13970.md, pr-16392.md, pr-16394.md, pr-16696.md, pr-16739.md, pr-16608.md; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`; `raw/kueue/cmd/kueueviz/backend/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-13970.md, pr-16392.md, pr-16394.md, pr-16696.md, pr-16739.md, pr-16608.md; 2026-10-21 batch: pr-17088.md, pr-17135.md, pr-17143.md, pr-17230.md, pr-17246.md, pr-17249.md, pr-16849.md, pr-17104.md, pr-17105.md, pr-17175.md, pr-17235.md, pr-17236.md, pr-17272.md, pr-17273.md, pr-17491.md, pr-17493.md, pr-16278.md, issue-17073.md, issue-17142.md, issue-17178.md, issue-17248.md, issue-16694.md, issue-17102.md, issue-17103.md, issue-17232.md, issue-17270.md, issue-17271.md, issue-17492.md and their backports; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`; `raw/kueue/cmd/kueueviz/backend/`.
 
 **Last updated**: 2026-10-21
 
@@ -53,7 +53,27 @@ By default the browser opens the WebSocket straight at the backend Service, whic
 
 ## Per-user authorization (v0.20, action required)
 
-When authentication is enabled, the backend now checks Kubernetes RBAC for every API and WebSocket request with a **SubjectAccessReview** on the caller's identity (user, groups, UID, extra) instead of serving everything with its own ServiceAccount. `middleware.RequireAuthorization` wraps each route (`/ws/workloads`, `/ws/workloads/dashboard`, `/ws/workload/:ns/:name[/events]`, `/ws/local-queues`, `/ws/local-queue/...`, `/ws/cluster-queues`, `/ws/cohorts`, `/ws/resource-flavors`, their detail routes, and `/api/:resourceType/:name`). `sarAuthorizer` caches each decision in an LRU keyed by identity + resource attributes, with separate TTLs for allow (`CacheTTL`) and deny (`NegativeCacheTTL`). Users need `get`, `list` and `watch` for the views they open; the backend ServiceAccount needs `create` on `subjectaccessreviews.authorization.k8s.io` (included in the Helm chart; custom RBAC installs must add it) (source: CHANGELOG-0.20.md #13810; `cmd/kueueviz/backend/middleware/auth.go`, `handlers/handlers.go`). Known gap, open as of this snapshot: `/ws/namespaces` is not wrapped and does not check LocalQueue `watch` access (issue-17073; fix pr-17088 open). See [[security-authn-authz]].
+When authentication is enabled, the backend now checks Kubernetes RBAC for every API and WebSocket request with a **SubjectAccessReview** on the caller's identity (user, groups, UID, extra) instead of serving everything with its own ServiceAccount. `middleware.RequireAuthorization` wraps each route (`/ws/workloads`, `/ws/workloads/dashboard`, `/ws/workload/:ns/:name[/events]`, `/ws/local-queues`, `/ws/local-queue/...`, `/ws/cluster-queues`, `/ws/cohorts`, `/ws/resource-flavors`, their detail routes, and `/api/:resourceType/:name`). `sarAuthorizer` caches each decision in an LRU keyed by identity + resource attributes, with separate TTLs for allow (`CacheTTL`) and deny (`NegativeCacheTTL`). Users need `get`, `list` and `watch` for the views they open; the backend ServiceAccount needs `create` on `subjectaccessreviews.authorization.k8s.io` (included in the Helm chart; custom RBAC installs must add it) (source: CHANGELOG-0.20.md #13810; `cmd/kueueviz/backend/middleware/auth.go`, `handlers/handlers.go`). See [[security-authn-authz]].
+
+**Per-user authorization exists only on release-0.20 and main.** release-0.19 KueueViz authenticates the token but checks no per-user access, so the authorization fixes below were not backported there (source: pr-17246.md, pr-17088.md, pr-17249.md review threads).
+
+## Authorization and startup fixes (2026-10)
+
+| Fix | Behaviour now | main PR | Release |
+|---|---|---|---|
+| `/ws/namespaces` live updates | The payload is derived from LocalQueues. Callers still get the initial namespace snapshot, filtered by per-namespace `list localqueues`, but the LocalQueue informer is registered **only if** the caller has cluster-wide `watch localqueues` (`handlers/namespaces.go`). Before, every authenticated caller received informer-driven updates (issue-17073) | pr-17088 | v0.20.2 (pr-17180) |
+| `/ws/cohorts` leaked ClusterQueue names | `fetchCohorts` now checks `list clusterqueues` for the caller (as `/ws/cohort/:name` already did) and omits the `clusterQueues` field when access is denied **or the check errors**; with no authorizer configured, behaviour is unchanged (issue-17178) | pr-17246 | release-0.20 after v0.20.2 (pr-17300) |
+| SubjectAccessReview cache keys could collide | The key joined groups and extra values with `,`/`;`, so `Groups: ["a,b"]` and `["a","b"]` (same user, UID and resource attributes) shared one cached decision. The identity is now hashed with SHA-256 over a length-prefixed encoding (`hashSARIdentity`, `appendLengthPrefixedString`), and copies of groups, extra keys and extra values are sorted so equivalent identities still share a key (issue-17248) | pr-17249 | release-0.20 after v0.20.2 (pr-17408) |
+| Unknown `KUEUEVIZ_AUTH_MODE` disabled auth | Auth middleware was installed only when the value was exactly `TokenReview`, so a typo such as `tokenreview` ran the backend with no authentication. `validateAuthMode` (`config/server.go`) now accepts only `Disabled` (the default) and `TokenReview`; anything else fails startup. **Upgrade note:** a deployment that relied on a misspelled value starting up now crash-loops (issue-17142) | pr-17143 | after v0.20.2 / v0.19.9 (pr-17311, pr-17312) |
+
+(source: pr-17088.md, issue-17073.md, pr-17246.md, issue-17178.md, pr-17249.md, issue-17248.md, pr-17143.md, issue-17142.md; code `cmd/kueueviz/backend/`.) The general lessons are recorded in [[security-authn-authz#KueueViz fixes in this window: in-repo examples]].
+
+Still open: the other multi-resource WebSockets (`/ws/workloads/dashboard`, `/ws/cohort/:name`, `/ws/cluster-queue/:name`, `/ws/resource-flavor/:name`) register secondary informers (ClusterQueues, Nodes, Pods, flavors) without checking `watch` on them (issue-17177; pr-17207 open).
+
+## Backend shutdown
+
+- `srv.Shutdown(context.Background())` had no upper bound, so an HTTP request that never finished hung termination. The shutdown context now has a **30 s timeout** (`shutdownTimeout`). Upgraded WebSocket connections are not tracked by `net/http.Server.Shutdown` and are not waited on (source: pr-17135.md, fixes issue-17134; v0.20.2 pr-17198, v0.19.9 pr-17199).
+- The manager goroutine and HTTP server goroutine used to call `os.Exit(1)` on failure, which skipped deferred cleanup. `runComponents` (`cmd/kueueviz/backend/main.go`) now reports component failures to the main flow, cancels the shared context, shuts the server down with the same timeout, waits for both components, and returns all errors (source: pr-17230.md; backports pr-17471, pr-17472, merged after v0.20.2 / v0.19.9).
 
 ## WebSocket heartbeat
 
@@ -75,13 +95,33 @@ Rule for new handlers: initialise result slices with `make([]T, 0)` (or a litera
 
 ## Workload → Pod matching
 
-The workloads dashboard (`buildWorkloadPodsIndex` in `cmd/kueueviz/backend/handlers/workloads_dashboard.go`) indexes Pods by their `controller-uid` label and looks up each Workload by its `kueue.x-k8s.io/job-uid` label. Pods without `controller-uid` (anything not created by a batch Job) all shared the empty key, and Workloads without a job UID (pod groups, for example) looked up that same key, so they showed **every unlabelled Pod in the namespace**. Pods without `controller-uid` are now skipped when building the index, so such Workloads show an empty Pods list. They only ever matched by accident; showing the real Pods of pod-group Workloads is a separate feature, not yet shipped (issue-16694, pr-16849 open) (source: pr-16696.md; backports pr-16702, pr-16707).
+The workloads dashboard (`buildWorkloadPodsIndex` in `cmd/kueueviz/backend/handlers/workloads_dashboard.go`) indexes Pods by their `controller-uid` label and looks up each Workload by its `kueue.x-k8s.io/job-uid` label. Pods without `controller-uid` (anything not created by a batch Job) all shared the empty key, and Workloads without a job UID (pod groups, for example) looked up that same key, so they showed **every unlabelled Pod in the namespace**. Pods without `controller-uid` are now skipped when building the index (source: pr-16696.md; backports pr-16702, pr-16707).
+
+**Pod-group Workloads now show their Pods** (feature, v0.20.2 / v0.19.9): `buildWorkloadPodsIndex` also indexes Pods by pod-group name, read from the `kueue.x-k8s.io/pod-group-name` annotation or label, and when no Pod matches a Workload's job UID it looks the Workload up **by its own name**. This covers plain pod groups and the StatefulSet and LeaderWorkerSet Workloads built on them (source: pr-16849.md, fixes issue-16694; backports pr-17186, pr-17189).
 
 ## Workload detail: ClusterQueue and preemption restored
 
 After the move to the typed client (pr-7663) the handlers returned bare objects. The workload detail handler `fetchWorkloadDetails` dropped `clusterQueueName` and `preemption`, so the page showed no ClusterQueue and linked to `/cluster-queue/undefined` ([[issue-16275]]). Fixed by #16279, shipped in v0.20.1 and v0.19.8 (source: pr-16608.md, pr-16905; CHANGELOG-0.20.md, CHANGELOG-0.19.md).
 
-Still open at this snapshot: the `/ws/workloads` list returns the raw `WorkloadList`, so the "Preempted" column always shows "No" ([[issue-16276]]; pr-17104 open). Also open: the workload Status column shows the first condition type instead of a derived status (issue-17102), and the workload details page fails when its LocalQueue was deleted (issue-17103). Backend tests run in CI (source: pr-16257.md); the frontend image build retries `npm install` and backend tests retry `go mod download` against transient network failures (pr-16719, pr-16724).
+Still open at this snapshot: the `/ws/workloads` list returns the raw `WorkloadList`, so the "Preempted" column always shows "No" ([[issue-16276]]). **Correction (2026-10-21):** this page earlier named pr-17104 as the fix for issue-16276; pr-17104 fixes the Status column (issue-17102), not the Preempted column. Backend tests run in CI (source: pr-16257.md); the frontend image build retries `npm install` and backend tests retry `go mod download` against transient network failures (pr-16719, pr-16724).
+
+## UI fixes in this window (2026-10)
+
+| Symptom | Fix | main PR | Release |
+|---|---|---|---|
+| Workload Status column shows `QuotaReserved` (the first condition type) for every Workload | `getWorkloadStatus` (`frontend/src/utils/workloadStatus.js`) mirrors `workload.Status` in `pkg/workload`, which `kueuectl list workload` uses: `Finished`, then `Admitted`, then `QuotaReserved`, else `Pending`. Used by the Workloads page and the LocalQueue detail table (issue-17102) | pr-17104 | v0.20.2 (pr-17191) / v0.19.9 (pr-17192) |
+| Workload details page fails for a Workload whose LocalQueue was deleted | `fetchWorkloadDetails` treats a NotFound LocalQueue as missing: the ClusterQueue comes from `status.admission` if admitted, else `Unknown`; other lookup errors are still returned (issue-17103) | pr-17105 | after v0.20.2 / v0.19.9 (pr-17275, pr-17364) |
+| Local Queues / Cluster Queues / Cohorts / Resource Flavors pages spin forever on an empty cluster | backend returns `[]` instead of `null` (see above) | pr-16739 | v0.20.2 (pr-17175) / v0.19.9 (pr-17179) |
+| "N/A" links to `/cluster-queue/undefined`, "Unknown" to `/cluster-queue/Unknown`, a cohort-less ClusterQueue to `/cohort/` | missing names render as plain text (issue-17232) | pr-17235 | after v0.20.2 / v0.19.9 (pr-17405, pr-17406) |
+| ResourceFlavor detail shows "None" for node labels and taints | the backend sent `tolerations` and `taints`, but the page reads `nodeLabels`/`nodeTaints`; `fetchResourceFlavorDetails` now sends `nodeLabels`, `nodeTaints`, `tolerations` (the unused `taints` key was dropped) (issue-17270) | pr-17272 | after v0.20.2 / v0.19.9 (pr-17329, pr-17489) |
+| Preempted-Workload tooltip never links to the preemptor | Kueue writes `(UID: <uid>, JobUID: <job-uid>)` (`preemptionMessage` in `pkg/scheduler/preemption/preemption.go`) but the frontend matched `(UID: <uid>)`; and `workloads_by_uid` mapped a UID to the name only. The pattern now matches `(UID: <uid>`, `workloads_by_uid` maps to `<namespace>/<name>` (built with `ctrlclient.ObjectKeyFromObject`, pr-17491), and unknown UIDs stay unlinked (issue-17271) | pr-17273 | after v0.20.2 / v0.19.9 (pr-17428, pr-17490) |
+| Expanding a dashboard row expands same-named Workloads in other namespaces | rows (and the ClusterQueue detail's LocalQueue rows) are keyed by namespace and name via `workloadKey` (issue-17492) | pr-17493 | main |
+
+Cleanup: the unused `WorkloadsList.jsx`, whose link lacked the namespace, was removed (pr-17236; issue-17233). Unit tests now cover the LocalQueue, namespace and flavor handlers, including per-namespace authorization, `hasClusterAccess` and `omittedPanels` (pr-16278; backports pr-17184, pr-17212).
+
+Rule for frontend links: Workload and LocalQueue names are unique only within a namespace, so every route, React key and lookup map must use `<namespace>/<name>`.
+
+Still open (issues with open PRs): pages show the previous object's data after switching objects (issue-17531), the owner reference always shows N/A (issue-17532), Pod Sets Count shows the first PodSet's count (issue-17534).
 
 ## Related pages
 

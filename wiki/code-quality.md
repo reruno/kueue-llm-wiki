@@ -3,7 +3,7 @@
 
 **Summary**: The shared technical quality bar that Kueue reviewers enforce, synthesized across [[reviewer-mimowo|mimowo]], [[reviewer-tenzen-y|tenzen-y]], [[reviewer-gabesaba|gabesaba]], [[reviewer-mbobrovskyi|mbobrovskyi]], and [[reviewer-pbundyra|PBundyra]]. Use this page to predict what will block a PR and what will earn quick approval.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` PR review comments; `raw/kueue/CONTRIBUTING.md`; `raw/kueue/.golangci*.yaml`; `raw/kueue/Makefile-verify.mk`; `raw/kueue/pkg/features/kube_features.go`; the individual reviewer pages; pr-16725.md (logging policy), pr-10727.md (AI policy), pr-15264.md, pr-16633.md, issue-16866.md; `raw/kueue/site/content/en/community/contribution_guidelines/logging_policy.md`, `logging_reference.md`; `raw/kueue/AGENTS.md`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/` PR review comments; `raw/kueue/CONTRIBUTING.md`; `raw/kueue/.golangci*.yaml`; `raw/kueue/hack/make/verify.mk`; `raw/kueue/pkg/features/kube_features.go`; the individual reviewer pages; pr-16725.md (logging policy), pr-10727.md (AI policy), pr-15264.md, pr-16633.md, issue-16866.md; `raw/kueue/site/content/en/community/contribution_guidelines/logging_policy.md`, `logging_reference.md`; `raw/kueue/AGENTS.md`.; pr-17148.md, pr-17377.md, pr-17304.md, pr-17283.md, pr-17352.md, pr-17431.md, pr-17162.md
 
 **Last updated**: 2026-10-21
 
@@ -180,6 +180,10 @@ Kueue follows the [Kubernetes AI Tool Usage Policy](https://www.kubernetes.dev/d
 
 A standard `ai-assisted` label or Prow prompt was discussed but left as a follow-up (source: pr-10727.md).
 
+### Agent review skills
+
+The reviewer skills in `cmd/experimental/skills/reviewer/` encode recurring review feedback. The `multikueue` skill (pr-17162) says: minimise reads from remote worker clusters. Do not list on a worker when the manager-cluster Workload has the data (for example when requeueing), and keep only the remote reads needed for correctness. It came from repeated comments on MultiKueue PRs (source: pr-17162.md). See [[reviewers#Agent instructions and review skills]].
+
 ### Respond to every review comment
 
 When updating a PR, reply to each review thread instead of only pushing. Otherwise the reviewer has to reverse-engineer what changed (mimowo on pr-17055.md).
@@ -314,6 +318,11 @@ Subsets:
 - `make verify-tree-prereqs` — just regenerate
 - `make verify-checks` — just check
 - `make ci-lint`, `make fmt-verify`, `make helm-verify`, `make shell-lint` — individual targets
+- `make verify-skills-lint`, `make verify-ray-version` — the standalone `skills-lint` / `ray-version-verify` targets were removed (pr-17431)
+
+On failure, `make verify` now ends with `ERROR: failed make targets:` listing each failed target (`hack/make-failure-summary.sh`, pr-17304), and noisy passing checks (`e2e-common_test.sh`, skillsaw) print nothing (pr-17283, pr-17352). Read the summary at the end of the log first. Details: [[testing#Presubmit verification (not tests, but co-gated)]].
+
+**Toolchain pins.** golangci-lint and its custom KAL build are pinned to v2.14.0 in `hack/tools/go.mod`, the first version that reads Go 1.27.2 export data; the bump fixed six new findings (pr-17148). The KAL linter is built with `GOTOOLCHAIN=$(go env GOVERSION)` so it matches the Go version Kueue selects (pr-17377). Both were backported to release-0.20/0.19.
 
 ### `.golangci.yaml`
 

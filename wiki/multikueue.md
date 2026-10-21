@@ -2,7 +2,7 @@
 
 **Summary**: MultiKueue dispatches [[workload]]s from a **manager cluster** to one of several **worker clusters**. Users submit jobs on the manager as usual; MultiKueue (implemented as an [[admission-check]]) picks a worker cluster with capacity, forwards the job, and mirrors status back. It's how one Kueue installation governs a fleet of clusters.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15962.md, pr-15986.md, pr-15989.md, pr-16140.md, pr-15871.md, pr-16315.md, pr-16235.md, issue-16172.md, issue-16010.md, issue-15380.md, issue-13243.md, raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go, raw/kueue/pkg/metrics/metrics.go, raw/kueue/pkg/features/kube_features.go, pr-13244.md, pr-13996.md, pr-16470.md, pr-16370.md, pr-14036.md, pr-15280.md, pr-15387.md, pr-16473.md, pr-16772.md, pr-13706.md, pr-15092.md, raw/kueue/pkg/controller/jobs/raycluster/common.go, raw/kueue/pkg/controller/jobs/raycluster/raycluster_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15962.md, pr-15986.md, pr-15989.md, pr-16140.md, pr-15871.md, pr-16315.md, pr-16235.md, issue-16172.md, issue-16010.md, issue-15380.md, issue-13243.md, raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go, raw/kueue/pkg/metrics/metrics.go, raw/kueue/pkg/features/kube_features.go, pr-13244.md, pr-13996.md, pr-16470.md, pr-16370.md, pr-14036.md, pr-15280.md, pr-15387.md, pr-16473.md, pr-16772.md, pr-13706.md, pr-15092.md, raw/kueue/pkg/controller/jobs/raycluster/common.go, raw/kueue/pkg/controller/jobs/raycluster/raycluster_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-17228.md, pr-17360.md, pr-17362.md, pr-17331.md, pr-17118.md, pr-17357.md, pr-17358.md, pr-16259.md, pr-17466.md, pr-17464.md, pr-17513.md, pr-17157.md, raw/kueue/pkg/controller/admissionchecks/multikueue/clusterqueue.go, raw/kueue/pkg/controller/admissionchecks/multikueue/controllers.go, raw/kueue/pkg/controller/jobs/ray/ray_multikueue_adapter.go, raw/kueue/pkg/controller/jobs/rayservice/rayservice_multikueue_adapter.go, raw/kueue/apis/kueue/v1beta2/multikueue_types.go
 
 **Last updated**: 2026-10-21
 
@@ -87,10 +87,20 @@ The `multikueuecluster` reconciler runs a **single worker**, and `Reconcile → 
 
 [[pr-11141]] implements the **Alpha1** scope of KEP-9988 behind the `MultiKueueManagerQuotaAutomation` feature gate (off by default). It keeps a manager [[cluster-queue]]'s nominal quota equal to the **sum of the corresponding worker-cluster quotas**, so administrators don't hand-maintain the manager's quota to mirror the fleet.
 
-- **Opt-in is per-config**: `MultiKueueConfig.spec.quotaAutomation.mode` is an enum (`Manual` | `Automated`); when unset the default depends on the feature gate.
+- **Opt-in is per-config**: `MultiKueueConfig.spec.quotaManagement` is an enum (`Manual` | `Automated`). Unset means `Manual`. `Automated` takes effect only with the feature gate on (source: raw/kueue/apis/kueue/v1beta2/multikueue_types.go). **Correction (2026-10-21)**: this page named the field `spec.quotaAutomation.mode` and said the default depends on the gate.
 - A new `CQReconciler` (`pkg/controller/admissionchecks/multikueue/clusterqueue.go`) watches manager ClusterQueues, finds the MultiKueue AdmissionCheck, resolves the `MultiKueueConfig`, and writes the summed `nominalQuota` into the CQ's single flavor (only when changed).
 - **Constraint**: the manager CQ must have **exactly one ResourceGroup with exactly one Flavor**, else the CQ gets condition `MultiKueueManagerQuotaAutomation=False` with reason `UnsupportedConfiguration`. Worker clusters that are still `connecting` are skipped in the sum.
 - New CQ status **condition** `MultiKueueManagerQuotaAutomation` (reasons: `QuotaAutomated`, `NotRequested`, `UnsupportedConfiguration`). Remote ClusterQueue/LocalQueue reads use a new `SelectivelyCachingClient` + informers so reconciles fire only on relevant remote changes.
+
+### How the `cqReconciler` aggregates worker quotas
+
+Doc comments added in [[pr-17118]] (backports pr-17357, pr-17358; no behaviour change) and the code describe the reconcile order (source: raw/kueue/pkg/controller/admissionchecks/multikueue/clusterqueue.go):
+
+1. A ClusterQueue without a MultiKueue AdmissionCheck is skipped. Its worker-status metrics and its quota-automation condition are removed. A deleted ClusterQueue also has its worker-status series cleared.
+2. Worker cluster status metrics are reported **before** any quota-automation check, so they exist for every manager ClusterQueue, including `Manual` ones.
+3. A missing `MultiKueueConfig` → `UnsupportedConfiguration`. `quotaManagement` unset or `Manual` → `NotRequested`. More than one ResourceGroup or flavor → `UnsupportedConfiguration`.
+4. `aggregateWorkerQuotas` takes the manager LocalQueues that point at this ClusterQueue. For each cluster in `spec.clusters` that has a client and is **connected** (others are skipped with a V(3) log), it finds the worker LocalQueues with the **same namespace and name**, takes the worker ClusterQueues they point at, and sums the `nominalQuota` of every resource across **all** their ResourceGroups and flavors. It sums across flavors because the manager's flavor assignment is not passed to workers. Both remote Lists go through the selectively caching client.
+5. If a worker resource is missing from the manager's `coveredResources` → `UnsupportedConfiguration` ("manager-side coveredResources is missing resources configured on workers"). Otherwise the single flavor's quotas are rewritten for every covered resource (0 if no worker has it), with an `Update` only when they changed. The condition becomes `QuotaAutomated`.
 
 ## Incremental Dispatcher `stepSize` (KEP-9270)
 
@@ -170,7 +180,20 @@ By default an elastic RayCluster with `enableInTreeAutoscaling` is rejected unde
 
 - `enableInTreeAutoscaling` without workload slicing is rejected with "a kueue-managed job can use autoscaling only as an elastic job: enable the ElasticJobsViaWorkloadSlices feature gate and set the "kueue.x-k8s.io/elastic-job": "true" annotation". This wording is from [[pr-13996]], and it is built from `workloadslicing.EnabledAnnotationKey/Value`, so it cannot drift from the constant.
 - A MultiKueue-managed elastic job with autoscaling and the gate off is rejected with "in-tree autoscaling for a MultiKueue-managed elastic job requires enabling the MultiKueueRayInTreeAutoscaling feature gate". **Correction (2026-10-21)**: this page quoted the message as "...elastic RayCluster requires...".
-- A MultiKueue-managed **RayService** with in-tree autoscaling is always forbidden ("...is not supported"), even with the gate on. #16260 (v0.20.0) extended the rejection to RayJob and RayService. Worker-side replica changes flow back to the manager as runtime annotations; for a RayJob the reverse sync is triggered directly by the worker-side child RayCluster (pr-16315), and evicted elastic slices have their remote objects removed (pr-15871). See [[elastic-jobs#MultiKueue and elastic slices]].
+- In v0.20.0–v0.20.2, a MultiKueue-managed **RayService** with in-tree autoscaling is always forbidden ("...is not supported"), even with the gate on. #16260 (v0.20.0) extended the rejection to RayJob and RayService. [[pr-16259]] lifts it for RayService on `main` and release-0.20 (see the next section). Worker-side replica changes flow back to the manager as runtime annotations; for a RayJob the reverse sync is triggered directly by the worker-side child RayCluster (pr-16315), and evicted elastic slices have their remote objects removed (pr-15871). See [[elastic-jobs#MultiKueue and elastic slices]].
+
+## RayService worker autoscaling
+
+[[pr-16259]] extends worker-side Ray autoscaling to RayService when workload slicing and `MultiKueueRayInTreeAutoscaling` (**Alpha, off**; requires `MultiKueue`, `ElasticJobsViaWorkloadSlices`, `SkipChildJobSuspension`) are on (source: pr-16259.md, raw/kueue/pkg/controller/jobs/ray/ray_multikueue_adapter.go, raw/kueue/pkg/controller/jobs/rayservice/rayservice_multikueue_adapter.go):
+
+- `workerOwnsReplicas` is true for an elastic job with autoscaling and the gate on. Then the manager never pushes replica counts to the worker.
+- On each `SyncJob`, `reflectRuntimeState` reads the worker's state and writes it onto the manager copy as runtime annotations (`SetRuntimeWorkerStateAnnotations`). For RayService, `fetchActiveRayClusterWorkerState` reads `status.activeServiceStatus.rayClusterName` on the worker RayService and returns that RayCluster's `WorkerGroupPodCounts` plus a revision (`<UID>-<generation>`). It returns nothing while the RayService is suspended or has no active cluster. The lookup checks that the RayService controls the active RayCluster and that the cluster has only worker groups the service declares.
+- A change in the runtime counts produces a new or updated workload slice on the manager. After the replacement slice is admitted, `repointPrebuiltWorkload` points the worker RayService's prebuilt-workload marker at it. If the counts did not change in this pass, the repoint happens at once; otherwise it waits for the next reconcile.
+- Limit: only the **active** RayCluster is followed. A pending RayCluster during a zero-downtime upgrade, and the period when both exist, are not handled (issue-17099, open; TODO in `fetchActiveRayClusterWorkerState`).
+
+**`serveConfigV2` during autoscaling ([[pr-17464]]).** In autoscaling mode the Ray adapter returned right after syncing runtime counts. So a `serveConfigV2` edit on the manager never reached the worker. Now the adapter continues to the `MultiKueueRemoteSpecSync` step after the runtime sync, and KubeRay updates the active RayCluster in place. The deferred repoint is kept when runtime counts change. The e2e test drives worker counts `0 → 2 → 0 → 1` by changing only `serveConfigV2`, with the RayService and active RayCluster UIDs unchanged (source: pr-17464.md).
+
+Releases: `main` and release-0.20 only ([[pr-17466]] for #16259, [[pr-17513]] for #17464), merged 2026-10-20, after v0.20.2. Not on release-0.19. See [[integration-rayjob#MultiKueue: RayService worker autoscaling]].
 
 ## Manager-side gate `MultiKueueRemoteSpecSync`
 
@@ -182,6 +205,7 @@ How it works ([[pr-14036]]; source: pr-14036.md):
 - `RemoteSpecSyncer[PtrT]` (`NeedsSync` / `Apply`) plus the `WithRemoteSpecSync` option on the shared Ray MultiKueue adapter. The adapter owns the mechanism (detect on reconcile, patch the remote in place, keep the MultiKueue metadata). Each job type owns the policy. RayService forwards **only `serveConfigV2`**. Changes to `rayClusterConfig` and `upgradeStrategy` (zero-downtime upgrade) are **not** propagated; issue-17099 is open for that.
 - Prompt trigger: the edit changes neither PodSets nor quota, so the Workload does not change and nothing would reconcile until the `workerLostTimeout` requeue (default 15 min). An optional adapter interface **`MultiKueueLocalJobWatcher`** (`NewEmptyLocalJob`; create-once adapters return `nil`) registers a watch on the manager job. `localJobHandler` enqueues the owning Workload, found through the owner-reference index, only when the job's `metadata.generation` changes, so status-only updates cannot cause a sync feedback loop.
 - If the RayService CRD is not installed, the informer must not crash the manager. This was found during review.
+- With worker-side autoscaling on, the spec sync now runs after the runtime-count sync instead of being skipped ([[pr-17464]]; see [[#RayService worker autoscaling]]).
 - Versions: Beta/on in v0.20.0. Backported to v0.19.1 and v0.18.5 (source: raw/kueue/CHANGELOG/CHANGELOG-0.19.md, CHANGELOG-0.18.md).
 
 ## Recovering a replaced slice that was not finished (worker side)
@@ -212,6 +236,13 @@ Clients that wait for `observedGeneration == metadata.generation` before trustin
 ## Beta: `MultiKueueOrchestratedPreemption`
 
 Graduated to **Beta, on by default, in v0.20** (pr-16235, tracked by issue-13966.md). The KEP still notes that a concrete Configuration API for the preemption behaviour is planned under issue-9852. Details in [[multikueue-orchestrated-preemption]].
+
+**Throughput regression fixed ([[pr-17157]]).** Workers no longer write a `Closed` state into `status.preemptionGates` for gates that were never opened, which removed two status writes per replicated Workload. A missing state still means closed. Backports pr-17468 / pr-17469, after v0.20.2 / v0.19.9. Details in [[multikueue-orchestrated-preemption]] (source: pr-17157.md).
+
+## ClusterProfile (`MultiKueueClusterProfile`, Alpha)
+
+- **No crash without the CRD ([[pr-17228]]).** With the `MultiKueueClusterProfile` gate (**Alpha, off**) on and the optional `clusterprofiles.multicluster.x-k8s.io` CRD not installed, the manager failed to start. `ConfigureClusterProfileCache` already skipped the cache entry, but the cluster controller registered the ClusterProfile watch based on the gate alone. The watch then synced against a cache entry that did not exist, and the manager exited. This also broke kubeconfig-based MultiKueue on such clusters. `cmd/kueue/main.go` now detects the CRD (`config.ClusterProfileCRDPresent`) and passes it through `multikueue.WithClusterProfileCRDPresent`. The watch is registered only if the gate is on **and** the CRD exists. Backports: pr-17360 (release-0.20), pr-17362 (release-0.19), merged 2026-10-16, after v0.20.2 / v0.19.9. This is the first step of the Beta work tracked in issue-17133 (source: pr-17228.md, raw/kueue/pkg/controller/admissionchecks/multikueue/controllers.go).
+- **`v1alpha2` ClusterProfile (`main` only, [[pr-17331]]).** Kueue now builds on `sigs.k8s.io/cluster-inventory-api` v0.2.0 and reads `ClusterProfile` as `multicluster.x-k8s.io/v1alpha2`, not the deprecated `v1alpha1`. It no longer reads `status.credentialProviders`. It applies `tls-server-name`, `insecure-skip-tls-verify` and `disable-compression` from `status.accessProviders[].cluster`. **ACTION REQUIRED** if you use the gate: before upgrading Kueue, upgrade the ClusterProfile CRD to cluster-inventory-api v0.2.0 or later, and make sure your cluster manager sets `status.accessProviders` (source: pr-17331.md).
 
 ## Behaviours worth knowing (from open issues)
 

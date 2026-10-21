@@ -2,7 +2,7 @@
 
 **Summary**: Reference for the `waitForPodsReady` Configuration block and the four v0.19/v0.20 knobs around it: enabled-by-default with a 30 minute timeout, per-Workload overrides, a separate unscheduled-Pods timeout, and a not-ready Pod budget for Pod groups. Complements the conceptual description in [[gang-scheduling]].
 
-**Sources**: pr-15503.md, pr-15672.md, pr-15734.md, pr-16059.md, pr-15531.md, pr-15627.md, pr-16217.md, issue-13502.md, raw/kueue/apis/config/v1beta2/configuration_types.go, raw/kueue/apis/config/v1beta2/defaults.go, raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/config/validation.go, raw/kueue/pkg/features/kube_features.go, pr-15372.md, pr-15402.md, issue-16366.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: pr-15503.md, pr-15672.md, pr-15734.md, pr-16059.md, pr-15531.md, pr-15627.md, pr-16217.md, issue-13502.md, raw/kueue/apis/config/v1beta2/configuration_types.go, raw/kueue/apis/config/v1beta2/defaults.go, raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/config/validation.go, raw/kueue/pkg/features/kube_features.go, pr-15372.md, pr-15402.md, issue-16366.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, issue-14811.md, pr-17147.md
 
 **Last updated**: 2026-10-21
 
@@ -61,6 +61,7 @@ Rules (source: raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueu
 
 - **Pod groups with an oversized Pod.** With `PodIntegrationVerifyRoleRequests`, a group member that requests more than its role's PodSet stays gated. The group can then never become `PodsReady`, and `waitForPodsReady` evicts and requeues the Workload up to the requeue limit. See [[integration-plain-pod#Role-hash forgery: requests are verified before ungating]].
 - **SparkApplication `SUBMISSION_FAILED`** no longer finishes the Workload, so an application the operator resubmits stays under `waitForPodsReady` (see [[integration-spark]]).
+- **Recovery-timeout eviction left quota reserved (issue-14811, fixed by pr-17147; v0.20.2 / v0.19.9).** A JobSet `Recreate` restart recreated already-succeeded child Jobs, lowering the reclaimable count; a `PodsReadyTimeout` eviction with `underlyingCause: WaitForRecovery` then suspended the JobSet, but the job reconciler kept failing on the webhook-rejected `reclaimablePods` decrease before it reached the eviction step, so `Admitted`, `QuotaReserved` and `Evicted` stayed `True` and the Workload was never requeued. Details on [[workload#`reclaimablePods` must not block eviction (pr-17147, fixes issue-14811)]].
 - Known gap, open as of this snapshot: controller-manager memory grows during repeated JobSet `PodsReadyTimeout` / requeue cycles (issue-16629, reopened).
 
 ## Related pages

@@ -1,11 +1,11 @@
 
 # Reviewer: gabesaba
 
-**Summary**: Profile of Kueue core approver @gabesaba — their review philosophy, algorithmic focus, and approval workflow. Specializes in scheduler internals, preemption, and performance.
+**Summary**: Profile of Kueue emeritus approver @gabesaba — their review philosophy, algorithmic focus, and approval workflow. Specializes in scheduler internals, preemption, and performance.
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/` — analysis of PRs where @gabesaba left substantive feedback. Representative examples: pr-7392, pr-8484, pr-8658, pr-8709, pr-9359, pr-10082, pr-10422, pr-10510, pr-10524.
 
-**Last updated**: 2026-05-12
+**Last updated**: 2026-10-21
 
 ---
 
@@ -13,7 +13,7 @@
 
 GitHub handle: [@gabesaba](https://github.com/gabesaba)
 
-Role: One of three top-level Kueue approvers (alongside `mimowo` and `tenzen-y`), per `OWNERS_ALIASES`.
+Role: **emeritus approver** since 2026-06-01, when they stepped down (#11834); listed under `emeritus_approvers` in the root `OWNERS` and no longer in `kueue-approvers` or `kueue-reviewers` (source: raw/kueue/OWNERS, raw/kueue/OWNERS_ALIASES at kueue@3bbb8cce4). **Correction (2026-10-21):** this page earlier called them one of three current top-level approvers. Their review patterns below remain a good guide to scheduler and preemption review.
 
 **Primary domain expertise**:
 

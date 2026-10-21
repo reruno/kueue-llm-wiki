@@ -2,7 +2,7 @@
 
 **Summary**: Kueue's throughput is bounded by its single scheduling loop, the cost of its in-memory cache updates, and the cost of the [[visibility-api]] snapshot. Scale pain has clustered around [[topology-aware-scheduling]] (per-domain accounting), cohort hierarchy updates, and visibility under load.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15538.md, pr-15949.md, pr-16282.md, pr-15026.md, issue-15957.md, issue-15537.md, issue-14608.md, issue-16338.md, raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`; `raw/kueue/apis/config/v1beta2/defaults.go`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15538.md, pr-15949.md, pr-16282.md, pr-15026.md, issue-15957.md, issue-15537.md, issue-14608.md, issue-16338.md, pr-16340.md, pr-16463.md, pr-17218.md, pr-17231.md, pr-17414.md, pr-17448.md, issue-17412.md, pr-17461.md, pr-17424.md, pr-17157.md, pr-17227.md, pr-16630.md, raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`; `raw/kueue/apis/config/v1beta2/defaults.go`.
 
 **Last updated**: 2026-10-21
 
@@ -66,9 +66,26 @@ Flavor assignment cost grows with the number of flavors in a ResourceGroup, and 
 
 ## Known hot spots (open or not merged in this batch)
 
-- Fair-sharing preemption recomputed cohort lendable capacity once per candidate (~11% of CPU on preemption-heavy clusters, issue-15957.md). **Fixed**: #15955 precomputes lendable Cohort capacity, making preemption up to 20% faster. Shipped in v0.20.0, v0.19.7 and v0.18.11 (source: CHANGELOG-0.20.md, CHANGELOG-0.19.md, CHANGELOG-0.18.md); see [[fair-sharing#Performance note]].
-- Classical preemption collects and sorts the candidate pool even when preemption provably cannot help (issue-14608.md), and candidate ordering is not cached across attempts (issue-16338.md).
+- Fair-sharing preemption recomputed cohort lendable capacity once per candidate (~11% of CPU on preemption-heavy clusters, issue-15957.md). **Fixed**: #15955 precomputes lendable Cohort capacity, making preemption up to 20% faster. Shipped in v0.20.0, v0.19.7 and v0.18.11 (source: CHANGELOG-0.20.md, CHANGELOG-0.19.md, CHANGELOG-0.18.md); see [[fair-sharing#Performance note: lendable capacity is precomputed per Cohort]].
+- Classical preemption collects and sorts the candidate pool even when preemption provably cannot help (issue-14608.md, still open). **Fixed**: candidate ordering is now cached per ClusterQueue for the scheduling cycle and candidates are merged lazily (issue-16338, pr-16340; gate `ClassicalPreemptionCandidateOrderCache`, Beta/on at 0.21 on main, Alpha/off in the 0.20/0.19 backports pr-17296/pr-17295). Reported 18-36 to 104-117 scheduling ops/s in a 10,000-Workload reclaim benchmark ([[preemption#Classical preemption reuses a per-cycle candidate ordering (`ClassicalPreemptionCandidateOrderCache`)]]).
 - Exact big-integer quota amounts add cost only beyond `int64`; the `int64` fast path allocates nothing, but `ResourceNodeClone` grew ~20% (pr-15026, [[cache-architecture#Quota amounts are exact past int64 (pr-15026)]]).
+
+## Event-path CPU fixes in the October 2026 wave
+
+Measured with `make run-performance-scheduler` CPU profiles (source: the PRs cited):
+
+| Hot spot | Fix | Effect |
+|---|---|---|
+| `reportLQPendingWorkloads` scanned every pending Workload of the CQ per queue change, under the queue lock (O(N^2) to drain) | per-LocalQueue counts in `PendingWorkloads` (pr-17414), per-LocalQueue custom-label trackers (pr-17448) | 9.0% of Kueue CPU (more than `schedule`) to gone; with one custom label 31.6% to 2.7% ([[cache-architecture#Queue manager: per-LocalQueue pending counts (pr-17414, pr-17448)]]) |
+| Scheduling hash computed for every Info, also outside the queue | `WithSkipSchedulingHash()` for cache, unadmitted-condition and DRA Infos (pr-17461) | 1.79 s to 0 (about 1.7% of CPU) |
+| Workload controller built a full Info for the DRA check and compared whole PodSpecs | build only when a DeviceClass backs an extended resource; compare only adjusted fields (pr-17424) | `Info.Update` 8.49 s to 4.98 s ([[workload-resource-adjustment]]) |
+| MultiKueue workers wrote and lost a `Closed` preemption-gate state per replicated Workload | stop writing `Closed` states (pr-17157) | fixes a regression (CI fell from about 46 to 33 workloads/s when the gate went on); locally 99-100 vs 86-94 workloads/s, same as gate off ([[multikueue-orchestrated-preemption]]) |
+
+All are backported to release-0.20 (and most to 0.19) after v0.20.2 / v0.19.9. Separately, on main the eight per-cycle scheduler progress log lines moved from V(2) to V(3) (pr-17227); a Workload waiting for preemption could otherwise produce about 740 log lines per second at the default verbosity ([[scheduler-internals#Scheduler progress logs are at V(3) (pr-17227, main only)]]).
+
+**Startup.** Since pr-16630 the scheduler waits for the cache-filling event handlers' initial lists before its first cycle. On a cold start with many objects the first cycle starts later, but no longer decides on a partial cache; a warm follower does not wait ([[scheduler-internals#Phase 0: wait for the initial cache sync (pr-16630)]]).
+
+**Performance scheduler tool.** pr-16463 (backports pr-17218/0.20, pr-17231/0.19) extended `test/performance/scheduler` with nested Cohorts, ClusterQueue `lendingLimit`, delayed Workload-set submission (`initialDelayMs`), configurable runner QPS/burst and Workload concurrency, and scheduled CPU profiling, to reproduce preemption-heavy scenarios such as issue-16338; see [[testing-performance]] (source: pr-16463.md, raw/kueue/test/performance/scheduler/runner/generator/generator.go).
 
 ## Interpreting metrics
 

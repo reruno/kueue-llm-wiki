@@ -2,9 +2,9 @@
 
 **Summary**: An alpha feature that lets a Workload simultaneously pursue admission on multiple ResourceFlavors in parallel, enabling flavor migration and racing long-running AdmissionChecks across different accelerator types.
 
-**Sources**: `raw/kueue/keps/8691-concurrent-admission/README.md`, `raw/kueue/keps/8691-concurrent-admission/kep.yaml`, pr-15553.md, pr-15781.md, pr-15949.md, pr-16282.md, issue-15500.md, issue-15547.md, issue-15838.md, pr-15000.md
+**Sources**: `raw/kueue/keps/8691-concurrent-admission/README.md`, `raw/kueue/keps/8691-concurrent-admission/kep.yaml`, pr-15553.md, pr-15781.md, pr-15949.md, pr-16282.md, issue-15500.md, issue-15547.md, issue-15838.md, pr-15000.md, pr-17144.md, pr-17337.md, pr-17338.md, issue-16872.md, pr-17157.md, raw/kueue/pkg/controller/concurrentadmission/controller.go
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -141,9 +141,18 @@ The ClusterQueue webhook (`clusterqueue_webhook.go`) rejects a ClusterQueue with
 
 Kueue-generated Workload names always end in `-<hash>`, but a user-created (e.g. prebuilt) parent may have any DNS-subdomain name. `getWorkloadBaseName` sliced at the last `-` unconditionally, so a parent named `wl` panicked (`slice bounds out of range [:-1]`); controller-runtime recovered it, so the reconcile retried forever and the parent never got Variants. It now returns the whole name when there is no `-`.
 
-### Known open issue: removing a flavor evicts the running parent (issue-15838.md)
+### Removing a flavor from the ClusterQueue evicts the parent admitted on it (pr-17144)
 
-When a flavor is removed from a ClusterQueue with `concurrentAdmissionPolicy`, one reconcile deletes the stale (admitted) Variant, creates a Variant for the new flavor, and then `syncAdmissionStatus` finds no admitted Variant while the parent is admitted and writes `Evicted`/`ConcurrentAdmission`/"No variant is running" on the parent, although its admission was still valid. Reported against v0.20.0-rc.1, open at the time of this update.
+Current behaviour of `variantReconciler.syncAdmissionStatus` when a flavor is removed from a ClusterQueue with `concurrentAdmissionPolicy` (source: raw/kueue/pkg/controller/concurrentadmission/controller.go, pr-17144.md):
+
+- `deleteStaleVariants` deletes the Variant of the removed flavor (behaviour since #12501). If that Variant was the admitted one, no admitted Variant is left, and the parent is evicted with `Evicted` reason `ConcurrentAdmission`, message "No variant is running". This is the case reported in issue-15838 (against v0.20.0-rc.1; the issue is still open, and a reviewer of pr-17144 described the eviction as existing behaviour covered by the integration test "Should evict the parent when the admitted variant's flavor is removed").
+- **New branch (pr-17144, fixes the flake issue-16872).** If the scheduler had already admitted **another** Variant (for example `spot`) before the Variant reconciler saw the ClusterQueue update, the controller took the "Parent and Variant admitted" branch, which only syncs `PodsReady`, so the parent stayed admitted on a flavor the ClusterQueue no longer offers. Now, when `admittedVariant != nil`, the parent is admitted, and `hasRemovedAdmissionFlavor(parent, flavorOrder)` finds a `status.admission.podSetAssignments[].flavors` value missing from the ClusterQueue's flavor order, the parent gets `Evicted` reason `ConcurrentAdmission`, message "The admitted flavor is no longer in the ClusterQueue" (V(2) log "Parent admitted flavor is no longer in the ClusterQueue, evicting parent"). An existing eviction is preserved while the parent releases quota. The parent can then be re-admitted on a remaining flavor.
+
+Note that this differs from non-ConcurrentAdmission ClusterQueues, where removing a flavor does not evict running Workloads; a maintainer raised this in review. Release note: "ConcurrentAdmission: Fixed a bug where a parent `Workload` could remain admitted on a flavor removed from its `ClusterQueue` when a surviving variant was already admitted..." Backports pr-17337 (0.20) and pr-17338 (0.19), merged 2026-10-16, after v0.20.2 / v0.19.9 (source: pr-17144.md, pr-17337.md, pr-17338.md).
+
+### Preemption gate states are no longer written as `Closed` (pr-17157)
+
+ConcurrentAdmission readers of `status.preemptionGates` (`HasOpenPreemptionGate`, `latestOpenGateTime`) already treat a gate with no recorded state as closed, so the pr-17157 change that stops writing `Closed` states for never-opened gates does not change Variant gating ([[multikueue-orchestrated-preemption#Gate states are written only when a gate opens (pr-17157)]]).
 
 ### Interaction with AdmissionFairSharing
 

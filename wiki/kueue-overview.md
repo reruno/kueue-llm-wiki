@@ -2,9 +2,9 @@
 
 **Summary**: Kueue is a Kubernetes-native job queueing system that gates when workloads become visible to `kube-scheduler`. It decides when a job should wait, when it should be admitted (its Pods allowed to be created), and when it should be preempted — all without replacing `kube-scheduler` or any existing controller.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` — project-level context drawn from the full issue/PR history.
+**Sources**: `raw/github/kubernetes-sigs__kueue/` — project-level context drawn from the full issue/PR history; `raw/kueue/site/data/adopters.yaml`; pr-17456.md.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-10-21
 
 ---
 
@@ -28,6 +28,10 @@ The unit of quota and priority in Kueue is the **job** — not the Pod. Decision
 Primary users are **platform teams** running shared Kubernetes clusters for ML/AI training, HPC, data processing, or CI. Fair-share quota enforcement across teams on expensive accelerators (GPUs, TPUs) is the most common motivation.
 
 Recurring themes in the issue tracker confirm this audience: RayJob adoption ([[issue-10438]]), PyTorchJob gang-scheduling ([[issue-2796]]), DRA/device support ([[pr-3071]]), and topology-aware placement for ML training ([[issue-2724]]).
+
+### Public adopters list
+
+The website's adopters page renders `site/data/adopters.yaml` as text cards (name, URL, type, description, integrations, contact; no logo needed). At kueue@3bbb8cce4 it lists: Canva, CyberAgent, DaoCloud, WattIQ, Horizon, FAR AI, Shopee, Mondoo, Google Cloud, Onna Technologies, IBM Research, Innovatrics, Red Hat, Octue, LY Corporation, Preferred Networks, Wayve, Krea AI, Parasail, Netflix, the NYCU Office of AI Affairs, CoreWeave and Etsy. Etsy, added by pr-17456, runs Kueue on GKE as the admission layer of its ML platform with the RayCluster and RayJob integrations (source: raw/kueue/site/data/adopters.yaml, pr-17456.md). To add an organisation, append an entry to that file in a PR with `/area website`.
 
 ## What Kueue is not
 

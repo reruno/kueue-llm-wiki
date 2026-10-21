@@ -2,7 +2,7 @@
 
 **Summary**: Dynamic Quota Orchestration (KEP-12382) lets an external source of capacity (autoscaler, node inventory, cloud reservation) drive [[cluster-queue]] and [[cohort]] nominal quota through two alpha cluster-scoped APIs, `CapacityProvider` and `DynamicQuotaOrchestrator` (DQO). **Alpha, feature gate `DynamicQuotaOrchestration`, off by default, new in v0.20.**
 
-**Sources**: pr-15505.md, pr-16168.md, pr-15040.md, pr-15107.md, pr-15199.md, pr-15283.md, pr-15286.md, pr-16349.md, issue-16356.md, raw/kueue/pkg/util/resourcegroups/effective.go, raw/kueue/keps/12382-dynamic-quota-orchestration/README.md, raw/kueue/apis/kueue/v1alpha1/dynamicquotaorchestrator_types.go, raw/kueue/apis/kueue/v1alpha1/capacityprovider_types.go, raw/kueue/pkg/controller/core/dqo/
+**Sources**: pr-15505.md, pr-16168.md, pr-15040.md, pr-15107.md, pr-15199.md, pr-15283.md, pr-15286.md, pr-16349.md, issue-16356.md, raw/kueue/pkg/util/resourcegroups/effective.go, raw/kueue/keps/12382-dynamic-quota-orchestration/README.md, raw/kueue/apis/kueue/v1alpha1/dynamicquotaorchestrator_types.go, raw/kueue/apis/kueue/v1alpha1/capacityprovider_types.go, raw/kueue/pkg/controller/core/dqo/, pr-16767.md, raw/kueue/pkg/controller/core/dqo/discovery.go
 
 **Last updated**: 2026-10-21
 
@@ -58,7 +58,9 @@ Overlapping DQOs are not rejected by webhook; the controller does "soft validati
 
 Omit `capacityDistribution` to validate what capacity a DQO computes (`status.effectiveCapacity`) before it starts writing quotas. Aggregated capacity is capped at 128 flavors in DQO status vs 64 per provider (source: KEP README, raw/kueue/apis/kueue/v1alpha1/dynamicquotaorchestrator_types.go).
 
-**Correction (2026-10-21)**: this page said exceeding the limits deactivates the DQO. That is the KEP intent, but per issue-16356 (open) discovery can aggregate more than 128 distinct flavors from valid providers (e.g. 64 + 64 + 1), and the `status.effectiveCapacity.flavors` update (`MaxItems=128`) is then **rejected by the API server**, leaving effective capacity unavailable; soft validation for this case is proposed in pr-16767 (open) (source: issue-16356.md).
+**Correction (2026-10-21)**: this page said exceeding the limits deactivates the DQO. That is the KEP intent, but per issue-16356 discovery could aggregate more than 128 distinct flavors from valid providers (e.g. 64 + 64 + 1), and the `status.effectiveCapacity.flavors` update (`MaxItems=128`) was then **rejected by the API server**, leaving effective capacity unavailable (source: issue-16356.md).
+
+**Fixed on main by pr-16767 (merged 2026-10-19; no backport in this snapshot).** `reconcileDiscovery` aggregates provider capacity, then, if the number of distinct flavors exceeds `maxEffectiveCapacityFlavors = 128` (a constant that must match the `MaxItems` marker on `EffectiveCapacity.Flavors`), sets `EffectiveCapacityComputed=False` with reason **`AggregationFailed`** and message "Aggregated capacity covers N distinct flavors, which exceeds the supported limit of 128", clears `status.effectiveCapacity`, and returns without attempting the invalid status update. Exactly 128 flavors is accepted. The maintainers chose this soft validation over raising `MaxItems`; the API comment and generated CRDs now describe the limit. Release note: "DQO: when the referenced CapacityProviders orchestrate more than 128 distinct flavors in total, the DQO now sets EffectiveCapacityComputed=False with reason AggregationFailed instead of failing to update its status." (source: pr-16767.md, raw/kueue/pkg/controller/core/dqo/discovery.go, raw/kueue/apis/kueue/v1alpha1/dynamicquotaorchestrator_types.go)
 
 ## Related pages
 

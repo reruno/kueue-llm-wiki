@@ -2,7 +2,7 @@
 
 **Summary**: How to run, focus, and debug Kueue's three test tiers (unit, integration, e2e) on a local dev machine, which make targets and env vars each tier honors, how CI exercises them, and where to look when a test goes flaky. Entry point for the developer-workflow section.
 
-**Sources**: `raw/kueue/Makefile-test.mk`, `raw/kueue/hack/testing/`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`, `raw/kueue/test/util/constants.go`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-2415]], [[pr-5414]], [[pr-6906]]; pr-16723.md, pr-16481.md, pr-16781.md, pr-16791.md, pr-16823.md, pr-16996.md, pr-16923.md; `raw/kueue/site/content/en/community/contribution_guidelines/writing_tests.md`.
+**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/hack/testing/`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`, `raw/kueue/test/util/constants.go`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-2415]], [[pr-5414]], [[pr-6906]]; pr-16723.md, pr-16481.md, pr-16781.md, pr-16791.md, pr-16823.md, pr-16996.md, pr-16923.md; 2026-10-21 batch: pr-17136.md, pr-17163.md, pr-17206.md, pr-17391.md, pr-17283.md, pr-17304.md, pr-17352.md, pr-17431.md, pr-17477.md, pr-17487.md, pr-17377.md, pr-17148.md, `raw/kueue/hack/make/verify.mk`, `raw/kueue/hack/make-failure-summary.sh`; `raw/kueue/site/content/en/community/contribution_guidelines/writing_tests.md`.
 
 **Last updated**: 2026-10-21
 
@@ -10,7 +10,7 @@
 
 ## The test pyramid
 
-Kueue has three tiers. Each tier's make targets live in `Makefile-test.mk`. **Correction (2026-10-21)**: the Makefile system was refactored (#14127). The test targets now live in `hack/make/test.mk`, and verify targets in `hack/make/verify.mk`, both included from the top-level `Makefile`. References to `Makefile-test.mk` on this page mean `hack/make/test.mk` (verified against `raw/kueue` at kueue@8922c563e).
+Kueue has three tiers. Each tier's make targets live in `hack/make/test.mk`. **Correction (2026-10-21)**: the Makefile system was refactored (#14127). The test targets now live in `hack/make/test.mk`, and verify targets in `hack/make/verify.mk`, both included from the top-level `Makefile`. References to `hack/make/test.mk` on this page mean `hack/make/test.mk` (verified against `raw/kueue` at kueue@8922c563e).
 
 | Tier | What it exercises | Runtime | Where |
 |---|---|---|---|
@@ -29,7 +29,7 @@ Three companion pages go deep on the heavier tiers:
 For unit + integration:
 
 - Go toolchain matching `go.mod`.
-- `make envtest` pulls the kubebuilder assets; integration targets set `KUBEBUILDER_ASSETS` automatically via `ENVTEST_K8S_VERSION` (default `1.35`, set in `Makefile-test.mk`).
+- `make envtest` pulls the kubebuilder assets; integration targets set `KUBEBUILDER_ASSETS` automatically via `ENVTEST_K8S_VERSION` (default `1.35`, set in `hack/make/test.mk`).
 
 For e2e (any suite):
 
@@ -66,7 +66,7 @@ go test ./pkg/webhooks -run TestValidateClusterQueue   # regex on test name
 go test ./pkg/scheduler/preemption/ -race         # explicit race detector
 ```
 
-`make test` excludes `./test/` and writes a coverage profile to `$ARTIFACTS/cover.out` (`Makefile-test.mk`).
+`make test` excludes `./test/` and writes a coverage profile to `$ARTIFACTS/cover.out` (`hack/make/test.mk`).
 
 ### Integration
 
@@ -77,7 +77,7 @@ make test-integration-baseline        # --label-filter="!slow && !redundant"
 make test-integration-extended        # --label-filter="slow || redundant"
 ```
 
-Knobs (all read by `Makefile-test.mk`):
+Knobs (all read by `hack/make/test.mk`):
 
 - `INTEGRATION_NPROCS` (default `4`) — parallel specs within a suite. Suites still run sequentially.
 - `INTEGRATION_NPROCS_MULTIKUEUE` (default `3`).
@@ -112,7 +112,7 @@ Per-suite folder layout under `test/e2e/`: `singlecluster`, `multikueue`, `multi
 Knobs most contributors touch:
 
 - `E2E_MODE=dev` — keep Kind cluster across runs (see [[testing-e2e]]).
-- `E2E_K8S_VERSION` (default `1.35`) — picks the Kind node image. Valid values live in `E2E_K8S_VERSIONS` (currently `1.33.7 1.34.3 1.35.0` in `Makefile-test.mk`).
+- `E2E_K8S_VERSION` (default `1.35`) — picks the Kind node image. Valid values live in `E2E_K8S_VERSIONS` (currently `1.33.7 1.34.3 1.35.0` in `hack/make/test.mk`).
 - `KIND_CLUSTER_NAME` (default `kind`) — set this if you do not want the suite's teardown to delete your personal default cluster.
 - `IMAGE_TAG` — point at a released or staging image to skip `kind-image-build` entirely, e.g. `IMAGE_TAG=registry.k8s.io/kueue/kueue:v0.16.0`.
 - `GINKGO_ARGS` — passed through to Ginkgo.
@@ -140,7 +140,7 @@ GINKGO_ARGS="--label-filter=feature:admissionfairsharing" make test-e2e-sequenti
 GINKGO_ARGS="--label-filter=feature:spark" make test-e2e-sequential-extended
 ```
 
-Taxonomies come from `Makefile-test.mk`:
+Taxonomies come from `hack/make/test.mk`:
 
 - Integration controllers: `controller:{workload,localqueue,clusterqueue,admissioncheck,resourceflavor,provisioning}`.
 - Integration jobs: `job:{batch,pod,jobset,pytorch,tensorflow,mpi,paddle,xgboost,jax,train,ray,appwrapper,sparkapplication}`.
@@ -191,7 +191,7 @@ CI is Prow. Logs and artifacts are at `https://prow.k8s.io/view/gs/kubernetes-ci
 | `pull-kueue-test-e2e-main-1-35` | E2E singlecluster against k8s 1.35 | [[pr-5414]] |
 | `pull-kueue-test-e2e-multikueue-main` | E2E multikueue, main | [[issue-6525]] |
 
-The `Makefile-test.mk` targets whose CI jobs are not individually cited in the raw corpus — `test-tas-e2e`, `test-e2e-dra`, `test-e2e-certmanager`, `test-e2e-sequential-baseline`, `test-e2e-sequential-extended`, `test-e2e-upgrade`, `test-e2e-kueueviz`, `test-performance-scheduler`, `test-tas-performance-scheduler` — exist as make targets today but their exact Prow job names are not verified from raw/github/. Dashboard: `https://testgrid.k8s.io/sig-scheduling` ([[issue-9954]]).
+The `hack/make/test.mk` targets whose CI jobs are not individually cited in the raw corpus — `test-tas-e2e`, `test-e2e-dra`, `test-e2e-certmanager`, `test-e2e-sequential-baseline`, `test-e2e-sequential-extended`, `test-e2e-upgrade`, `test-e2e-kueueviz`, `test-performance-scheduler`, `test-tas-performance-scheduler` — exist as make targets today but their exact Prow job names are not verified from raw/github/. Dashboard: `https://testgrid.k8s.io/sig-scheduling` ([[issue-9954]]).
 
 Bot commands (k8s-ci-robot) you will use on PRs:
 
@@ -223,7 +223,8 @@ Ginkgo suites under `test/integration/`. Shared fixtures live under `test/util/b
 - `test/util/behavioral/integration/`: helpers that **simulate** kubelet or controller behaviour, valid only against envtest (for example faking Pod readiness or eviction completion).
 - `test/util/behavioral/e2e/`: e2e-only helpers (clients, cluster components, images, kubelet/node control, restarts, KubeRay, metrics scraping).
 - Log verification moved into the integration framework (`test/integration/framework`).
-- Every Ginkgo helper calls `ginkgo.GinkgoHelper()`, so failures point at the caller. Explicit Gomega offsets were dropped (source: pr-16996.md, fixes #16896).
+- Every Ginkgo helper calls `ginkgo.GinkgoHelper()`, so failures point at the caller. Explicit Gomega offsets were dropped (source: pr-16996.md, fixes #16896; release-0.19 got the same change as a manual pick, pr-17136). Exception: a function that only **returns** a closure (for example the diagnostic message builder `AssertMsgForMk`) needs `GinkgoHelper()` inside the closure, not in the outer function, which has already returned when the closure runs (pr-17163, fixes issue-17138).
+- Shared helpers added or merged in this window: `SetLocalQueueStopPolicy(ctx, c, lq, policy)` in `test/util/behavioral/queues.go` sets `spec.stopPolicy` to any value with the usual get/update `Eventually` retry, and `UnholdLocalQueue` is a wrapper over it with `kueue.None` (pr-17391, fixes issue-16876). `DeleteAllPodsInNamespace` in `test/util/behavioral/pods.go` is now the single Pod-deletion helper, used by `DeleteNamespace` (pr-17206, fixes issue-17139). Both were backported to release-0.20/0.19. Reuse them instead of hand-written patch loops.
 
 Timeout constants (from `test/util/behavioral/constants.go`):
 
@@ -314,6 +315,14 @@ Add external CPU pressure with `stress` to reproduce CI-load patterns locally (`
 - `make generate manifests` — regenerates CRDs and RBAC after API changes ([[pr-6906]]).
 
 If a PR's `verify` job fails for import ordering, run `make lint-fix` locally and recommit.
+
+**Reading a failed `make verify` (2026-10).** Changes merged to main and both release branches:
+
+- `verify-checks` runs through `hack/make-failure-summary.sh`. On failure, the `make[N]: ***` lines are repeated at the **end** of the log under `ERROR: failed make targets:`, with the exit status kept. Under `make -j`, the real failure used to sit hundreds of lines up (line 946 of 1262 in one case). Covered by the `verify-make-failure-summary` target (source: pr-17304.md).
+- `verify-e2e-common-test` (`hack/testing/e2e-common_test.sh`, which fakes `docker` and `kind`) prints its output only when it fails. Its expected `net/http: TLS handshake timeout` for `registry.example.com` used to appear in **every** verify log and was repeatedly mistaken for a registry flake while the real failure was a lint or typecheck error (source: pr-17283.md, fixes issue-16959). If you see a TLS timeout in a verify log now, it is real.
+- `verify-skills-lint` runs skillsaw (0.22.0+) with `-q`: a clean run prints nothing; the full report is in `$ARTIFACTS/skillsaw-summary.html`. Its config is `cmd/experimental/skills/.skillsaw.yaml`, owned by the skills sub-approvers, and the container runs with rootless-Podman user-namespace options (source: pr-17352.md, pr-17477.md, pr-17487.md).
+- The standalone `make skills-lint` and `make ray-version-verify` targets were removed; use `make verify-skills-lint` and `make verify-ray-version`. Convention: a separate `X` target exists next to `verify-X` only when `verify-X` depends on `verify-tree-prereqs` (source: pr-17431.md).
+- golangci-lint is pinned to **v2.14.0** in `hack/tools/go.mod`. Go 1.27.2 writes export data v5, which v2.13.x cannot read, so every package failed with `typecheck` (source: pr-17148.md). The custom API linter (`make golangci-lint-kal`) is built with `GOTOOLCHAIN=$(go env GOVERSION)`; otherwise an older local Go could build it and it refused to analyse Kueue (`built with go1.26.x`) (source: pr-17377.md).
 
 ## Related pages
 

@@ -2,7 +2,7 @@
 
 **Summary**: The `kueue-controller-manager` binary exposes Prometheus metrics on `/metrics`. Metrics cover per-[[cluster-queue]] usage and reservation, [[workload]] admission/preemption counters, [[admission-check]] outcomes, and scheduling-loop latency. Labels include `cluster_queue`, `flavor`, `priority_class`, `priority_class_source`, `replica_role`, and (Alpha, `CustomMetricLabels`) operator-defined `custom_*` labels sourced from ClusterQueues, LocalQueues, Cohorts or Workloads.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15026.md, pr-16208.md, raw/kueue/pkg/metrics/metrics.go, raw/kueue/site/content/en/docs/reference/metrics.md, pr-13420.md, pr-13469.md, pr-13635.md, pr-16730.md, pr-16670.md, pr-16372.md, pr-16379.md, pr-16398.md, pr-16762.md, pr-16833.md, pr-16890.md, pr-16888.md, pr-16493.md, pr-16581.md, pr-17057.md, issue-16530.md, pr-16743.md, issue-16623.md, pr-15391.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/site/content/en/docs/tasks/manage/observability/configure_custom_metric_labels.md, raw/kueue/apis/config/v1beta2/configuration_types.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15026.md, pr-16208.md, raw/kueue/pkg/metrics/metrics.go, raw/kueue/site/content/en/docs/reference/metrics.md, pr-13420.md, pr-13469.md, pr-13635.md, pr-16730.md, pr-16670.md, pr-16372.md, pr-16379.md, pr-16398.md, pr-16762.md, pr-16833.md, pr-16890.md, pr-16888.md, pr-16493.md, pr-16581.md, pr-17057.md, issue-16530.md, pr-16743.md, issue-16623.md, pr-15391.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/site/content/en/docs/tasks/manage/observability/configure_custom_metric_labels.md, raw/kueue/apis/config/v1beta2/configuration_types.go; 2026-10-21 batch: pr-16653.md, pr-17238.md, pr-17239.md, pr-17240.md, pr-17046.md, pr-17219.md, pr-17222.md, pr-16647.md, issue-16640.md, pr-17336.md, pr-17435.md, pr-17414.md, pr-17448.md, pr-17416.md, pr-17417.md, pr-17452.md, issue-17412.md, pr-16035.md, pr-16535.md, issue-16029.md, issue-11843.md, raw/kueue/pkg/cache/queue/local_queue_counts.go, raw/kueue/pkg/cache/scheduler/clusterqueue.go, raw/kueue/pkg/config/metrics.go
 
 **Last updated**: 2026-10-21
 
@@ -157,12 +157,12 @@ Testing note: the requeuer is asynchronous with a 100 ms batch period in integra
 
 ## Invalid `localQueueSelector` now fails startup (v0.20.0, ACTION REQUIRED)
 
-`NewLocalQueueMetricsConfig` used to discard the selector-parse error and return `nil`, and `nil` means "no filtering", so with `metrics.localQueueMetrics.enable: true` an invalid `localQueueSelector` (e.g. `operator: InvalidOp`) silently exposed metrics for **every** LocalQueue — higher cardinality and a wider monitoring scope than intended. The error is now propagated and the manager refuses to start. Fix invalid selectors before upgrading (source: pr-16379.md; backported to release-0.19 as pr-16977 after v0.19.8). General rule: a failed parse must never be represented by the same value as "no restriction" (see [[security-code-patterns]]).
+`NewLocalQueueMetricsConfig` used to discard the selector-parse error and return `nil`, and `nil` means "no filtering", so with `metrics.localQueueMetrics.enable: true` an invalid `localQueueSelector` (e.g. `operator: InvalidOp`) silently exposed metrics for **every** LocalQueue — higher cardinality and a wider monitoring scope than intended. The error is now propagated and the manager refuses to start. Fix invalid selectors before upgrading (source: pr-16379.md; backported to release-0.19 as pr-16977, shipped in v0.19.9 as ACTION REQUIRED per CHANGELOG-0.19.md). General rule: a failed parse must never be represented by the same value as "no restriction" (see [[security-code-patterns]]).
 
 ## Cohort metrics after hierarchy changes
 
 - **`kueue_cohort_subtree_admitted_active_workloads`** (v0.20.0, v0.19.7, v0.18.11; pr-16398): a Cohort's `admittedWorkloadsCount` was maintained incrementally on Workload events but not rebuilt when the Cohort tree changed, so the gauge could go stale, zero or **negative** (e.g. reconciling a Cohort with an unchanged parent recreated its implicit root with a zero count; reparenting or deleting a Cohort with children did the same). Now the count is rebuilt from children together with the rest of the tree, and the gauge is re-reported for both the old and new trees *during the cache's tree rebuild* (old trees and implicit Cohorts may never be reconciled again). Semantics: the gauge follows the **current** subtree (moving `ch1` with 3 admitted under `root2` with 2 makes `root2` = 5), whereas `kueue_cohort_subtree_admitted_workloads_total` is a counter of admissions and is not moved. Deleting an explicit Cohort that still has children leaves it as an implicit Cohort, so its gauge is kept (its counter is cleared) (source: pr-16398.md).
-- **ClusterQueue deletion** (pr-16762, main; backported to 0.20 as pr-16941, after v0.20.1): the CQ delete handler called `ClearCohortMetrics`, which computes subtree metrics as if the whole Cohort were removed, and nothing re-recorded them. A Cohort that still had other CQs or child Cohorts lost its `kueue_cohort_subtree_quota` and `kueue_cohort_subtree_resource_reservations` series (for a root Cohort until another member CQ reconciled). The delete path now re-records from the updated cache, like the cohort-change path in `Update` (source: pr-16762.md).
+- **ClusterQueue deletion** (pr-16762, main; shipped in v0.20.2 as #16941 and v0.19.9 as pr-17240): the CQ delete handler called `ClearCohortMetrics`, which computes subtree metrics as if the whole Cohort were removed, and nothing re-recorded them. A Cohort that still had other CQs or child Cohorts lost its `kueue_cohort_subtree_quota` and `kueue_cohort_subtree_resource_reservations` series (for a root Cohort until another member CQ reconciled). The delete path now re-records from the updated cache, like the cohort-change path in `Update` (source: pr-16762.md).
 
 ## Weighted-share gauges: `NaN` for a zero-weight borrower
 
@@ -172,19 +172,65 @@ Both `kueue_cluster_queue_weighted_share` and `kueue_cohort_weighted_share` are 
 
 The counter (`cluster_queue`, `replica_role`) was defined, incremented on slice replacement and documented since v0.13 (#5510, KEP-77 Beta criterion), but missing from `Register()`, so it never appeared on `/metrics` while `kueue_admitted_workloads_total` counted both slices. Registered by pr-16743 (fixes issue-16623; v0.20.1 #16763, v0.19.8 #16856). Lesson for reviewers: a new metric needs a test that it is exposed, not only that it is incremented (source: issue-16623.md, pr-16743.md). See [[elastic-jobs]].
 
+## Stale series after ClusterQueue deletion or Cohort change (pr-16653)
+
+`kueue_cluster_queue_weighted_share` and `kueue_replaced_workload_slices_total` were cleared only when a ClusterQueue's custom metric labels changed. After a ClusterQueue was deleted their series stayed, and after a ClusterQueue moved to another Cohort the weighted-share series with the old `cohort` label stayed next to the new one. The weighted-share gauge is now in the ClusterQueue resource-cleanup scope (cleared on deletion and on Cohort change), and `ClearClusterQueueMetrics` clears the replaced-slices counter; the label-change-only cleanup scope was removed as redundant (source: pr-16653.md; v0.20.2 pr-17239, v0.19.9 pr-17238).
+
+## Custom-label resync depends on event order (pr-17046)
+
+The ClusterQueue and LocalQueue Update handlers resync gauges when custom labels change. They detected the change with `CQStore`/`LQStore`, which return `false` if the cache already holds the new values. When `Reconcile` ran first it stored the new values, so the handler saw "no change" and left the old label series in Prometheus. `CustomLabels.ValuesChanged` / `CQValuesChanged` / `LQValuesChanged` now compare old and new object metadata directly, so the resync runs in either order. Tests cover both interleavings (`TestClusterQueueCustomLabelUpdateMetricRefresh`, `TestLocalQueueCustomLabelUpdateMetricRefresh`). This is the first of three cases tracked in #16840 (source: pr-17046.md; v0.20.2 pr-17219, v0.19.9 pr-17222). Reviewer note from the PR: a `nil` LocalQueue selector means "expose all LocalQueues", so do not add nil-selector shortcuts in `pkg/metrics/localqueue.go`.
+
+## `kueue_local_queue_admitted_active_workloads` after label changes (pr-17336)
+
+Since pr-13635 the LocalQueue series of this gauge are incremented per Workload inside the ClusterQueue's report. On a custom-label resync this broke in two ways: a **ClusterQueue** label change re-added the Workloads, so the LocalQueue gauge **doubled**; a **LocalQueue** label change cleared the series and nothing re-reported them, so the gauge went to **-1** when the Workloads finished. The same happened when a LocalQueue started to match `localQueueSelector`. Now `resyncLocalQueueAdmittedActiveWorkloads` (`pkg/cache/scheduler/clusterqueue.go`) clears and rebuilds the LocalQueue series from the cached Workloads in one pass; both the ClusterQueue resync and `Cache.ResyncLocalQueueGaugeMetrics` call it, and the ClusterQueue resync reports only ClusterQueue series (source: pr-17336.md; release-0.20 pr-17435, after v0.20.2).
+
+Known gap, still open: when **one** LocalQueue update both changes a custom label value and sets `spec.stopPolicy`, the controller clears the gauges but skips the resync for a stopping queue (`!stoppingQueue` in `LocalQueueReconciler.Update`), so the gauge goes to -1 when the Workloads finish and `kueue_local_queue_reserving_active_workloads` is missing until the next Workload change (issue-17356).
+
+## Per-LocalQueue pending counts (pr-17414, pr-17448)
+
+`kueue_local_queue_pending_workloads` used to be computed by scanning every pending Workload of the ClusterQueue on each queue change. `localQueueCounts` (`pkg/cache/queue/local_queue_counts.go`) now keeps, per LocalQueue, one `metrics.LabelValsTracker` for `active` (heap plus inflight Workloads) and one for `inadmissible`, keyed by the Workload custom label values. The counts are updated in the same `PendingWorkloads` helpers that maintain `schedulingHashCounts` (push, update, pop, requeue, moves to and from inadmissible, delete, LocalQueue delete). The struct has its own `sync.RWMutex`, so the metric read path does not take the ClusterQueue-wide lock. `pendingInLocalQueue` returns the totals, `pendingBreakdownInLocalQueue` returns tracker copies for the `CustomMetricLabels` path (source: raw/kueue/pkg/cache/queue/local_queue_counts.go, pr-17414.md, pr-17448.md).
+
+Measured with one Workload custom label in `make run-performance-scheduler`: `reportLQPendingWorkloads` fell from 31.6% to 2.7% of Kueue CPU; the author asked that this land before `CustomMetricLabels` goes Beta (source: pr-17448.md). release-0.19 got only pr-17417, because Workload labels on LocalQueue pending metrics (#14167) are 0.20+.
+
+## Sentinel error for an invalid LocalQueue selector (pr-16647)
+
+`NewLocalQueueMetricsConfig` wraps both `ErrInvalidLocalQueueSelector` and the parse error (`%w: %w`), so callers can use `errors.Is`. The message is unchanged (`invalid metrics.localQueueMetrics.localQueueSelector: <parse error>`) and an invalid enabled selector still fails startup. Tests compare errors with `cmpopts.EquateErrors()`. Note that `ShouldExposeLocalQueueMetrics` on a `nil` config returns `true` ("expose all"), which is why the startup error matters (source: pr-16647.md, fixes issue-16640). On release-0.19 the selector became a startup failure only in **v0.19.9**, which lists it as ACTION REQUIRED (#16977) (source: CHANGELOG-0.19.md).
+
+## Metrics access control for loopback scrapers (`MetricsAccessControl`, Alpha, main)
+
+`metrics.accessControlMode` (v1beta2 Configuration): `Delegated` (default; TokenReview + SubjectAccessReview via controller-runtime's `filters.WithAuthenticationAndAuthorization`) or `None` (no filter). It requires the Alpha `MetricsAccessControl` gate (0.21, off); with the gate off, setting the field is a validation error. `None` is valid only with a literal loopback `bindAddress` and a port 1-65535 (for example `127.0.0.1:8443` or `[::1]:8443`); `bindAddress: "0"` disables metrics and skips that check. HTTPS stays on; the startup log warns that metrics may expose tenant information. The intended use is a sidecar scraper in the manager Pod that verifies the serving certificate. A ServiceMonitor cannot reach a loopback listener through the Service or Pod IP (source: raw/kueue/pkg/config/metrics.go, raw/kueue/pkg/config/validation.go, pr-16035.md, KEP in pr-16535.md, fixes issue-16029). Security analysis: [[security-authn-authz#Metrics listener: opting out of authentication (main, Alpha)]]. Client-certificate authentication is a separate open proposal (issue-17432).
+
+```yaml
+featureGates:
+  MetricsAccessControl: true
+metrics:
+  accessControlMode: None
+  bindAddress: "127.0.0.1:8443"
+```
+
+## Pending metrics with a `reason` label: use `kueue_unadmitted_workloads`
+
+issue-11843 asked for a `reason` label on `kueue_pending_workloads`. It was closed as covered by KEP-10852: use `kueue_unadmitted_workloads` / `kueue_local_queue_unadmitted_workloads`, which carry `reason` and `underlying_cause` (source: issue-11843.md). See [[unadmitted-workloads-observability]].
+
 ## Release map for this batch
 
 | Fix | main PR | First release(s) |
 |---|---|---|
 | Execution-time histograms | pr-13420 | v0.20.0 |
 | Workload labels on pending / LQ pending / LQ admitted metrics | pr-13469, #14167, pr-13635 | v0.20.0 |
-| Invalid LQ selector fails startup | pr-16379 | v0.20.0 (0.19 backport merged later) |
+| Invalid LQ selector fails startup | pr-16379 | v0.20.0, v0.19.9 |
 | Cohort subtree gauge after hierarchy change | pr-16398 | v0.20.0, v0.19.7, v0.18.11 |
 | Stale custom-label pending series on CQ stop/resume | pr-16670 | v0.20.1 |
 | Pending refresh on CQ stop/resume and LQ lifecycle | pr-16833, #15576 | v0.20.1, v0.19.8 |
 | `kueue_cohort_weighted_share` NaN | pr-16581 | v0.20.1, v0.19.8 |
 | `kueue_replaced_workload_slices_total` registered | pr-16743 | v0.20.1, v0.19.8 |
-| Cohort subtree quota series kept after CQ delete | pr-16762 | release-0.20 branch (after v0.20.1) |
+| Cohort subtree quota series kept after CQ delete | pr-16762 | v0.20.2, v0.19.9 |
+| Weighted share / replaced-slices series cleared on CQ delete and Cohort change | pr-16653 | v0.20.2, v0.19.9 |
+| Custom-label gauge resync when Reconcile runs before the Update handler | pr-17046 | v0.20.2, v0.19.9 |
+| `ErrInvalidLocalQueueSelector` sentinel (no behaviour change) | pr-16647 | v0.20.2, v0.19.9 (refactor backports) |
+| LQ admitted active gauge doubled / negative after label change | pr-17336 | release-0.20 after v0.20.2 (pr-17435); not backported to 0.19 |
+| Per-LocalQueue pending counts without a CQ scan | pr-17414, pr-17448 | release-0.20 after v0.20.2 (pr-17416, pr-17452); release-0.19 after v0.19.9 (pr-17417 only) |
+| `metrics.accessControlMode` / `MetricsAccessControl` | pr-16035 | main only (Alpha, v0.21 dev) |
 | Workload labels on cohort subtree admitted total; creation-latency gate GA | pr-16730, pr-16493 | main (v0.21 dev) |
 
 

@@ -2,7 +2,7 @@
 
 **Summary**: The plain-Pod integration lets Kueue govern Pods that aren't owned by a supported higher-level controller. Kueue attaches a scheduling gate at Pod admission-webhook time, creates a Workload, and removes the gate once the Workload is admitted. Groups of related Pods can be treated as a gang using the `kueue.x-k8s.io/pod-group-name` label — a "PodGroup."
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13014.md, pr-13945.md, pr-17123.md, pr-17124.md, pr-16358.md, pr-16365.md, pr-16385.md, pr-17077.md, pr-17087.md, issue-16517.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13014.md, pr-13945.md, pr-17123.md, pr-17124.md, pr-16358.md, pr-16365.md, pr-16385.md, pr-17077.md, pr-17087.md, issue-16517.md, pr-17053.md, pr-17173.md, pr-17204.md, issue-16901.md, pr-17454.md, pr-17501.md, pr-17505.md, pr-16044.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobs/pod/pod_controller.go, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
 **Last updated**: 2026-10-21
 
@@ -116,7 +116,7 @@ A second attack, forging the role hash, was split out of #13014 into #13382. See
 - A role hash that names no PodSet returns the permanent `podset.ErrInvalidPodsetInfo`. This check moved into the pre-pass; its behaviour did not change.
 - Adjustment inputs are resolved only when the gate is on **and** the group has a gated Pod.
 - Not covered: Pods that never carried Kueue's gate, for example Pods in an excluded namespace, Pods whose gate another plugin stripped, or Pods created while the webhook was down.
-- Gate **`PodIntegrationVerifyRoleRequests`**: **Beta, on by default** on `main`, versioned 0.21. The backports to release-0.20 ([[pr-17123]]) and release-0.19 ([[pr-17124]]) ship it **Alpha and off by default**. The 0.19 backport uses `workload.AdjustResources` on a copy, because `EffectivePodSpecs` does not exist on that branch. None of these appears in a tagged release at the snapshot (through v0.20.1 / v0.19.8). The backports were fixed in v0.20.2 and v0.19.9 per CHANGELOG at kueue@3bbb8cce4, released after this snapshot (source: pr-17123.md, pr-17124.md, raw/kueue/pkg/features/kube_features.go).
+- Gate **`PodIntegrationVerifyRoleRequests`**: **Beta, on by default** on `main`, versioned 0.21. The backports to release-0.20 ([[pr-17123]]) and release-0.19 ([[pr-17124]]) ship it **Alpha and off by default**. The 0.19 backport uses `workload.AdjustResources` on a copy, because `EffectivePodSpecs` does not exist on that branch. The backports shipped in **v0.20.2** (#17123) and **v0.19.9** (#17124), with the gate Alpha and off (source: pr-17123.md, pr-17124.md, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md).
 - **Action required** (release note): if a trusted controller sets `role-hash` itself, for example to a stable per-group value so replacement Pods keep matching immutable PodSet names, check that its Pods never request more than the PodSet built from the group's first Pod of that role. Larger Pods now stay gated (source: pr-17124.md).
 
 Validation of owner-reference UIDs in `FindAncestorJobManagedByKueue`, raised in the same review, was moved to a separate PR (#13802) and is not part of this check.
@@ -131,7 +131,21 @@ Production incident: a pod stuck `Terminating` (kubelet-stuck teardown) whose Wo
 - While a child Workload exists nothing changes, so eviction/quota-release bookkeeping is still observed. With `PodIntegrationValidateGroupOwner`, a same-named foreign-owned Workload is not mistaken for "no Workload".
 - It runs before pod-set composition, so it also covers fast-admission groups; the `ErrWorkloadCompose` warning event is no longer emitted for all-terminating groups.
 - The removal of the reconcile-request key rewrite (`key.Name = p.pod.Name`) is an independent, ungated fix.
-- The finalization is behind the Alpha, default-off gate **`FinalizeTerminatingPodGroups`** (registered for v0.20); gate off returns the legacy `Load` result and re-creates a Workload (source: pr-15628.md; backports pr-15554.md, pr-15555.md, pr-15665.md, pr-15666.md). Open question: whether finalization should also require the `pod-group-total-count` to be met.
+- The finalization is behind the gate **`FinalizeTerminatingPodGroups`**: **Beta, on by default since v0.20.0** on `main` and release-0.20; on release-0.19 it is Alpha and off. With the gate off, `Load` returns the legacy result and a Workload is re-created (source: pr-15628.md, pr-17505.md, raw/kueue/pkg/features/kube_features.go; backports pr-15554.md, pr-15555.md, pr-15665.md, pr-15666.md). **Correction (2026-10-21)**: this page called the gate Alpha and off by default. That is true only for release-0.19. Open question: whether finalization should also require the `pod-group-total-count` to be met.
+
+### Mixed groups: terminating Pods do not shape a new Workload
+
+#15154 acted only when **every** group Pod was terminating. A mixed group had the same problem. Say a group's Workload is deleted and replacement Pods arrive while the old Pods are still in their grace period. A Pod that is being deleted but is still bound to a node counts as runnable, so it could be picked as the PodSet template. Its spec carries the earlier admission (`nodeName`, flavor node labels, TAS hostname `nodeSelector`), so the new Workload fit only that node. A multi-node gang was never admitted and blocked the head of its ClusterQueue. If the old Pod still had Kueue's finalizer, the excess-Pod trim also kept it and deleted the gated replacement as `ExcessPodDeleted` (source: pr-17454.md).
+
+[[pr-17454]] extends `FinalizeTerminatingPodGroups` to this case (source: pr-17454.md, raw/kueue/pkg/controller/jobs/pod/pod_controller.go):
+
+- When Kueue builds a **new** group Workload (`ConstructComposableWorkload`), `dropTerminatingPods` removes the Pods that have a non-zero `deletionTimestamp` and are still bound to a node. Kueue strips their finalizer. They do not count toward the group size, shape the PodSets, own the Workload, or receive its events. The check is for a set `deletionTimestamp`, not a comparison with now, because the bug happens inside the grace period.
+- If fewer live Pods remain than the group's total count, Kueue waits for more replacements.
+- `FindMatchingWorkloads` still counts terminating bound Pods, because they still hold node resources.
+- An all-terminating group whose old Workload is still being deleted is now finalized, as #15154 intended, instead of getting a new Workload.
+- **Not gated:** Kueue used to wait for excess Pods without a Kueue finalizer to disappear before ungating admitted replacements. It no longer waits. That wait could happen with the gate off too.
+
+Releases: `main` and release-0.20 ([[pr-17501]]) have it on by default. On release-0.19 ([[pr-17505]]) the gated part works only if you enable the Alpha gate. All three merged 2026-10-20, after v0.20.2 / v0.19.9, so the next patch releases are the first to include it (source: pr-17501.md, pr-17505.md).
 
 ## `PodsReady` counts Succeeded pods as ready
 
@@ -152,7 +166,7 @@ With `FailureRecoveryPolicy` on, retries of forceful termination of a Pod stuck 
 
 ## Empty PodGroups of StatefulSet / LeaderWorkerSet
 
-When the last member Pod of a StatefulSet/LWS-backed PodGroup is gone, `Pod.Load()` reports an empty composable job (`jobFound=false`) and finalization ran before the normal eviction branch, so a Workload evicted by `PodsReadyTimeout` kept its admission and quota, or was finished as an orphan while the owner was still live. The empty-PodGroup path now reads the owner through the `IntegrationManager` and checks UID and deletion state; for an unfinished Workload with a live, Kueue-managed non-Pod owner it retains the Workload and finalizer and completes eviction via the same admission-clearing helper as the normal inactive-job path (which re-checks eviction and quota-reservation state inside the status patch). Deleted, terminating or UID-mismatched owners still let the Workload be finished (source: pr-14578.md; backports pr-16127.md, pr-16128.md). Separate, still open at writing: scale-to-zero of a StatefulSet with active Pods can release quota prematurely ([[issue-16043]]). The deletion-grace double count ([[issue-16075]]) is now fixed; see the next section.
+When the last member Pod of a StatefulSet/LWS-backed PodGroup is gone, `Pod.Load()` reports an empty composable job (`jobFound=false`) and finalization ran before the normal eviction branch, so a Workload evicted by `PodsReadyTimeout` kept its admission and quota, or was finished as an orphan while the owner was still live. The empty-PodGroup path now reads the owner through the `IntegrationManager` and checks UID and deletion state; for an unfinished Workload with a live, Kueue-managed non-Pod owner it retains the Workload and finalizer and completes eviction via the same admission-clearing helper as the normal inactive-job path (which re-checks eviction and quota-reservation state inside the status patch). Deleted, terminating or UID-mismatched owners still let the Workload be finished (source: pr-14578.md; backports pr-16127.md, pr-16128.md). Scale-to-zero of a StatefulSet with active Pods releasing quota early ([[issue-16043]]) is now fixed by [[pr-16044]], which reuses this page's Pod activity rule; see [[integration-statefulset#Scale-to-zero keeps quota while owned Pods are active]]. **Correction (2026-10-21)**: this section listed issue-16043 as open. The deletion-grace double count ([[issue-16075]]) is also fixed; see the next section.
 
 ## PodGroup activity at the Pod deletion deadline
 
@@ -163,9 +177,26 @@ Rules at the snapshot (source: raw/kueue/pkg/controller/jobs/pod/pod_controller.
 - A Running, terminating Pod **with** a recorded `deletionGracePeriodSeconds` is inactive once `now` is after `deletionTimestamp`. At exactly the timestamp it still counts as active.
 - A terminating Pod **without** a recorded grace period still counts as active, as before.
 - With `FastQuotaReleaseInPodIntegration` (Alpha, off) any terminating Pod is inactive at once.
-- The new decision applies at the **next reconcile** after the deadline. No reconcile is scheduled at the deadline itself.
+- For pod groups, the new decision applies at the **next reconcile** after the deadline. No reconcile is scheduled at the deadline itself. The StatefulSet reconciler does schedule one recheck just after the deadline (see [[integration-statefulset]]).
 
-Main merged 2026-10-12. Backports: [[pr-17077]] (release-0.20) and [[pr-17087]] (release-0.19). None was in a tagged release at the snapshot. The backports were fixed in v0.20.2 and v0.19.9 per CHANGELOG at kueue@3bbb8cce4, released after this snapshot. **Correction (2026-10-21)**: the "Empty PodGroups" section above listed [[issue-16075]] as open.
+Main merged 2026-10-12. Shipped in **v0.20.2** ([[pr-17077]]) and **v0.19.9** ([[pr-17087]]) (source: raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md). The check now lives in `PodActivity(pod, now)`, which returns whether the Pod is active and, for a terminating Pod with a recorded grace period, how long until its deadline. `Pod.IsActive()` and the StatefulSet scale-to-zero path both use it (#16044). **Correction (2026-10-21)**: the "Empty PodGroups" section above listed [[issue-16075]] as open.
+
+## Single-Pod Workloads evicted while still gated are requeued
+
+`SkipReassignmentForPodOwnedWorkloads` (**Beta, on by default since v0.19**) changes what happens after a Workload owned by a single Pod (`workload.OwnedBySinglePod`) is evicted by preemption or node failure. `clearAdmissionAfterEviction` sets `Requeued=False` instead of `True`. A Pod that already runs cannot use a new assignment, so the Workload is parked and finishes with its Pod. The owner (for example a ReplicaSet) creates a replacement Pod, which gets a new Workload (source: issue-16901.md, raw/kueue/pkg/features/kube_features.go).
+
+**The bug ([[issue-16901]]).** That reasoning fails while the Pod still has the `kueue.x-k8s.io/admission` scheduling gate. This happens when the Workload is preempted after `QuotaReserved` but before `Admitted`, typically while an AdmissionCheck such as a ProvisioningRequest is still `Pending`. `Pod.Stop()` skips gated Pods (`podSuspended` = terminated or gated), so the Pod is never deleted. The queue manager does not retry a Workload with `Requeued=False`, and nothing sets it back to `True` for these eviction reasons. The Workload and its Pod were stuck forever, and the Deployment stayed at 0 available replicas. The visibility API still listed the Workload as pending. A common trigger: borrow-only ClusterQueues reclaimed with `reclaimWithinCohort: Any`, combined with a TAS + ProvisioningRequest setup, where the "reserved but gated" window lasts as long as node provisioning (source: issue-16901.md).
+
+**The fix ([[pr-17053]]).** The parking branch now also requires `!job.IsSuspended()`. For the Pod integration, suspended means the Pod still has the admission gate, which is the same test `Stop()` uses. So (source: raw/kueue/pkg/controller/jobframework/reconciler.go):
+
+- A gated Pod's Workload is requeued (`Requeued=True`), as it was before the gate existed. The Pod stays in place and is ungated when the Workload is admitted again.
+- An evicted Workload whose Pod was already ungated is still parked.
+- **Repair on upgrade.** Some Workloads were parked by an earlier version: `Evicted=True`, `Requeued=False` with the same reason as the eviction, quota already released, Pod still gated. Reconcile now sets `Requeued=True` on them, so you do not have to delete Pods by hand. The repair is marked `TODO(#16901)` and will be removed once v0.19 and v0.20 are out of support.
+- Only the Pod integration satisfies `OwnedBySinglePod`, so other integrations are not affected.
+- Remaining window: `IsSuspended()` reads the Pod from the informer cache. If the eviction reconcile runs before the cache sees the ungate written by `Run()`, the Workload is requeued while its Pod already runs. Pod groups, and single Pods with the gate off, already had this window (source: pr-17053.md).
+- Also out of scope: TAS `shouldKeepExistingAssignment` still keeps the topology assignment of a pod-owned Workload on node failure even while the Pod is gated (source: pr-17053.md).
+
+Shipped in **v0.20.2** ([[pr-17173]]) and **v0.19.9** ([[pr-17204]]) (source: raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md). See [[topology-aware-scheduling]] and [[preemption]].
 
 ## Pod-level requests and quota
 
@@ -174,6 +205,10 @@ Main merged 2026-10-12. Backports: [[pr-17077]] (release-0.20) and [[pr-17087]] 
 ## Webhook-side defaulting of WorkloadPriorityClass
 
 The Pod webhook enforces `managedJobsNamespaceSelector` earlier in admission, so it passes `nil` to `ApplyDefaultWorkloadPriorityClass` (see [[workload-priority#Defaulting respects the namespace selector]]).
+
+## Queue-name changes on gated Pods are validated
+
+The Pod webhook does not re-run create validation on update. A gated Pod could therefore switch `kueue.x-k8s.io/queue-name` to a value that is not a valid LocalQueue name, and the reconciler then failed on every retry. A changed, non-empty value is now validated. Shipped in v0.20.2 (#16972) and v0.19.9 (#16973). Details: [[job-framework-interface#Queue-name format is validated on update]] (source: raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md).
 
 ## Related pages
 

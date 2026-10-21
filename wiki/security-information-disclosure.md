@@ -2,7 +2,7 @@
 
 **Summary**: Patterns from the 148 Information Disclosure CVEs in `raw/cve/`. Covers logging hygiene, error-response content, [[metrics]] label cardinality (as a covert channel), [[visibility-api]] cross-tenant exposure, and credential handling.
 
-**Sources**: `raw/cve/` — representative entries `CVE-2019-1002101.md` (kubectl cp path traversal also exposes file contents), `CVE-2020-8554.md` (man-in-the-middle via ExternalIP), `CVE-2020-8563.md` (sensitive info in logs), `CVE-2021-25741.md` (subpath symlink), CWE-200/CWE-532/CWE-522/CWE-552 entries broadly; 2026-09 additions `CVE-2025-71425.md`, `CVE-2025-71423.md`, `CVE-2026-47701.md`, `CVE-2026-86332.md`, `CVE-2026-94611.md`, `CVE-2026-45726.md`; 2026-10 additions `CVE-2026-106561.md`, `CVE-2026-106563.md`, `CVE-2026-71895.md`, `CVE-2026-18517.md`.
+**Sources**: `raw/cve/` — representative entries `CVE-2019-1002101.md` (kubectl cp path traversal also exposes file contents), `CVE-2020-8554.md` (man-in-the-middle via ExternalIP), `CVE-2020-8563.md` (sensitive info in logs), `CVE-2021-25741.md` (subpath symlink), CWE-200/CWE-532/CWE-522/CWE-552 entries broadly; 2026-09 additions `CVE-2025-71425.md`, `CVE-2025-71423.md`, `CVE-2026-47701.md`, `CVE-2026-86332.md`, `CVE-2026-94611.md`, `CVE-2026-45726.md`; 2026-10 additions `CVE-2026-106561.md`, `CVE-2026-106563.md`, `CVE-2026-71895.md`, `CVE-2026-18517.md`; 2026-10-21 additions `CVE-2026-110248.md`, `CVE-2026-77564.md`, `CVE-2026-113672.md`, `CVE-2026-113709.md`, `CVE-2026-65172.md`, `CVE-2026-77934.md`, `CVE-2026-87354.md`; Kueue sources pr-17246.md, pr-17088.md, pr-16035.md, `raw/kueue/pkg/config/metrics.go`.
 
 **Last updated**: 2026-10-21
 
@@ -42,7 +42,7 @@ Catch-all for fields that should not cross tenant boundaries. In Kueue:
 
 - The [[visibility-api]] reveals pending-Workload position in queue. If exposed to tenants in other namespaces, this discloses other tenants' workload names. Verify per-namespace RBAC.
 - [[metrics]] label cardinality: never use `workload_name` or `pod_name` as a label. Always use `cluster_queue` (cluster-scoped, intentionally public among queue users) or `namespace` (visible only to namespace members).
-- The [[dashboard|KueueViz UI]] aggregates state across queues — its RBAC must mirror the visibility-api's.
+- The [[dashboard|KueueViz UI]] aggregates state across queues — its RBAC must mirror the visibility-api's. Two aggregate-field leaks were fixed in October 2026 (see "KueueViz: names leaked through aggregate fields" below).
 
 ### CWE-522 — Insufficiently protected credentials (7 CVEs)
 
@@ -120,6 +120,33 @@ None is a Kueue CVE ([[security#2026-10 wave: what the 26 new CVEs add]]).
 | CVE-2026-18517 | IBM Maximo Location Service for Esri 9.0-9.2 | CWE-284, 7.7 | misconfigured NetworkPolicy allowed unintended egress (source: CVE-2026-18517.md). Kueue's manifests ship no NetworkPolicy, so egress restriction for the controller is the installer's choice |
 
 **Rule added:** a UI or API that reads cluster data with its own ServiceAccount must apply redaction and namespace filtering on **every** handler and served version. This restates the 2026-09 `CVE-2026-86332` rule for [[dashboard]] with two more examples.
+
+## KueueViz: names leaked through aggregate fields (fixed 2026-10)
+
+The rule above was violated in Kueue's own dashboard and fixed in this window (release-0.20 and main only; release-0.19 KueueViz has no per-user authorization):
+
+- `/ws/cohorts` put every ClusterQueue name into each Cohort's `clusterQueues` field for any user allowed to view Cohorts. It now checks `list clusterqueues` for the caller and omits the field on deny or on authorizer error (pr-17246, issue-17178; release-0.20 after v0.20.2).
+- `/ws/namespaces` streamed LocalQueue-driven updates, which reveal queue existence and update timing per namespace, to callers without `watch localqueues`. The initial snapshot stays filtered by `list`; live updates now need cluster-wide `watch` (pr-17088, issue-17073; v0.20.2).
+
+Generalised: a response is only as private as its **least-checked field**. When a handler embeds data of a second kind (names, counts, child lists), it needs a check for that kind too (source: pr-17246.md, pr-17088.md). See [[security-authn-authz#KueueViz fixes in this window: in-repo examples]].
+
+## Metrics without authentication (main, Alpha)
+
+`metrics.accessControlMode: None` (gate `MetricsAccessControl`, Alpha, off, main only; pr-16035) serves `/metrics` without TokenReview/SubjectAccessReview on a loopback-only address. Kueue metrics carry tenant information: ClusterQueue and LocalQueue names, namespaces, and configured custom label values from queues and Workloads (`CustomMetricLabels`). With `None`, anything in the manager Pod's network namespace can read them, and the manager logs a startup warning saying so (source: raw/kueue/pkg/config/metrics.go, pr-16035.md). Rule for reviewers: a new metric label sourced from a tenant object is data that sidecar scrapers will see.
+
+## 2026-10-21 additions
+
+None is a Kueue CVE ([[security#2026-10-21 wave: what the 20 new CVEs add]]).
+
+| CVE | Product / versions | CWE, CVSS | Mechanism and Kueue rule |
+| --- | --- | --- | --- |
+| CVE-2026-110248 | Amazon SageMaker Python SDK v3 < 3.10.0, v2 < 2.257.3 | CWE-532, 5.3 | a failed `git clone` logged the subprocess error output **including the credential-bearing URL** to CloudWatch (source: CVE-2026-110248.md). Kueue rule: errors from client calls that may embed a URL with userinfo or a token (MultiKueue kubeconfig servers, ClusterProfile endpoints) must not be logged verbatim |
+| CVE-2026-77564 | Talos Linux < 1.12.9 / 1.13.3 | CWE-312, 3.3 | `talosctl support` bundles included registry `auth` fields and sensitive file specs without redaction (source: CVE-2026-77564.md). Kueue analogue: debugging dumps (`pkg/debugger`, which dumps the cache and queues on SIGUSR2) must not include Secret contents or kubeconfigs |
+| CVE-2026-113672 | Argo CD 0.9.0 until 3.3.15 / 3.4.10 / 3.5.4 | CWE-22, 9.9 | jsonnet `import`/`importstr`/`importbin` were not confined to the repo root, so a manifest could read `/proc/self/environ`, projected SA tokens and mounted keys and return them in a ConfigMap; `importstr /dev/zero` exhausted memory (source: CVE-2026-113672.md). See [[security-injection-and-input-validation]] |
+| CVE-2026-113709 | Argo CD 2.1.0 until 3.3.15 / 3.4.10 / 3.5.4 | CWE-829, 9.9 | with `--enable-helm`, a repository-controlled `helmGlobals.configHome` made Helm load a downloader plugin from the repo and run it in the repo-server, with access to repository credentials (source: CVE-2026-113709.md) |
+| CVE-2026-65172 | NVIDIA AIStore | CWE-862, 8.6 | unauthenticated ETL management API (source: CVE-2026-65172.md); see [[security-authn-authz]] |
+| CVE-2026-77934 | Coze Studio < 0.5.0 | CWE-1188, 8.8 | workflow code nodes ran in an unsandboxed `python3` subprocess; a regex import filter was bypassed with `__import__('subprocess')`, exposing environment variables and model API keys (source: CVE-2026-77934.md). Denylist filters on code are not a sandbox |
+| CVE-2026-87354 | Oracle TimesTen In-Memory Database Kubernetes Operator 22.1-22.1.40.0, 26.1-26.1.1.2.0 | no CWE, 4.3 | low-privileged network read of a subset of data; no mechanism published (source: CVE-2026-87354.md). Low signal |
 
 ## Related pages
 

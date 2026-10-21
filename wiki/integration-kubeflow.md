@@ -2,7 +2,7 @@
 
 **Summary**: Kueue integrates with the Kubeflow Training Operator's job types — PyTorchJob, TFJob, MPIJob, MXJob, PaddleJob, XGBoostJob, JAXJob. Each has its own controller and its own replica-type decomposition; Kueue's per-integration adapter maps replica types to PodSets.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16972.md, pr-16973.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16972.md, pr-16973.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
 **Last updated**: 2026-10-21
 
@@ -54,7 +54,7 @@ Topology-aware PyTorchJobs ([[issue-1476]] — pytorchjobs scheduling unaware of
 
 ## Queue-name changes are validated on update
 
-These webhooks did not re-run create-time validation on update, so a suspended job could switch `kueue.x-k8s.io/queue-name` to a valid label value that is not a valid LocalQueue name (for example `Bad_Queue`). The job reconciler then failed on every retry. Since #16221 a changed, non-empty value is validated (backports pr-16972 / release-0.20 and pr-16973 / release-0.19; not yet released at the snapshot; fixed in v0.20.2 and v0.19.9 per CHANGELOG at kueue@3bbb8cce4, released after this snapshot). See [[job-framework-interface#Queue-name format is validated on update]] (source: pr-16973.md).
+These webhooks did not re-run create-time validation on update, so a suspended job could switch `kueue.x-k8s.io/queue-name` to a valid label value that is not a valid LocalQueue name (for example `Bad_Queue`). The job reconciler then failed on every retry. Since #16221 a changed, non-empty value is validated (shipped in **v0.20.2** via pr-16972 and **v0.19.9** via pr-16973, per raw/kueue/CHANGELOG/CHANGELOG-0.20.md and CHANGELOG-0.19.md). See [[job-framework-interface#Queue-name format is validated on update]] (source: pr-16973.md).
 
 ## Related pages
 

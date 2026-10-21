@@ -3,7 +3,7 @@
 
 **Summary**: Overview of Kueue's reviewer roster, OWNERS structure, Prow approval workflow, and how individual reviewers divide responsibility. Use this page as the entry point when navigating to a specific reviewer profile or to [[code-quality|the project's shared code quality bar]].
 
-**Sources**: `raw/kueue/OWNERS`, `raw/kueue/OWNERS_ALIASES`, `raw/kueue/CONTRIBUTING.md`, `raw/kueue/AGENTS.md`, and analysis of PR review comments across `raw/github/kubernetes-sigs__kueue/`; pr-16505.md, pr-16850.md, pr-16739.md, pr-17055.md, pr-14150.md.
+**Sources**: `raw/kueue/OWNERS`, `raw/kueue/OWNERS_ALIASES`, `raw/kueue/CONTRIBUTING.md`, `raw/kueue/AGENTS.md`, and analysis of PR review comments across `raw/github/kubernetes-sigs__kueue/`; pr-16505.md, pr-16850.md, pr-16739.md, pr-17055.md, pr-14150.md; pr-17326.md, pr-17284.md, pr-17348.md, pr-17162.md, pr-17487.md, `raw/kueue/cmd/experimental/skills/OWNERS`, `raw/kueue/cmd/experimental/skills/reviewer/multikueue/SKILL.md` (OWNERS state re-read at kueue@3bbb8cce4).
 
 **Last updated**: 2026-10-21
 
@@ -16,26 +16,33 @@ Kueue uses Kubernetes-style OWNERS files. The root `OWNERS` references aliases i
 ### Top-level approvers and reviewers
 
 ```
-kueue-approvers:        gabesaba, mimowo, tenzen-y
-kueue-reviewers:        gabesaba, mbobrovskyi, mimowo, pbundyra, tenzen-y,
-                        kannon92, pajakd, olekzabl, kshalot, sohankunkerkar
+kueue-approvers:        mimowo, sohankunkerkar, tenzen-y
+kueue-reviewers:        mbobrovskyi, mimowo, pbundyra, tenzen-y, kannon92,
+                        pajakd, olekzabl, kshalot, sohankunkerkar, amy, j-skiba
 ```
 
 Approval requires one approver from `kueue-approvers`. `/lgtm` can come from any reviewer.
+
+**Correction (2026-10-21):** this block was stale. gabesaba stepped down as approver on 2026-06-01 (#11834) and is listed under `emeritus_approvers`; sohankunkerkar became a full approver on 2026-08-07 (#13927); amy joined `kueue-reviewers` on 2026-06-23 (#12423); j-skiba joined on 2026-10-16 (pr-17326) (source: `raw/kueue/OWNERS`, `raw/kueue/OWNERS_ALIASES`, `git log` of both files).
+
+**Becoming a reviewer.** Self-nomination is a PR that adds you to `kueue-reviewers`, with evidence for the checklist used in pr-17326: org member for at least 3 months, primary reviewer for at least 5 PRs, and at least 20 substantial PRs reviewed or merged, plus a summary of the areas you cover. It is assigned to the approvers for `/lgtm` and `/approve` (source: pr-17326.md). j-skiba covers TAS node-failure handling, inadmissible-workload observability (KEP-10852), scheduler/quota internals including Dynamic Quota Orchestration, and kueue-populator.
 
 ### Path-filter overrides
 
 | Path pattern | Approver alias | Notes |
 |---|---|---|
-| `go.(mod\|sum)`, `package(-lock)?.json`, `vendor/...`, `Makefile-deps.mk` | `dependency-approvers` (mbobrovskyi, pbundyra) | Dependency bumps |
-| `*_test.go`, `Makefile-(verify\|test).mk`, `.golangci*.yaml` | `test-approvers` (mbobrovskyi, pbundyra) | Test infrastructure and lint config |
-| `AGENTS.md` | `agent-approvers` (amy) | Experimental agent instructions |
+| `go.(mod\|sum)`, `vendor/...`, `hack/make/deps.mk` | `dependency-approvers` (mbobrovskyi, pbundyra) | Dependency bumps |
+| `package(-lock)?.json` | `dependency-approvers` or `release-team` | npm dependencies (KueueViz, site) |
+| `*_test.go`, `hack/make/(verify\|test).mk`, `.golangci*.yaml` | `test-approvers` (mbobrovskyi, olekzabl, pbundyra) | Test infrastructure and lint config |
+| `AGENTS.md`, `cmd/experimental/skills/` (own OWNERS file) | `agent-approvers` / `agent-reviewers` (amy, kannon92, pbundyra) | Agent instructions, skills and the skillsaw config (`cmd/experimental/skills/.skillsaw.yaml`, moved there by pr-17487) |
+| `Makefile`, `README.md`, `INSTALL.md`, `Chart.yaml`, `SECURITY-INSIGHTS.yaml` | `release-team` (mbobrovskyi, Singularity23x0) | Release-managed files |
+| `Dockerfile`, `.dockerignore` / `netlify.toml` | `infra-approvers` / `hugo-approvers` (mbobrovskyi) | Images / website build |
 
 This is why dependency-bump and test-infrastructure PRs route to mbobrovskyi or PBundyra first, even when the rest of the diff is in core scheduler code.
 
 ### Emeritus approvers
 
-Listed in the root OWNERS as `emeritus_approvers` and no longer active: `ahg-g`, `alculquicondor`, `denkensk`, `kerthcet`. Their CHANGELOG history is still useful context for design decisions made before 0.10.
+Listed in the root OWNERS as `emeritus_approvers` and no longer active: `ahg-g`, `alculquicondor`, `denkensk`, `gabesaba`, `kerthcet`. Their CHANGELOG history is still useful context for design decisions made before 0.10.
 
 ### Security and release
 
@@ -52,7 +59,7 @@ Detailed profiles for the most active approvers/reviewers:
 |---|---|---|
 | @mimowo | TAS, MultiKueue, workload eviction, cache/scheduler internals, RayJob, ProvisioningRequest; the hard blocker on naming, tests, upgrade safety | [[reviewer-mimowo]] |
 | @tenzen-y | Release management & cherry-picks, TAS annotation semantics, client-go plumbing | [[reviewer-tenzen-y]] |
-| @gabesaba | Scheduler internals, preemption correctness, performance, MultiKueue edge cases | [[reviewer-gabesaba]] |
+| @gabesaba (emeritus approver since 2026-06) | Scheduler internals, preemption correctness, performance, MultiKueue edge cases | [[reviewer-gabesaba]] |
 | @mbobrovskyi | Test infrastructure, dependency bumps, SSA migration, code consolidation | [[reviewer-mbobrovskyi]] |
 | @PBundyra | API design, Kubernetes versioning rules, Concurrent Admission KEP, fair sharing | [[reviewer-pbundyra]] |
 
@@ -62,10 +69,20 @@ Other active reviewers without dedicated profile pages:
 - **@pajakd** — TAS, scheduler details
 - **@olekzabl** — Workload lifecycle
 - **@kshalot** — Performance and test reliability
-- **@sohankunkerkar** — Integrations and documentation
+- **@sohankunkerkar** — approver since 2026-08; integrations, documentation, and the per-LocalQueue pending-metric and preemption performance work in this window (pr-17414, pr-17448)
+- **@j-skiba** — reviewer since 2026-10 (pr-17326); TAS node failure, unadmitted-workload observability, DQO, kueue-populator
+- **@danylott** — primary `/lgtm` on KueueViz PRs in this window; verifies UI changes locally and asks for release notes that warn about behaviour changes, e.g. that an invalid `KUEUEVIZ_AUTH_MODE` now fails startup (source: pr-17143.md, pr-17235.md, pr-17088.md)
 - **@henry3260** — frequent `/lgtm` on kueuectl and KueueViz fixes. Asks for tests that would fail on the old code, for example asserting a slice is non-nil, or putting a Workload on page 2 when testing pagination (source: pr-16739.md, pr-16850.md, pr-17055.md)
 
 **CI gotcha.** If Prow shows obsolete required jobs as blockers (for example after a test-infra job change that was reverted), maintainers ask the author to push a no-op commit to retrigger the current job set (source: pr-16850.md, pr-16739.md).
+
+---
+
+## Agent instructions and review skills
+
+- `AGENTS.md` is the single agent-instruction file; `CLAUDE.md`, which only referenced it, was removed (pr-17284). The PR text and AI summary describe a contribution workflow added to `AGENTS.md`, but the merged commit only deletes `CLAUDE.md`; the workflow is in the `kueue-pr-issue-workflow` skill that `AGENTS.md` links, and a separate PR to add it to `AGENTS.md` is still open (pr-17361) (source: `git show` of the merge commit in raw/kueue).
+- Agents must start each reply with `_Kueue Development (context canary, see AGENTS.md)_`; if it disappears, the agent has probably lost `AGENTS.md` from its context (pr-17348).
+- Reviewer skills live in `cmd/experimental/skills/reviewer/`. New in this window: `multikueue` — minimise reads from remote worker clusters, e.g. requeue from manager-cluster Workloads instead of listing on workers, keeping only reads needed for correctness (pr-17162). See [[code-quality]].
 
 ---
 

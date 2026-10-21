@@ -2,7 +2,7 @@
 
 **Summary**: E2E tests run Kueue against a real (Kind-based) Kubernetes cluster, with any external operators (JobSet, KubeRay, Kubeflow Training, LeaderWorkerSet, AppWrapper, cert-manager, Prometheus Operator) installed alongside. This page covers the per-suite matrix, the dev-mode Kind lifecycle (`E2E_MODE=dev`), the full MultiKueue invocation recipe, and flake patterns specific to e2e.
 
-**Sources**: `raw/kueue/Makefile-test.mk`, `raw/kueue/hack/testing/e2e-common.sh`, `raw/kueue/hack/testing/e2e-test.sh`, `raw/kueue/hack/testing/e2e-multikueue-test.sh`, `raw/kueue/test/e2e/`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-5414]]; pr-16348.md, pr-17050.md, pr-16753.md, pr-16723.md.
+**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/hack/testing/e2e-common.sh`, `raw/kueue/hack/testing/e2e-test.sh`, `raw/kueue/hack/testing/e2e-multikueue-test.sh`, `raw/kueue/test/e2e/`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-5414]]; pr-16348.md, pr-17050.md, pr-16753.md, pr-16723.md.
 
 **Last updated**: 2026-10-21
 
@@ -24,7 +24,7 @@ Every target below is in `hack/make/test.mk` (formerly `Makefile-test.mk`). All 
 | Make target | E2E folder | What it covers |
 |---|---|---|
 | `test-e2e` | `test/e2e/singlecluster/` | Baseline singlecluster e2e. |
-| `test-multikueue-e2e-main` | `test/e2e/multikueue/` | Manager + worker Kind clusters; [[multikueue]] dispatch flow. The site-docs form `test-multikueue-e2e` is not defined in the current `Makefile-test.mk`; use `-main` explicitly. |
+| `test-multikueue-e2e-main` | `test/e2e/multikueue/` | Manager + worker Kind clusters; [[multikueue]] dispatch flow. The site-docs form `test-multikueue-e2e` is not defined in the current `hack/make/test.mk`; use `-main` explicitly. |
 | `test-multikueue-e2e-sequential` | `test/e2e/multikueuesequential/` | Disruptive MultiKueue specs that cannot run in parallel ([[issue-10200]]). |
 | `test-e2e-multikueue-dra` | `test/e2e/multikueuedra/` | MultiKueue + DynamicResourceAllocation. |
 | `test-tas-e2e` | `test/e2e/tas/` | Topology-aware scheduling end-to-end; uses `kind-cluster-tas.yaml`. |
@@ -83,7 +83,7 @@ GINKGO_ARGS="--label-filter=feature:spark" make test-e2e-sequential-extended
 
 ### E2E singlecluster label taxonomy
 
-`appwrapper, certs, deployment, job, fairsharing, jaxjob, jobset, kuberay, kueuectl, leaderworkerset, metrics, pod, pytorchjob, statefulset, tas, trainjob, visibility, e2e_v1beta1` (source: `Makefile-test.mk`).
+`appwrapper, certs, deployment, job, fairsharing, jaxjob, jobset, kuberay, kueuectl, leaderworkerset, metrics, pod, pytorchjob, statefulset, tas, trainjob, visibility, e2e_v1beta1` (source: `hack/make/test.mk`).
 
 ### E2E customconfigs label taxonomy
 
@@ -170,7 +170,7 @@ Prefer `E2E_MODE=dev` for new workflows; `E2E_RUN_ONLY_ENV=true` remains availab
 
 ## The full MultiKueue invocation
 
-`make test-multikueue-e2e-main` expands (via `run-test-multikueue-e2e-%` in `Makefile-test.mk`) into `hack/testing/e2e-multikueue-test.sh` with a specific environment. The exact invocation at the time of [[issue-10200]]:
+`make test-multikueue-e2e-main` expands (via `run-test-multikueue-e2e-%` in `hack/make/test.mk`) into `hack/testing/e2e-multikueue-test.sh` with a specific environment. The exact invocation at the time of [[issue-10200]]:
 
 ```shell
 E2E_KIND_VERSION="kindest/node:v1.35.0" KIND_CLUSTER_NAME=kind \
@@ -202,11 +202,11 @@ Which eventually runs:
   -v ./test/e2e/multikueue/...
 ```
 
-In practice you don't call the script directly — `make test-multikueue-e2e-main` fills in the versions from `Makefile-deps.mk`. Reach for the raw invocation when you need to pin a non-default version of a dependency (e.g. reproduce a bug with JobSet `v0.10.x`).
+In practice you don't call the script directly — `make test-multikueue-e2e-main` fills in the versions from `hack/make/deps.mk`. Reach for the raw invocation when you need to pin a non-default version of a dependency (e.g. reproduce a bug with JobSet `v0.10.x`).
 
 ## Parallelization
 
-`E2E_NPROCS` controls Ginkgo `-procs`. Defaults in `Makefile-test.mk`:
+`E2E_NPROCS` controls Ginkgo `-procs`. Defaults in `hack/make/test.mk`:
 
 - `test-e2e` (singlecluster): `E2E_NPROCS=4`.
 - `test-multikueue-e2e-main`: `E2E_NPROCS=5`.

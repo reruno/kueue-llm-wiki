@@ -2,9 +2,9 @@
 
 **Summary**: Kueue is a single controller-manager binary hosting a set of controllers (queue, workload, job integrations, scheduler, cache) plus validating/mutating webhooks. It watches jobs, wraps each one in a [[workload]], and toggles `.spec.suspend` (or Pod scheduling gates) to release the job when quota is available.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-16312.md, issue-16232.md, `raw/kueue/charts/kueue/values.yaml`, `raw/kueue/charts/kueue/templates/manager/_config.tpl`; pr-17227.md; pr-16630.md.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-10-21
 
 ---
 
@@ -46,6 +46,27 @@ These structures are kept consistent with API state via the reconcilers. Bugs he
 | Job integrations (one per supported type) | batch/v1 Job, JobSet, RayJob, PyTorchJob, … | `.spec.suspend`, scheduling gates, owned Workload |
 | Scheduler loop | internal queues + cache | QuotaReservation, Admitted, preemption |
 | AdmissionCheck | AdmissionCheck, Workload | Workload.status.admissionChecks |
+
+## Startup: the scheduler waits for the initial cache
+
+On main (pr-16630, fixes issue-16624; backport pr-17455 to release-0.20 after v0.20.2) `Scheduler.Start` calls `Cache.WaitForInitialSync` before the first cycle. The cache wraps the controller-runtime sources whose handlers fill it (`Cache.TrackInitialSync`: ClusterQueue, Cohort, ResourceFlavor, Workload, LocalQueue, and Topology plus the TAS ResourceFlavor source when TAS runs). A source counts as synced only after its handler has returned for every object in the informer's initial list; there is no extra timeout (a source that never syncs already stops the manager through `CacheSyncTimeout`). Before, a cold leader could schedule while ClusterQueue create handlers were still running, and TAS double-booked nodes held by ClusterQueues not yet in the cache. Cohort handlers now also update the cache on **every replica**, as ClusterQueue, ResourceFlavor and Topology handlers do, so a follower that takes the lease can admit from Cohort quota at once instead of after up to one lease duration (source: pr-16630.md). See [[cache-architecture]].
+
+## Configuring the manager through Helm
+
+The manager reads one Configuration object (`config.kueue.x-k8s.io/v1beta2`) from a ConfigMap. With Helm, pr-16312 (fixes issue-16232, main only) adds structured overrides so users no longer copy the whole YAML to change one field (source: pr-16312.md, raw/kueue/charts/kueue/values.yaml):
+
+| `managerConfig` input (mode omitted) | Configuration used |
+|---|---|
+| neither | chart defaults |
+| only `structuredOverrides` | overrides merged into chart defaults (an empty map = defaults) |
+| `controllerManagerConfigYaml` set, with or without overrides | the YAML, as a complete replacement; overrides ignored |
+| `controllerManagerConfigYaml: ""` | the legacy empty configuration (certificate-management settings still apply) |
+
+`managerConfig.mode: structured` ignores the YAML and merges overrides; `mode: yaml` ignores the overrides. Defaults now live only in `templates/manager/_config.tpl`, and the manager and webhook templates consume one resolved configuration. The experimental populator follows the same selection.
+
+**Action required only if:** your values have other keys directly under `managerConfig` (only `mode`, `structuredOverrides`, `controllerManagerConfigYaml` are allowed), invalid types (mode must be `yaml`/`structured`; overrides a map; YAML a string; checked even for the unused input), or your tooling read the default YAML from `values.yaml` (read the rendered ConfigMap instead).
+
+**Upgrade gotcha with `--reuse-values`:** the first reuse upgrade without an explicit `mode: structured` can keep the old default YAML, which then wins over the new overrides. To migrate, copy intentional YAML customisations into `structuredOverrides` and pass `mode: structured` in the upgrade values, and keep it there. Reuse flags also keep saved overrides you omitted and can drop `null` removals; to remove an override, use `--reset-values` with all customisations you want to keep. Field values are still validated by Kueue when it loads the configuration, not by Helm.
 
 ## Why a separate scheduling loop
 

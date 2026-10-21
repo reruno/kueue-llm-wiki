@@ -2,7 +2,7 @@
 
 **Summary**: DoS vulnerability patterns drawn from 100 DoS-class CVEs in `raw/cve/`. The highest-relevance category for Kueue because the scheduler, webhooks, and reconcilers all process untrusted CR input on a hot path.
 
-**Sources**: `raw/cve/` — 100 entries with `Category: Denial of Service`, including representative cases `CVE-2019-11253.md` (Kubernetes API server YAML/JSON CPU exhaustion), `CVE-2020-8552.md` (API server resource exhaustion via valid requests), `CVE-2020-8569.md` (CSI snapshot-controller nil-pointer crash loop), `CVE-2020-8557.md` (kubelet `/etc/hosts` disk exhaustion), `CVE-2022-39272.md` (Flux `.spec.interval` halts kind-wide reconciliation), `CVE-2022-31016.md` (Argo CD); 2026-09 additions `CVE-2026-53716.md`, `CVE-2026-53717.md`, `CVE-2026-53719.md`, `CVE-2026-54247.md`, `CVE-2026-61794.md`; 2026-10 additions `CVE-2026-95838.md`, `CVE-2026-107446.md`.
+**Sources**: `raw/cve/` — 100 entries with `Category: Denial of Service`, including representative cases `CVE-2019-11253.md` (Kubernetes API server YAML/JSON CPU exhaustion), `CVE-2020-8552.md` (API server resource exhaustion via valid requests), `CVE-2020-8569.md` (CSI snapshot-controller nil-pointer crash loop), `CVE-2020-8557.md` (kubelet `/etc/hosts` disk exhaustion), `CVE-2022-39272.md` (Flux `.spec.interval` halts kind-wide reconciliation), `CVE-2022-31016.md` (Argo CD); 2026-09 additions `CVE-2026-53716.md`, `CVE-2026-53717.md`, `CVE-2026-53719.md`, `CVE-2026-54247.md`, `CVE-2026-61794.md`; 2026-10 additions `CVE-2026-95838.md`, `CVE-2026-107446.md`. 2026-10-21 additions `CVE-2026-53999.md`, `CVE-2026-113672.md`.
 
 **Last updated**: 2026-10-21
 
@@ -105,6 +105,13 @@ Only two runtime entries are DoS-shaped, and neither affects Kueue ([[security#2
 
 - **containerd < 1.7.35 / 2.0.12 / 2.2.8 / 2.3.5, CVE-2026-95838** (CWE-400/407): the layer unpack handler re-traversed directories for some opaque-whiteout configurations. A malicious layer burned CPU, delayed container start and cut image-pull concurrency for unrelated deployments (source: CVE-2026-95838.md). This is an algorithmic-complexity bug (CWE-407): each step was bounded, but the *number of repetitions* scaled with attacker input. The Kueue analogue is any per-cycle loop in [[scheduler-internals]] or [[preemption]] that re-walks a cohort tree or the Workload list for each candidate. Reviewers ask for the complexity in the number of Workloads, flavors and cohort depth, not only for bounded inputs.
 - **containerd overlaybd <= 1.0.18, CVE-2026-107446** (CWE-190): integer overflow in a length field from an untrusted blob, then an out-of-bounds heap access (source: CVE-2026-107446.md). Same rule as the ELF `DescSize` row above: check length arithmetic for overflow before allocating.
+
+## 2026-10-21 additions
+
+None affects Kueue ([[security#2026-10-21 wave: what the 20 new CVEs add]]).
+
+- **Radius before 0.58.0, CVE-2026-53999** (CWE-20/441, 7.7, tagged Denial of Service): a forged `radapp.io/status` annotation on a Deployment made the controller delete another tenant's container resource (source: CVE-2026-53999.md). The availability impact comes from a confused-deputy deletion, so the rule is in [[security-authn-authz]]: verify ownership before any destructive action driven by a tenant-writable field.
+- **Argo CD, CVE-2026-113672** (CWE-22): `importstr` on a non-terminating device such as `/dev/zero` exhausted repo-server memory (source: CVE-2026-113672.md). Any reader of a path or stream from input needs a size cap (`io.LimitReader`), not only a path check.
 
 ## Related pages
 

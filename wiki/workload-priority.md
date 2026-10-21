@@ -2,7 +2,7 @@
 
 **Summary**: A [[workload]]'s priority is the integer used by the [[queueing-strategy]] heap and by [[preemption]]. It comes from either a stock `scheduling.k8s.io/PriorityClass` (via the Pod template) or, more commonly for Kueue, a `kueue.x-k8s.io/WorkloadPriorityClass` — the latter decouples "how does this job queue?" from "how does the Pod preempt other Pods on the node?"
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13775.md, pr-13719.md, pr-16422.md, pr-14411.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13775.md, pr-13719.md, pr-16422.md, pr-14411.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/jobs/deployment/deployment_webhook.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
 **Last updated**: 2026-10-21
 
@@ -82,7 +82,28 @@ With `WorkloadPriorityClassDefaulting` (on by default since v0.20), the defaulti
 - Every Job webhook passes the configured selector; the Pod webhook passes `nil` because it enforced the selector earlier.
 - A Namespace read error is returned from the admission webhook (as `ApplyDefaultLocalQueue` does). `DefaultWorkloadPriorityClassExist` still logs at V(2) and continues if the default class is missing; the read of the default class happens before the Namespace read, so tests use a separate sentinel error per lookup (source: pr-15997.md; release-0.18 backport pr-16422.md, test-only).
 
-Open bug: for Deployment, StatefulSet and LeaderWorkerSet the defaulting also runs on **update**, so Ready objects that predate the `default` class become un-updatable ([[issue-16333]]; expected behaviour: default only on create).
+## Default WorkloadPriorityClass is skipped on updates to running serving workloads
+
+This section covers the integration (webhook) side of defaulting.
+
+**The bug ([[issue-16333]]).** Only the Deployment, StatefulSet and LeaderWorkerSet mutating webhooks run on **update** as well as create. With `WorkloadPriorityClassDefaulting` on, they added `kueue.x-k8s.io/priority-class: default` on every update, even to objects with no queue-name that Kueue does not manage. The validating webhook rejects adding the label to a running object, so after someone created a WorkloadPriorityClass named `default`, every update to an older Ready Deployment, StatefulSet or LWS failed:
+
+```
+metadata.labels[kueue.x-k8s.io/priority-class]: Invalid value: "default": WorkloadPriorityClass cannot be added to a non-suspended workload
+```
+
+Batch Job and the other integrations were not affected, because their mutating webhooks run on create only (source: issue-16333.md).
+
+**The fix ([[pr-16474]]).** `Default` reads the old object from the admission request (`webhook.OldObjectFromContext`). It calls `ApplyDefaultWorkloadPriorityClass` only on create, or when `jobframework.CanSetWorkloadPriorityClassName(old.status.readyReplicas == 0, old)` is true. That helper is the same predicate `ValidateUpdateForWorkloadPriorityClassName` uses, so defaulting is skipped in exactly the case validation would reject: a running object (Ready replicas on the old object) that did not already have the label. Readiness comes from the **old** object, as in the validators (source: raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/jobs/deployment/deployment_webhook.go, pr-16474.md).
+
+Consequences:
+
+- A running object created before the `default` class keeps no priority label. By the predicate, the next update after it has no Ready replicas (for example scaled to zero) adds the default. It still cannot have a class added while running, and a class cannot be removed once set.
+- A suspended object (no Ready replicas) still gets the default on update.
+
+Releases: `main` (merged 2026-10-16), release-0.20 ([[pr-17309]]) and release-0.19 ([[pr-17313]]). All merged after v0.20.2 / v0.19.9, so the next patch releases are the first to include it. On release-0.19 the gate is Alpha and off by default, so the bug only appears there if you enabled it. That backport calls `jobframework.ApplyDefaultWorkloadPriorityClassWithManagedJobsNamespaceSelector` instead of the `integrationManager` method (source: pr-17313.md). **Correction (2026-10-21)**: this page listed issue-16333 as an open bug.
+
+See also [[integration-statefulset]] and [[integration-leaderworkerset]].
 
 ## Related pages
 

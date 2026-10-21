@@ -2,7 +2,7 @@
 
 **Summary**: Within a [[cohort]], a [[cluster-queue]] that's below its nominal quota can lend its headroom to a sibling that's above. The lending CQ can reclaim it at any time via [[preemption]]. Per-CQ `borrowingLimit` and `lendingLimit` cap how much can move.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-17010.md, issue-16049.md, pr-16738.md, issue-16665.md, issue-16666.md, pr-16479.md, pr-16360.md, issue-17022.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-17010.md, issue-16049.md, pr-16738.md, issue-16665.md, issue-16666.md, pr-16479.md, pr-16360.md, issue-17022.md, pr-17034.md, pr-17016.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
 **Last updated**: 2026-10-21
 
@@ -53,11 +53,11 @@ Reparenting a cohort under a smaller root, dropping an ancestor's nominal quota 
 
 ## Preemption knobs beyond borrowing
 
-`borrowWithinCohort` gates preemption that would leave the preemptor borrowing; the Alpha `PreemptionConfig` can additionally allow preemption in that situation ([[configurable-preemptions]]). **Correction (2026-10-21)**: the limitation "with `borrowWithinCohort: Never`, a borrowing ClusterQueue cannot preempt lower-priority Workloads of its *own* queue" is fixed by #16060 (main; release-0.20 pr-17010): when `withinClusterQueue` is not `Never`, the flavor assigner simulates in-CQ preemption for a Workload that would borrow and returns `Preempt` if candidates exist ([[preemption#Fixed: classical preemption within a borrowing ClusterQueue (#16060)]]).
+`borrowWithinCohort` gates preemption that would leave the preemptor borrowing; the Alpha `PreemptionConfig` can additionally allow preemption in that situation ([[configurable-preemptions]]). **Correction (2026-10-21)**: the limitation "with `borrowWithinCohort: Never`, a borrowing ClusterQueue cannot preempt lower-priority Workloads of its *own* queue" is fixed by #16060 (main; release-0.20 pr-17010, shipped in v0.20.2; release-0.19 pr-17016, shipped in v0.19.9): when `withinClusterQueue` is not `Never`, the flavor assigner simulates in-CQ preemption for a Workload that would borrow and returns `Preempt` if candidates exist ([[preemption#Fixed: classical preemption within a borrowing ClusterQueue (#16060)]]).
 
 ## "Borrowing" is per flavor-resource, and per subtree, in fair-sharing preemption
 
-Fair-sharing preemption only targets ClusterQueues that borrow the flavor-resources the preemptor actually needs, and only if every Cohort between the candidate and the LCA with the preemptor is also borrowing them (pr-16738, fixes issue-16665 / issue-16666). Borrowing on an unrelated flavor, or borrowing from a sibling inside a sub-cohort that is itself within quota, no longer exposes Workloads within nominal quota to outside preemption. See [[fair-sharing#Candidate ClusterQueues are pruned by the *contested* flavor-resources (pr-16738)]]. Known gap: preemption (`FairSharingPreemptWithinNominal`, contested resources only) and admission ordering (`FairSharingPrioritizeNonBorrowing`, any requested resource) still define "borrowing" differently, which can loop (issue-17022, open).
+Fair-sharing preemption only targets ClusterQueues that borrow the flavor-resources the preemptor actually needs, and only if every Cohort between the candidate and the LCA with the preemptor is also borrowing them (pr-16738, fixes issue-16665 / issue-16666). Borrowing on an unrelated flavor, or borrowing from a sibling inside a sub-cohort that is itself within quota, no longer exposes Workloads within nominal quota to outside preemption. See [[fair-sharing#Candidate ClusterQueues are pruned by the *contested* flavor-resources (pr-16738)]]. **Update (2026-10-21)**: the mismatch where preemption (`FairSharingPreemptWithinNominal`, contested resources only) and admission ordering (any requested resource) defined "borrowing" differently, and looped, is fixed by pr-17034 (issue-17022): the within-nominal preemption shortcut now applies only if the preemptor CQ borrows **none** of the flavor-resources the incoming Workload requests. Main and both backports (pr-17349, pr-17390) merged after v0.20.2 / v0.19.9 ([[fair-sharing#Fixed: preemption loop from partial borrowing (issue-17022, pr-17034)]]).
 
 ## Related pages
 

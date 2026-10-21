@@ -2,7 +2,7 @@
 
 **Summary**: Kueue's in-memory cache stores the live state of ClusterQueues, Cohorts, and admitted workloads; the scheduler takes an immutable per-cycle snapshot of this cache to make admission decisions without holding locks.
 
-**Sources**: `raw/kueue/pkg/cache/scheduler/`, `raw/kueue/pkg/cache/hierarchy/`, `raw/kueue/pkg/cache/queue/`, pr-16375.md, pr-16438.md, pr-16360.md, pr-16479.md, pr-16492.md, pr-16527.md, pr-16738.md, pr-15040.md, pr-15107.md, pr-16382.md
+**Sources**: `raw/kueue/pkg/cache/scheduler/`, `raw/kueue/pkg/cache/hierarchy/`, `raw/kueue/pkg/cache/queue/`, pr-16375.md, pr-16438.md, pr-16360.md, pr-16479.md, pr-16492.md, pr-16527.md, pr-16738.md, pr-15040.md, pr-15107.md, pr-16382.md, pr-16630.md, pr-17455.md, issue-16624.md, pr-17346.md, pr-17404.md, pr-17407.md, pr-17041.md, issue-17040.md, pr-17461.md, pr-17414.md, pr-17416.md, pr-17417.md, pr-17448.md, pr-17452.md, issue-17412.md, pr-16728.md, pr-16340.md, raw/kueue/pkg/cache/scheduler/initial_sync.go, raw/kueue/pkg/cache/scheduler/candidate_order_cache.go, raw/kueue/pkg/controller/core/cohort_controller.go, raw/kueue/pkg/cache/queue/manager.go, raw/kueue/pkg/cache/queue/pending_workloads.go
 
 **Last updated**: 2026-10-21
 
@@ -70,6 +70,14 @@ When a Cohort's parent is set or changed, the hierarchy manager checks for cycle
 
 **Ordering invariant, currently violated.** A ClusterQueue is registered in the hierarchy manager (`hm.AddClusterQueue`) *before* its scheduler-cache state is fully populated, so a `updateClusterQueue` that fails part-way leaves a cached CQ with a **nil `NamespaceSelector`**. `MatchingClusterQueues` dereferences it on the next Namespace event and the manager **panics**. Two paths reach that state: `updateCohortTreeResources` returning `ErrCohortHasCycle` before the selector is assigned, and `LabelSelectorAsSelector` failing on an unparsable selector (after `AddClusterQueue` has already run). Open bug #13553 (source: pr-13571.md, open). Anyone adding a fallible step to `updateClusterQueue` should assign the selector before it, or default it to `labels.Nothing()`.
 
+## Initial-sync barrier and Cohorts on every replica
+
+**Who fills the cache, and on which replica.** The ClusterQueue, ResourceFlavor, Topology and (since pr-17346) **Cohort** controllers update the scheduler cache and the queue manager from their **event handlers**, and these controllers run on every replica (`NeedLeaderElection: false`); `Reconcile` itself runs only on the leader through `WithLeadingManager` (source: raw/kueue/pkg/controller/core/cohort_controller.go).
+
+**Cohorts (pr-17346, part of issue-16624).** Before, a Cohort reached the cache only from `Reconcile`. On a follower, the leader-aware reconciler requeues by the lease duration, and winning the election does not wake those items, so a warm follower took the lease **without its explicit Cohorts and their quota** for up to one lease duration: borrowing ClusterQueues could not admit, subtrees were detached from their parent, and missing Cohort quota could trigger extra preemptions. Now `Create`, `Update` (only when `spec` or the effective Cohort resource groups changed) and `Delete` handlers call `addOrUpdateCohortInMemory` / `removeCohortInMemory`. `addOrUpdateCohortInMemory` treats `ErrCohortHasCycle` like `Reconcile` does: the cache keeps the cyclic parent and the queue manager records it too; any other error skips the queue manager update (V(2) "Skipped the queue manager update for the Cohort in the event handler") and is left to `Reconcile`, which repeats the same idempotent update, notifies ClusterQueues, writes status and metrics. A two-manager failover integration suite (`test/integration/singlecluster/controller/failover`) checks that the new leader admits from Cohort quota right away (pr-16630, which first carried this change, measured 29 s on main versus under 1 s, with a 30 s lease). Backports pr-17404 (0.20) and pr-17407 (0.19, manual: 0.19 has no quota-status check in the update handler), merged 2026-10-19, after v0.20.2 / v0.19.9 (source: pr-17346.md, pr-17407.md).
+
+**Barrier (pr-16630, fixes issue-16624).** `Cache.TrackInitialSync(src)` wraps a controller's `source.SyncingSource` and registers a `ready` channel; the wrapper's `WaitForSync` closes it once the wrapped source has synced, which for `source.Kind` means its handler returned for every object of the informer's initial list. `Cache.WaitForInitialSync(ctx)` waits on all channels (returns at once if none are tracked, or with `ctx.Err()`). Tracked sources: ClusterQueue, Cohort, ResourceFlavor, Workload, LocalQueue, and the TAS Topology / ResourceFlavor sources when TAS runs. `Scheduler.Start` calls it before starting the loop ([[scheduler-internals#Phase 0: wait for the initial cache sync (pr-16630)]]). Invariant for contributors: a new controller whose event handlers add objects that affect scheduling decisions to the cache must wrap its source with `TrackInitialSync` before the manager starts (source: raw/kueue/pkg/cache/scheduler/initial_sync.go).
+
 ## Queue manager
 
 The queue manager (`pkg/cache/queue`) is the pending queue:
@@ -90,6 +98,10 @@ Both caches are populated from controller-runtime informer caches, not direct AP
 4. The controller updates the in-memory cache.
 
 There is a brief window where the in-memory cache lags behind etcd. For quota accounting, this means Kueue may transiently over-admit by one workload if two admission cycles fire in rapid succession before a quota-consuming write is reconciled. This is mitigated by the expectations store (used by preemption) which tracks in-flight changes. (source: pkg/scheduler/scheduler.go)
+
+**Conditional cache mutations.** Rollbacks and second-pass writes that race with informer events must not clobber a newer cached version. `Cache.UpdateWorkloadIfUnchanged` (second pass) and, since pr-17041, `Cache.DeleteWorkloadIfUnchanged` (admission-write rollback) act only if the cached Workload's `resourceVersion` equals the one passed in; otherwise they skip at V(3). This fixes issue-17040, where an admission committed by the apiserver but reported to the client as an error was dropped from the cache, under-counting ClusterQueue usage until the next Workload update. See [[scheduler-internals#Admission write errors keep a committed admission in the cache (pr-17041)]] (source: raw/kueue/pkg/cache/scheduler/cache.go, pr-17041.md).
+
+**Infos built by the cache skip the scheduling hash.** The cache appends `workload.WithSkipSchedulingHash()` to its Info options (pr-17461); only Infos that enter the queue manager compute the hash ([[scheduler-internals#Scheduling-equivalence hash: what it does and does not include]]).
 
 ## Snapshot vs. live cache divergence
 
@@ -116,6 +128,10 @@ Behaviour changes operators can observe ([[borrowing-and-lending]], [[metrics]])
 
 **Correction (2026-10-21)**: the workload-request side is no longer saturating. Since pr-16479 (v0.20.1/v0.19.8) `MapRequests` and `SliceRequests` store `Amount`, so totals stay exact past `int64` and quota fit checks see the real total; `AmountFromQuantity` keeps in-range non-negative values on an allocation-free `int64` path (pr-16492) and routes far-exponent values to the decimal path without building 10^n (pr-16527). The remaining cap is the API boundary: a non-CPU `resourceUsage` past `MaxInt64` is still written as `MaxInt64` (issue-16486, open). See [[scheduler-internals#Quota arithmetic and integer-overflow safety]] and [[workload-resource-adjustment]].
 
+## Per-cycle candidate-order cache in the snapshot (pr-16340)
+
+`Snapshot.CandidateOrder()` lazily creates a `CandidateOrderCache` (`pkg/cache/scheduler/candidate_order_cache.go`) that lives only as long as the snapshot. It memoizes, per ClusterQueue, the CQ's Workloads sorted by the classical preemption ordering, and is reused while the CQ's current Workloads are a subset of the cached set (in-cycle mutations only remove and restore existing snapshot Workloads). Gate `ClassicalPreemptionCandidateOrderCache` (Beta/on at 0.21 on main; Alpha/off in the 0.20/0.19 backports). See [[preemption#Classical preemption reuses a per-cycle candidate ordering (`ClassicalPreemptionCandidateOrderCache`)]].
+
 ## Per-Cohort lendable capacity is cached (#15955)
 
 `resourceNode.Lendable` is maintained by `updateCohortLendable` alongside `SubtreeQuota` on every Cohort mutation and copied into `CohortSnapshot`; fair-sharing DRS reads the parent's `Lendable` instead of walking the tree per candidate (`computeLendable` is the fresh derivation, used by tests to assert the stored value stays in sync, including across `DeleteCohort`). Shipped v0.19.7/v0.18.11 via pr-16361/pr-16360 (source: pr-16360.md). `CohortSnapshot` also gained `Borrowing(fr)` (= `BorrowingWith(fr, 0)`, i.e. `SubtreeQuota[fr] < Usage[fr]`) and `DRS` gained `IsBorrowingOnAny(frs)` for contested-resource pruning in fair-sharing preemption (pr-16738).
@@ -125,6 +141,14 @@ Behaviour changes operators can observe ([[borrowing-and-lending]], [[metrics]])
 With `DynamicQuotaOrchestration` on and `status.effectiveQuotas` set, the cache builds ClusterQueue and Cohort quotas from `resourcegroups.EffectiveResourceGroups(cq)` / `EffectiveCohortResourceGroups(cohort)` (`pkg/util/resourcegroups/effective.go`) instead of `spec.resourceGroups`; the same helper is used by the pending-workloads view, ClusterQueue metrics, the ResourceFlavor and ClusterQueue/Cohort controllers' change predicates, admission-check flavor lists and ConcurrentAdmission. Webhooks, MultiKueue quota automation, kueueviz and the importer still read `spec` (source: pr-15040.md, pr-15107.md). See [[dynamic-quota-orchestration]].
 
 Minor (queue manager, `pkg/cache/queue`): `newClusterQueue`/`newClusterQueueImpl` no longer take an unused `client.Client`, left over after pr-16241 stopped reading LocalQueues during sorts (#16309; backports pr-16382/0.19, pr-16383/0.18).
+
+## Queue manager: per-LocalQueue pending counts (pr-17414, pr-17448)
+
+`reportLQPendingWorkloads` (the LocalQueue pending-workloads metric) used to scan every pending Workload of the ClusterQueue to count one LocalQueue, under the queue manager lock, on every add, delete, pop and requeue, so draining N Workloads cost O(N^2). In `make run-performance-scheduler` it took 9.0% of Kueue CPU, more than `schedule` (6.1%) (source: issue-17412.md). Now `PendingWorkloads` keeps a `localQueueCounts` structure updated in the same helpers as the scheduling-hash counts (`addActive`, `removeActive`, `updateActive`, `addInadmissible`, `updateInadmissible`, ...); `ClusterQueue.PendingInLocalQueue(lqRef)` returns the active and inadmissible counts, and with `CustomMetricLabels` `PendingBreakdownInLocalQueue(lqRef)` returns per-LocalQueue `LabelValsTracker`s (pr-17448: `reportLQPendingWorkloads` went from 31.6% to 2.7% of Kueue CPU with one custom label). Both take only the `localQueueCounts` lock, so metric reports do not contend on the ClusterQueue lock (source: raw/kueue/pkg/cache/queue/cluster_queue.go, raw/kueue/pkg/cache/queue/pending_workloads.go, pr-17414.md, pr-17448.md). Backports: pr-17416 (0.20) and pr-17417 (0.19) for pr-17414; pr-17452 (0.20) for pr-17448; all merged 2026-10-19, after v0.20.2 / v0.19.9. Metric semantics are on [[metrics]].
+
+## Queue manager: ClusterQueue lookup for reserved Workloads (pr-16728)
+
+`Manager.ClusterQueueNameForWorkloadWithoutLock` (used by `ClusterQueueForWorkload`) now returns `status.admission.clusterQueue` for a Workload that holds a quota reservation, instead of resolving its LocalQueue, because that LocalQueue may be held or deleted; the bool result reports whether that ClusterQueue is cached. Unreserved Workloads still resolve through `localQueues`. `ClusterQueueForWorkloadWithoutLock` (where a pending Workload should be queued) still goes through the LocalQueue. This is what lets `HoldAndDrain` reach admitted Workloads of held or deleted LocalQueues ([[cluster-queue#Stop policies]]) (source: raw/kueue/pkg/cache/queue/manager.go, pr-16728.md).
 
 ## Queue manager: inflight and LocalQueue weights
 
@@ -136,7 +160,7 @@ The `pkg/debugger` package can dump the in-memory cache state. This is exposed v
 
 ## Cached TAS topology trees
 
-With `TASCacheTopologyTree` (Beta/on from v0.20) the cache holds an **immutable topology tree per TAS flavor** and hands it to successive scheduler snapshots instead of rebuilding it each cycle. Mutable scheduling state stays in the snapshot, so concurrently created snapshots remain isolated; invalidation is driven by semantic node changes only (labels, taints, allocatable). Measured −71.7% CPU and −61.0% allocated bytes on a 2,500-node / 15-flavor benchmark. See [[topology-aware-scheduling#Cached topology trees]] ([[pr-13819]]).
+With `TASCacheTopologyTree` (Beta/on from v0.20) the cache holds an **immutable topology tree per TAS flavor** and hands it to successive scheduler snapshots instead of rebuilding it each cycle. Mutable scheduling state stays in the snapshot, so concurrently created snapshots remain isolated; invalidation is driven by semantic node changes only (labels, taints, allocatable). Measured −71.7% CPU and −61.0% allocated bytes on a 2,500-node / 15-flavor benchmark. See [[topology-aware-scheduling#Cached topology trees (`TASCacheTopologyTree`)]] ([[pr-13819]]).
 
 ## `RequeueWorkload` owns the inflight cleanup
 

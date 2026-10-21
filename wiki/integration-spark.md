@@ -2,7 +2,7 @@
 
 **Summary**: Kueue integrates with the Kubeflow Spark Operator v2 to gate SparkApplication jobs through queue-based admission, managing driver and executor pods as separate PodSets.
 
-**Sources**: `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_controller.go`, `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_podset.go`, `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_webhook.go`, pr-16364.md, issue-16363.md, pr-16976.md, pr-16967.md, pr-16968.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_controller.go`, `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_podset.go`, `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_webhook.go`, pr-16364.md, issue-16363.md, pr-16976.md, pr-16967.md, pr-16968.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
 **Last updated**: 2026-10-21
 
@@ -57,11 +57,11 @@ On admission, Kueue injects the ResourceFlavor's node selector and tolerations i
 
 `Finished()` used to treat `SUBMISSION_FAILED` as terminal. Kueue therefore marked the Workload Finished and released its quota. The Spark operator does **not** treat that state as terminal: with `restartPolicy.type: Always`, or `OnFailure` with `onSubmissionFailureRetries` left, it resubmits the application after the retry interval. The resubmitted driver and executors then ran outside quota, preemption and `waitForPodsReady`. Repro: point `spec.driver.serviceAccount` at a ServiceAccount that does not exist, wait for `SUBMISSION_FAILED`, then create the ServiceAccount (source: issue-16363.md).
 
-[[pr-16364]] (fixes [[issue-16363]]): the Workload finishes only on `COMPLETED` (success) or `FAILED`. The operator moves the application to `FAILED` itself once it stops retrying. Shipped in **v0.20.0**. The release-0.19 backport is [[pr-16976]] (merged; not yet in a tagged 0.19 release at the snapshot; fixed in v0.19.9 per CHANGELOG at kueue@3bbb8cce4, released after this snapshot) (source: pr-16364.md, raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md).
+[[pr-16364]] (fixes [[issue-16363]]): the Workload finishes only on `COMPLETED` (success) or `FAILED`. The operator moves the application to `FAILED` itself once it stops retrying. Shipped in **v0.20.0**. The release-0.19 backport [[pr-16976]] shipped in **v0.19.9** (source: pr-16364.md, raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md).
 
 ## Unset `executor.instances` stays unset when stopping
 
-With `spec.executor.instances` unset, the executor PodSet count is 0. On stop, `RestorePodSetsInfo` wrote `instances: 0` back together with `suspend: true`. The SparkApplication CRD requires `instances >= 1`, so the API server rejected the **whole** patch. The job could not be suspended after eviction or deactivation, and the reconciler retried forever. A restored count of 0 is now written as an unset field (#15610; backports [[pr-16968]] / release-0.20 and [[pr-16967]] / release-0.19, not yet released at the snapshot; fixed in v0.20.2 and v0.19.9 per CHANGELOG at kueue@3bbb8cce4, released after this snapshot) (source: pr-16967.md, raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_controller.go).
+With `spec.executor.instances` unset, the executor PodSet count is 0. On stop, `RestorePodSetsInfo` wrote `instances: 0` back together with `suspend: true`. The SparkApplication CRD requires `instances >= 1`, so the API server rejected the **whole** patch. The job could not be suspended after eviction or deactivation, and the reconciler retried forever. A restored count of 0 is now written as an unset field (#15610; shipped in **v0.20.2** via [[pr-16968]] and **v0.19.9** via [[pr-16967]], per raw/kueue/CHANGELOG/CHANGELOG-0.20.md and CHANGELOG-0.19.md) (source: pr-16967.md, raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_controller.go).
 
 ## Related pages
 

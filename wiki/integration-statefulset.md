@@ -2,7 +2,7 @@
 
 **Summary**: Kueue can manage `apps/v1 StatefulSet` jobs through queue-based admission, using per-pod scheduling gates rather than a top-level `spec.suspend` field, and supports MultiKueue dispatch.
 
-**Sources**: `raw/kueue/pkg/controller/jobs/statefulset/statefulset_controller.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_webhook.go`, pr-13316.md, pr-16399.md, pr-16401.md, issue-14013.md, pr-16705.md, pr-16710.md, pr-16751.md, pr-16770.md, pr-13775.md, pr-12948.md, raw/kueue/pkg/controller/jobs/statefulset/statefulset_reconciler.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/kueue/pkg/controller/jobs/statefulset/statefulset_controller.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_webhook.go`, pr-13316.md, pr-16399.md, pr-16401.md, issue-14013.md, pr-16705.md, pr-16710.md, pr-16751.md, pr-16770.md, pr-13775.md, pr-12948.md, pr-16044.md, pr-17540.md, pr-17541.md, issue-16043.md, issue-14266.md, pr-17255.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, pr-15142.md, pr-15412.md, raw/kueue/pkg/controller/jobs/statefulset/statefulset_reconciler.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
 **Last updated**: 2026-10-21
 
@@ -64,7 +64,7 @@ So neither a failing Pod queue-label patch ([[issue-14013]]) nor a Pod list erro
 - **TAS metadata is validated.** The reconciler builds a topology request from `spec.template.metadata` annotations (`jobframework.NewPodSetTopologyRequest(...).PodIndexLabel(...)`) when `TopologyAwareScheduling` is enabled, but the validating webhook did not validate them on create (source: pr-15857.md; backports pr-15881.md, pr-15882.md) or on update (source: pr-16039.md, fixes issue-15880.md; backports pr-16104.md, pr-16105.md). Conflicting annotations are now rejected; corrected ones accepted; skipped when the gate is off.
 - **`queue-name` is synced only onto gated Pods.** The reconciler copies the StatefulSet's `kueue.x-k8s.io/queue-name` onto its Pods, but the Pod webhook rejects queue-name changes on ungated Pods, while the StatefulSet webhook allows the change while `ReadyReplicas == 0`. Changing it after ungating but before any Pod was Ready made every reconcile fail, and could keep a Pod scheduling-gated during a rolling update. Now only Pods still gated are updated (source: pr-16270.md; backports pr-16334.md, pr-16335.md).
 - **Pod indexing.** The pod-owner index uses `metadata.ownerReferences.name`, and `podList` is scoped inside `ungatePods` (source: pr-15609.md, issue-15563.md).
-- **`WorkloadAnnotation` on Pods.** `kueue.WorkloadAnnotation` should be on every Pod of a Kueue-managed job so `wasSimulator.TrackPod` can map Pods to Workloads; the StatefulSet path was fixed first (issue-14975, pr-15056) and LWS followed (see [[integration-leaderworkerset]]) (source: pr-15142.md).
+- **`WorkloadAnnotation` on Pods.** `kueue.x-k8s.io/workload` must be on every Pod of a Kueue-managed job so that `wasSimulator.TrackPod`, the TAS indexers and the workload-slice index can map Pods to Workloads. StatefulSet Pods get it from the shared write site in `getPodSetsInfoFromStatus`, applied when the Pod integration ungates a Pod. Since [[pr-15412]] (`main` only, merged 2026-10-19) that write is **unconditional**. Before, it required `TopologyAwareScheduling`, `SchedulerLibraryIntegration`, or `WaitForPodsReadyUnscheduledTimeout` with pod-scheduled tracking (source: raw/kueue/pkg/controller/jobframework/reconciler.go, pr-15412.md). **Correction (2026-10-21)**: this page said the StatefulSet path was fixed by pr-15056. That PR was closed without merging. See [[job-framework-interface#`kueue.x-k8s.io/workload` is always set on the PodTemplate]].
 - Empty PodGroup eviction: see [[integration-plain-pod#Empty PodGroups of StatefulSet / LeaderWorkerSet]] (source: pr-14578.md).
 
 ## Rollouts: current-revision Pods stay gated until admission
@@ -86,7 +86,15 @@ A follow-up was agreed in review: fold the remaining `statefulset_pod_reconciler
 
 ## Queue changes are rejected while the Workload holds quota
 
-The StatefulSet webhook rejected a queue change only when `readyReplicas > 0`. If the Workload had reserved quota but no Pod was Ready yet (images still pulling), the webhook accepted a change to another LocalQueue. The reconciler then hit the Workload CRD rule that `queueName` is immutable while quota is reserved, and retried with backoff indefinitely. The webhook now also rejects the change while the Workload (UID-derived or legacy name) holds quota. Before quota reservation the change is still allowed (#16320). Shipped in **v0.20.1 ([[pr-16705]]) and v0.19.8 ([[pr-16710]])**. The 0.19 backport uses `findWorkloadName` + `client.Get`, because that branch has no `findWorkload` (source: pr-16710.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md).
+The StatefulSet webhook rejected a queue change only when `readyReplicas > 0`. If the Workload had reserved quota but no Pod was Ready yet (images still pulling), the webhook accepted a change to another LocalQueue. The reconciler then hit the Workload CRD rule that `queueName` is immutable while quota is reserved, and retried with backoff indefinitely. The webhook now also rejects the change while the Workload (UID-derived or legacy name) holds quota. Before quota reservation the change is still allowed (#16320). Shipped in **v0.20.1 ([[pr-16705]]) and v0.19.8 ([[pr-16710]])**. The 0.19 backport uses `findWorkloadName` + `client.Get`, because that branch has no `findWorkload` (source: pr-16710.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md). [[issue-14266]], which reported the same bug, was closed on 2026-10-15 as already fixed by #16320 (source: issue-14266.md).
+
+Since [[pr-17255]] the rule lives in the shared helper `jobframework.ValidateQueueNameUpdate(old, new, isSuspended, hasQuotaReservation)`, which the LeaderWorkerSet webhook also uses (source: raw/kueue/pkg/controller/jobframework/validation.go):
+
+- Same name: allowed.
+- Not suspended (`status.readyReplicas > 0` on the **old** object), or new name empty: immutable.
+- Otherwise the `hasQuotaReservation` callback runs. For StatefulSet it looks up the Workload and checks `workload.HasQuotaReservation`. If quota is reserved, the change is rejected.
+
+StatefulSet behaviour did not change. The webhook reads Workloads from the informer cache, and the check is not atomic with quota reservation. A reservation made just before the update can still slip through (source: pr-17255.md).
 
 ## `labelKeysToCopy` and custom-metric sources are copied
 
@@ -94,7 +102,31 @@ The StatefulSet reconciler created its prebuilt Workload with `nil` label and an
 
 ## Scale-to-zero puts the Workload `OnHold`
 
-When a StatefulSet is scaled to zero, `releaseScaleDownReservation` sets `QuotaReserved=False` with reason **`OnHold`** (`kueue.WorkloadOnHold`). This releases the quota and keeps the Workload from being requeued. Scaling back up moves it out of hold ("Workload no longer on hold; waiting for quota reservation") (source: raw/kueue/pkg/controller/jobs/statefulset/statefulset_reconciler.go, raw/kueue/apis/kueue/v1beta2/workload_types.go). A pending Workload that turns `OnHold` is also removed from the scheduling queue (#12929, v0.19.0 / v0.18.3; 0.17 backport [[pr-12948]]); see [[job-framework-interface#`JobWithOnHold`]].
+When a StatefulSet is scaled to zero, `putWorkloadOnHold` sets `QuotaReserved=False` with reason **`OnHold`** (`kueue.WorkloadOnHold`). This releases the quota and keeps the Workload from being requeued. Scaling back up (`clearOnHold`) moves it out of hold ("Workload no longer on hold; waiting for quota reservation") (source: raw/kueue/pkg/controller/jobs/statefulset/statefulset_reconciler.go, raw/kueue/apis/kueue/v1beta2/workload_types.go). **Correction (2026-10-21)**: this page named the function `releaseScaleDownReservation`. #16044 renamed it. A pending Workload that turns `OnHold` is also removed from the scheduling queue (#12929, v0.19.0 / v0.18.3; 0.17 backport [[pr-12948]]); see [[job-framework-interface#`JobWithOnHold`]].
+
+### Scale-to-zero keeps quota while owned Pods are active
+
+Before [[pr-16044]] (fixes [[issue-16043]]), the reservation was released as soon as `spec.replicas` became 0, even if a Pod of the StatefulSet was still Running. Another Workload could then be admitted onto resources the old Pod still used (source: issue-16043.md, pr-16044.md).
+
+Now `reconcileWorkload` first calls `hasActiveOwnedPods` (source: raw/kueue/pkg/controller/jobs/statefulset/statefulset_reconciler.go, raw/kueue/pkg/controller/jobs/pod/pod_controller.go):
+
+- It lists Pods through the owner-reference index and keeps only Pods whose **controller** owner matches the StatefulSet's UID, Kind and APIVersion. Pods without the `SuspendedByParentAnnotation` count too.
+- Each Pod is classified with the Pod integration's `PodActivity`, so the rules match pod groups: only `Running` Pods are active; with `FastQuotaReleaseInPodIntegration` a terminating Pod is inactive at once; a terminating Pod without a recorded grace period stays active; one with a grace period is active until its `deletionTimestamp`.
+- If any active Pod exists, the Workload keeps its reservation. This is logged at V(4) ("Waiting for active StatefulSet Pods before putting Workload on hold").
+- When every active Pod is terminating with a known deadline, the reconcile returns `RequeueAfter` just past the latest deadline. This covers a Pod that stays Running past its deadline without another Pod event. If any active Pod has no computable deadline, Kueue relies on Pod events only. There is no polling.
+- The Pod watch now wakes the StatefulSet for all its Pods, not only annotated ones. When a Pod's owner reference changes, the former owner is woken too, so it does not keep quota for a Pod it no longer owns. A management check keeps Pod events in namespaces outside `managedJobsNamespaceSelector` from defaulting Pods.
+- A zero-replica Workload that has already lost its reservation moves from `PendingEvaluation` to `OnHold`.
+
+`OnHold` is now stable against the Workload controller (source: raw/kueue/pkg/controller/core/workload_controller.go, pr-16044.md):
+
+- With `AdmissionGatedBy`, the admission-gated condition update returns early for an `OnHold` Workload. The `kueue.x-k8s.io/admission-gated-by` annotation still blocks admission after the hold is cleared.
+- On the legacy path (`UnadmittedWorkloadsObservability` off, the release-0.19 default), the queue-blocker check used to replace `OnHold` with `Inadmissible` when the LocalQueue or ClusterQueue was missing, stopped or inactive. The StatefulSet reconciler then set `OnHold` again, and the two controllers looped. An `IsOnHold` early return now prevents that. The granular path already checked `IsOnHold` first.
+
+Releases: `main` (merged 2026-10-21), release-0.20 ([[pr-17540]]) and release-0.19 ([[pr-17541]]). All merged after v0.20.2 / v0.19.9, so the next patch releases are the first to include it. The 0.19 backport keeps that branch's legacy Workload-name fallback and separate StatefulSet Pod reconciler, and adds the Pod-owner index that branch lacked (source: pr-17541.md).
+
+## Default WorkloadPriorityClass is not added on update to a running StatefulSet
+
+With `WorkloadPriorityClassDefaulting`, the mutating webhook also runs on update. It used to add `kueue.x-k8s.io/priority-class: default` to StatefulSets created before the `default` class existed, including ones Kueue does not manage. When such a StatefulSet had Ready replicas, the validating webhook rejected the label, so **every** update to it failed. Since [[pr-16474]] the defaulting is skipped in exactly that case. Details and releases: [[workload-priority#Default WorkloadPriorityClass is skipped on updates to running serving workloads]].
 
 ## WorkloadPriorityClass on StatefulSets
 

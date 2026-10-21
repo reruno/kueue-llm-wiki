@@ -2,7 +2,7 @@
 
 **Summary**: "Admission" is Kueue's term for releasing a [[workload]] to run. It's a two-phase process: first the scheduler reserves quota (`QuotaReserved`), then any configured [[admission-check]]s must return `Ready`, after which the Workload is `Admitted` and the integration controller unsuspends the underlying job.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15371.md, pr-16627.md, pr-17010.md, pr-12786.md, pr-16479.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15371.md, pr-16627.md, pr-17010.md, pr-12786.md, pr-16479.md, pr-16630.md, pr-17041.md, pr-16728.md, pr-17147.md
 
 **Last updated**: 2026-10-21
 
@@ -38,6 +38,8 @@ Per scheduling cycle, for each ClusterQueue:
 
 The scheduler is single-threaded per binary; this is where scale work focuses. TAS multiplies the per-cycle cost ([[issue-10037]]).
 
+Two consistency guarantees added in October 2026 (main, then release-0.20 after v0.20.2): the first cycle runs only after the cache-filling event handlers have processed their initial lists, so a freshly elected leader no longer admits against a partial view of ClusterQueues, Cohorts and admitted Workloads (pr-16630); and an admission write that the apiserver committed but the client saw fail no longer drops the Workload from the cache (pr-17041). See [[scheduler-internals#Phase 0: wait for the initial cache sync (pr-16630)]] and [[scheduler-internals#Admission write errors keep a committed admission in the cache (pr-17041)]].
+
 ## When a Workload cannot be admitted
 
 Common reasons surfaced in events:
@@ -45,7 +47,7 @@ Common reasons surfaced in events:
 - No flavor has enough quota, no preemption can free it, and borrowing is capped.
 - The required ResourceFlavor or Topology doesn't exist / isn't labeled on any node.
 - An AdmissionCheck is failing (e.g. ProvisioningRequest still pending).
-- The ClusterQueue is `stopPolicy: Hold`.
+- The ClusterQueue is `stopPolicy: Hold` (or `HoldAndDrain`, which also evicts admitted Workloads; since pr-16728 that includes Workloads whose LocalQueue is held or deleted, [[cluster-queue#Stop policies]]).
 - The ClusterQueue is inactive because its Cohort hierarchy has a cycle (`CohortCycleDetected`, [[cohort#Cycles in the Cohort hierarchy]]).
 - Preemption is needed but the Workload's preemption gate is closed: `QuotaReserved=False` reason `PreemptionGated` (was `AdmissionGated` before pr-16627; [[preemption#Preemption-gated Workloads report `PreemptionGated` (pr-16627)]]).
 - `workload.ValidateAdmissibility` rejected the candidate — most commonly `resources didn't satisfy LimitRange constraints`, i.e. the effective requests violate a namespace LimitRange `max`/`min`. This rejection leaves the requeue reason at `RequeueReasonGeneric` and, under BestEffortFIFO, does not recover when the LimitRange is relaxed; see [[workload-resource-adjustment]].
@@ -60,7 +62,7 @@ Between `QuotaReserved` and `Admitted` a Workload may wait for AdmissionChecks; 
 
 ## When quota is released
 
-**Correction (2026-10-21)**: this section said quota release is governed by the Configuration field `scheduling.quotaReleaseStrategy` ([[pr-13224]], KEP-6143). That field was **reverted by pr-15371** before v0.20 and does not exist at this snapshot; a per-integration replacement (`.integrations.frameworkConfigs[].quotaReleaseStrategy`) is designed but not merged. Quota is therefore released per each integration's existing behaviour (for batch/v1 Jobs, when Pods get a `deletionTimestamp`). See [[cluster-queue#Configuration: `scheduling.quotaReleaseStrategy` (removed before v0.20)]] (source: pr-15371.md).
+**Correction (2026-10-21)**: this section said quota release is governed by the Configuration field `scheduling.quotaReleaseStrategy` ([[pr-13224]], KEP-6143). That field was **reverted by pr-15371** before v0.20 and does not exist at this snapshot; a per-integration replacement (`.integrations.frameworkConfigs[].quotaReleaseStrategy`) is designed but not merged. Quota is therefore released per each integration's existing behaviour (for batch/v1 Jobs, when Pods get a `deletionTimestamp`). On eviction, the job reconciler releases the reservation only after the job has no active Pods; a webhook-rejected `reclaimablePods` decrease used to stop it before that step and leave quota reserved forever (fixed by pr-17147, v0.20.2 / v0.19.9; [[workload#`reclaimablePods` must not block eviction (pr-17147, fixes issue-14811)]]). See [[cluster-queue#Configuration: `scheduling.quotaReleaseStrategy` (removed before v0.20)]] (source: pr-15371.md).
 
 ## Admission is not the same as "checks passed"
 

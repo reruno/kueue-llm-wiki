@@ -2,7 +2,7 @@
 
 **Summary**: Kueue's `kueue.x-k8s.io`, visibility and Configuration APIs moved from `v1beta1` to `v1beta2`. In **v0.20** the `v1beta1` versions stop being **served** (`served: false`) and the v1beta1 conversion support is removed — an action-required upgrade for any client, manifest or GitOps repo still writing v1beta1. On **main (v0.21 dev)** the v1beta1 Go packages and CRD versions are deleted entirely (pr-16485), so every stored object must be at v1beta2 and `status.storedVersions` trimmed before that upgrade.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/pr-14558.md`, `raw/github/kubernetes-sigs__kueue/pr-14720.md`, `raw/github/kubernetes-sigs__kueue/pr-13224.md`, pr-15913.md, pr-16300.md, pr-16168.md, raw/kueue/config/components/crd/alpha/kustomization.yaml, pr-16485.md, issue-13957.md, pr-16489.md, pr-16984.md, issue-16983.md, pr-15371.md, pr-14445.md, pr-14449.md, raw/kueue/hack/migrate-to-v1beta2.sh, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/pr-14558.md`, `raw/github/kubernetes-sigs__kueue/pr-14720.md`, `raw/github/kubernetes-sigs__kueue/pr-13224.md`, pr-15913.md, pr-16300.md, pr-16168.md, raw/kueue/config/components/crd/alpha/kustomization.yaml, pr-16485.md, issue-13957.md, pr-16489.md, pr-16984.md, issue-16983.md, pr-15371.md, pr-14445.md, pr-14449.md, raw/kueue/hack/migrate-to-v1beta2.sh, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-17159.md, pr-17528.md, issue-17498.md, pr-17121.md, issue-17120.md, pr-16035.md, raw/kueue/apis/config/v1beta2/configuration_types.go
 
 **Last updated**: 2026-10-21
 
@@ -31,6 +31,8 @@ Three cluster-scoped, opt-in CRDs live in `v1alpha1`, are built from `config/com
 | `CapacityProvider` (`cp`) | Capacity published by an external controller | `DynamicQuotaOrchestration` |
 
 Alpha means field changes without a deprecation window; for example pr-16168 relaxed the CEL on capacity `resources` from 1-64 to at most 64 entries. Editor/viewer ClusterRoles exist for `PreemptionConfig` (pr-15992); every manager-managed resource must have both roles (`hack/testing/rbac/verify.sh`, pr-16240). API linting (KAL) was extended to v1alpha1 and the existing alpha CRDs were fixed to pass (pr-16300, issue-16272.md), so new alpha fields are held to the same API-lint rules as beta ones. `PreemptionConfigNameAnnotation` on the ClusterQueue is a stop-gap that becomes a field when the API graduates.
+
+**API reference.** Since pr-17528 (fixes issue-17498, merged 2026-10-21 to main and the `website` branch as pr-17539) the generated reference covers the alpha group at `/docs/reference/kueue.v1alpha1/` (`kueue.v1alpha1.md`, entry `kueue` in `hack/genref/config.yaml`, genref v0.28.0). Contributor impact: a PR that changes `apis/kueue/v1alpha1` must regenerate this page, and `make verify` flags a stale one (source: pr-17528.md).
 
 ## Action required before upgrading to v0.20
 
@@ -65,11 +67,19 @@ pr-16984 (fixes issue-16983, merged 2026-10-09, main) made it usable on large or
 | **Keeps going** on per-object errors; counts migrated / gone (`NotFound`, deleted after the list, not a failure) / failed; derives and prints failed names (batched webhook denials do not name the object); exits non-zero at the end | the first failure used to stop the kind or namespace, e.g. a ClusterQueue whose existing spec fails the validating webhook on *any* update (`lendingLimit ... must be less than or equal to the nominalQuota`) blocked every rerun |
 | **Checks the CRD storage version first** and skips a kind with an error if it is not the target | annotating would otherwise mark unmigrated objects as migrated, and skip-on-rerun would hide them |
 
+**`--resources=LIST`** (pr-17159, main, follow-up to pr-16984): migrate only the listed kinds, given as the plural names the script knows (`cohorts`, `localqueues`, `clusterqueues`, ..., `workloads`). Selected kinds run in the script's usual order whatever the list order, and a repeated name runs once. An empty list, an empty item (`a,,b`), an unknown name, or `--resources` without `=LIST` (which other unknown-flag handling would have ignored, migrating everything) fails during flag parsing with exit 1 before any kubectl call. Unselected kinds make **no** kubectl call, so a wrong storage version on their CRDs does not fail the run. Motivation: on a cluster with about 24K Workloads and 1K other objects, the Workloads pass dominates, and Workloads are often already stored at v1beta2 because every write re-encodes them. The help text warns to check unselected kinds before removing `v1beta1` from `storedVersions` (source: pr-17159.md).
+
 New RBAC need: `get` on `customresourcedefinitions`; without it every kind is skipped with an error. Measured: a server-side dry run over about 5k objects took 8m53s, with 1,829 ClusterQueues patched in about 20 kubectl calls (source: pr-16984.md, issue-16983.md). Practical consequence: objects whose current spec no longer passes validation cannot be migrated by any no-op update; fix them first.
 
 ## Config v1beta2 default worth knowing
 
 `clientConnection` defaults to QPS 1000 / Burst 1000 in config v1beta2 (`apis/config/v1beta2/defaults.go`; #15206, v0.20.0) (source: CHANGELOG-0.20.md). See [[performance-and-scale]].
+
+`metrics.accessControlMode` (`Delegated` | `None`) is a new v1beta2 field on main, settable only with the Alpha `MetricsAccessControl` gate (pr-16035). See [[metrics]].
+
+## Annotation reference completeness
+
+`site/data/labels_and_annotations.yaml` (rendered at `/docs/reference/labels_and_annotations/`) was missing two in-tree annotations: `kueue.x-k8s.io/podset-topology-spreading` (TAS topology spreading, see [[topology-aware-scheduling]]) and `kueue.x-k8s.io/workload-allowed-resource-flavors` (Concurrent Admission, see [[concurrent-admission]]). pr-17121 (fixes issue-17120; backports pr-17393, pr-17399, website pr-17508) adds them, sorted by key (source: pr-17121.md).
 
 ## Validation messages that name the wrong thing
 

@@ -2,7 +2,7 @@
 
 **Summary**: `kueuectl` (installable as the `kubectl-kueue` plugin) is Kueue's CLI for day-to-day operator and user tasks: creating ClusterQueues and LocalQueues, listing/stopping/resuming workloads, draining queues, and passing through to underlying jobs.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-15376.md, pr-16510.md, pr-16531.md, pr-16609.md, pr-16633.md, pr-16667.md, pr-16850.md, pr-16981.md, pr-17055.md, issue-17054.md; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-15376.md, pr-16040.md, pr-16510.md, pr-16531.md, pr-16609.md, pr-16633.md, pr-16667.md, pr-16850.md, pr-16981.md, pr-17055.md, issue-17054.md; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`.
 
 **Last updated**: 2026-10-21
 
@@ -93,6 +93,21 @@ Other `list workload` fixes shipped in v0.20.0 (source: CHANGELOG-0.20.md): `--c
 The lookup was also **by name**, and NotFound meant "not installed". The Helm chart names the Deployment after the release, so after `helm install foo ...` only the client version was printed. `cmd/kueuectl/app/version/version.go` now does a single List with the selector `app.kubernetes.io/name=kueue,control-plane=controller-manager` (both kustomize and Helm have set these labels since v0.7; `kueuectl version` first shipped in v0.8). 0 matches = not installed (client version only), 1 = print its image, more than one = error listing the names. A KueueViz Deployment does not match. A Helm `nameOverride` changes `app.kubernetes.io/name` and stays unsupported; `control-plane` alone was rejected because it also matches other kubebuilder operators such as JobSet (source: pr-16609.md; backports pr-16953, pr-16966).
 
 Open: `kueuectl delete workload --all` handles only the first list page and ignores the continue token ([[issue-16185]]).
+
+## Which release carries the 2026-10 CLI fixes
+
+From the v0.20.2 and v0.19.9 changelogs (both prepared 2026-10-15) (source: CHANGELOG-0.20.md, CHANGELOG-0.19.md):
+
+| Fix (section above) | main PR | v0.20.2 | v0.19.9 |
+|---|---|---|---|
+| hyphenated resource names in `create clusterqueue` | pr-16981 | #16987 | #16988 |
+| `list workload` with an empty `spec.queueName` | pr-16667 | #16986 | #16978 |
+| `version` on a Helm install with another release name | pr-16609 | #16953 | #16966 |
+| `list workload --for` duplicates after an empty last page | pr-16850 | #17084 | #16850 |
+| `list workload --for` never finishing when `-l` already has `job-uid` | pr-16040 | (in v0.20.0) | #16963 |
+| `create localqueue --dry-run=client` makes no API call | pr-17055 | #17109 | #17110 |
+
+The coveredResources ordering fix and `delete workload` background propagation shipped earlier, in v0.20.1 / v0.19.8.
 
 **Release-note convention.** kueuectl fixes use the `CLI:` prefix in release notes (maintainers ask for it in review; source: pr-17055.md).
 

@@ -2,7 +2,7 @@
 
 **Summary**: Before a [[workload]]'s requests are counted against quota or validated, Kueue derives an *effective* PodSpec from external inputs (RuntimeClass overhead, limits-as-requests, namespace `LimitRange` defaults). Since pr-15284 (v0.20) this effective view is stored in `workload.Info` and constructed in one place; the old per-call `AdjustResources` on a deep-copied Workload is gone from production code. The stored API object is never rewritten.
 
-**Sources**: pr-15284.md, pr-16129.md, pr-16047.md, pr-15736.md, pr-14958.md, issue-14964.md, issue-14965.md, issue-14255.md, issue-15702.md, issue-13911.md, issue-16095.md, pr-14520.md, raw/kueue/pkg/workload/effective_resources.go, raw/kueue/pkg/workload/workload.go, raw/kueue/pkg/controller/core/workload_controller.go
+**Sources**: pr-15284.md, pr-16129.md, pr-16047.md, pr-15736.md, pr-14958.md, issue-14964.md, issue-14965.md, issue-14255.md, issue-15702.md, issue-13911.md, issue-16095.md, pr-14520.md, raw/kueue/pkg/workload/effective_resources.go, raw/kueue/pkg/workload/workload.go, raw/kueue/pkg/controller/core/workload_controller.go, pr-17354.md, pr-17424.md, pr-17443.md, pr-17444.md, issue-17422.md, pr-17090.md
 
 **Last updated**: 2026-10-21
 
@@ -18,6 +18,9 @@ Previously each producer had to remember to deep-copy the Workload and call `Adj
 - Reserved quota still comes from `status.admission.podSetAssignments[].resourceUsage`, not from the effective view. `resourceTransformations` stay at the existing total-request stage ([[resource-transformer]]). There are no CRD changes.
 - Because effective requests can change independently of the Workload object, the scheduling-equivalence hash folds `TotalRequests.Requests` in ([[scheduler-internals#Scheduling-equivalence hash: what it does and does not include]], pr-14958).
 - The old `AdjustResources` survives only as a test oracle.
+- **Release lines.** pr-15284 shipped in v0.20.0. It was backported to **release-0.19** as pr-17354 (merged 2026-10-16, after v0.19.9; release note NONE), adapted because DRA requeue pairing (#14562) and the flavorassigner TAS-usage extraction had landed there in the meantime; e.g. `requeueWorkloadLocked` now builds a fresh Info with `NewInfoFromClient` and reuses its `EffectivePodSpecs` (source: pr-17354.md).
+- **"Differs" is a narrow comparison (pr-17424).** `effectivePodSpecs` decides whether to store effective specs with `adjustedFieldsDiffer`, which compares only the fields `applyAdjustmentsToPodSpec` writes: `Overhead`, pod-level `Resources`, and each init and regular container's `Resources`. Comparing whole PodSpecs dominated the cost of building an Info (`effectivePodSpecs` 2.54 s to 0.76 s, `Info.Update` 8.49 s to 4.98 s in the performance scheduler; 5.7x faster on a pod with init container, sidecar, env and volumes). Invariant: keep `adjustedFieldsDiffer` in sync with `applyAdjustmentsToPodSpec` when adding an adjustment. The same PR makes the Workload controller's DRA check build a full Info only when a DeviceClass backs an extended resource ([[dra]]). Backports pr-17444 (0.20) and pr-17443 (0.19), merged after v0.20.2 / v0.19.9 (source: pr-17424.md, raw/kueue/pkg/workload/effective_resources.go).
+- **Overhead sign.** Since pr-17090 the Workload webhook rejects negative `overhead` under `WorkloadValidateResourcesAreNonNegative`, so overhead can no longer offset container requests in the charge ([[workload#Negative Pod overhead is rejected (pr-17090, fixes issue-13991)]]).
 
 ## Pod-level requests never undercount containers (pr-16047)
 

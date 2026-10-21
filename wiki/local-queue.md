@@ -2,7 +2,7 @@
 
 **Summary**: A LocalQueue (LQ) is a namespaced resource that points to exactly one [[cluster-queue]]. Tenants reference LocalQueues from their jobs via the `kueue.x-k8s.io/queue-name` label; the LQ is what enforces namespace-to-ClusterQueue binding.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-13481.md, pr-13433.md, pr-13621.md, pr-12786.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-13481.md, pr-13433.md, pr-13621.md, pr-12786.md, pr-16728.md, pr-17414.md, pr-17448.md, issue-17412.md
 
 **Last updated**: 2026-10-21
 
@@ -59,6 +59,14 @@ Retargeting a LocalQueue's `spec.clusterQueue` used to leave the **previous** Cl
 ## LocalQueue identity is `namespace/name`
 
 LocalQueue names are namespace-scoped, so `spec.queueName` alone is **not** an identity. Comparing Workloads by `spec.queueName` made `team-a/default` and `team-b/default` indistinguishable and broke admission fair-sharing preemption ordering; the comparison must use the namespace-qualified key (`utilqueue.KeyFromWorkload`) — [[pr-14547]], see [[admission-fair-sharing#LocalQueue identity is namespace-qualified]].
+
+## Held or deleted LocalQueues and the ClusterQueue's `HoldAndDrain`
+
+A Workload that already holds a quota reservation is tied to the ClusterQueue in `status.admission.clusterQueue`, not to its LocalQueue. Since pr-16728 the queue manager resolves such a Workload's ClusterQueue from that field, and ClusterQueue events also enqueue Workloads found through the `status.admission.clusterQueue` index. So putting the ClusterQueue in `HoldAndDrain` now evicts admitted Workloads even when their LocalQueue is held (`stopPolicy: Hold`) or was deleted (source: pr-16728.md). See [[cluster-queue#Stop policies]].
+
+## Pending counts per LocalQueue are tracked incrementally
+
+The LocalQueue pending-workload metric no longer scans the whole ClusterQueue on every queue change; the queue manager keeps per-LocalQueue active and inadmissible counts, and per-LocalQueue custom-label breakdowns with `CustomMetricLabels` (pr-17414, pr-17448; fixes issue-17412). See [[cache-architecture#Queue manager: per-LocalQueue pending counts (pr-17414, pr-17448)]] and [[metrics]].
 
 ## `fairSharing.weight` on a LocalQueue (Admission Fair Sharing)
 

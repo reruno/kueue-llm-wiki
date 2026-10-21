@@ -2,7 +2,7 @@
 
 **Summary**: A ClusterQueue (CQ) is a cluster-scoped resource that owns a pool of quota. It groups quota into resource groups of flavors, limits how workloads queue up, and optionally joins a [[cohort]] so unused capacity can be lent to peers.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15633.md, pr-16140.md, pr-15949.md, pr-16282.md, pr-15913.md, pr-16168.md, raw/kueue/apis/kueue/v1beta2/clusterqueue_types.go, pr-15371.md, pr-16375.md, pr-16438.md, pr-15040.md, pr-17010.md, pr-16487.md, pr-16488.md, pr-16528.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15633.md, pr-16140.md, pr-15949.md, pr-16282.md, pr-15913.md, pr-16168.md, raw/kueue/apis/kueue/v1beta2/clusterqueue_types.go, pr-15371.md, pr-16375.md, pr-16438.md, pr-15040.md, pr-17010.md, pr-16487.md, pr-16488.md, pr-16528.md, pr-16728.md, pr-17479.md, pr-17480.md, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/cache/queue/manager.go
 
 **Last updated**: 2026-10-21
 
@@ -56,6 +56,13 @@ A CQ becomes inactive if a referenced [[resource-flavor]] is missing or a refere
 ## Stop policies
 
 `spec.stopPolicy` can be set to `Hold` or `HoldAndDrain` to halt admission (and optionally evict admitted workloads). Useful for planned maintenance.
+
+**Fixed: `HoldAndDrain` skipped Workloads of held or deleted LocalQueues (pr-16728).** Two gaps let admitted Workloads keep running after their ClusterQueue switched to `HoldAndDrain` (source: pr-16728.md, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/cache/queue/manager.go):
+
+- The Workload reconciler resolved the ClusterQueue through the queue manager, which drops held and deleted LocalQueues, so the lookup returned `""` and `reconcileOnClusterQueueActiveState` never evicted. `Manager.ClusterQueueNameForWorkloadWithoutLock` now returns `status.admission.clusterQueue` for any Workload with a quota reservation.
+- For a **deleted** LocalQueue, the ClusterQueue event handler never enqueued the Workload, because `queueReconcileForWorkloadsOfClusterQueue` found Workloads only through existing LocalQueues. It now also lists Workloads by the `status.admission.clusterQueue` index (`indexer.WorkloadClusterQueueKey`) and enqueues them; a List error is only logged, since it reads the informer cache.
+
+Release note: "Fixed a bug where setting a ClusterQueue's `stopPolicy` to `HoldAndDrain` did not evict admitted Workloads whose LocalQueue was held or deleted." Main merged 2026-10-20; backports pr-17480 (0.20) and pr-17479 (0.19) merged the same day, after v0.20.2 / v0.19.9.
 
 ## Finalizer (`kueue.x-k8s.io/cluster-queue`)
 
