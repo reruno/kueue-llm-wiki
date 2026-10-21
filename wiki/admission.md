@@ -2,9 +2,9 @@
 
 **Summary**: "Admission" is Kueue's term for releasing a [[workload]] to run. It's a two-phase process: first the scheduler reserves quota (`QuotaReserved`), then any configured [[admission-check]]s must return `Ready`, after which the Workload is `Admitted` and the integration controller unsuspends the underlying job.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15371.md, pr-16627.md, pr-17010.md, pr-12786.md, pr-16479.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -32,7 +32,7 @@ Per scheduling cycle, for each ClusterQueue:
 
 1. Read the head of the CQ's pending queue per [[queueing-strategy]].
 2. Compute the assignment: for each PodSet, find the first flavor in each resource group that has enough nominal quota, or can borrow enough from the [[cohort]], or from which a [[preemption]] can free enough capacity.
-3. If the assignment works without preemption, admit.
+3. If the assignment works without preemption, admit. The fit check uses exact request totals even past `int64` (pr-16479), so an oversized Workload can no longer slip under a quota it exceeds.
 4. If not, gather preemption candidates, mark them `Evicted`, and wait for them to release quota on the next cycle.
 5. If still not, either defer to the next cycle (BestEffortFIFO, may attempt another CQ) or block the queue head (StrictFIFO).
 
@@ -46,6 +46,8 @@ Common reasons surfaced in events:
 - The required ResourceFlavor or Topology doesn't exist / isn't labeled on any node.
 - An AdmissionCheck is failing (e.g. ProvisioningRequest still pending).
 - The ClusterQueue is `stopPolicy: Hold`.
+- The ClusterQueue is inactive because its Cohort hierarchy has a cycle (`CohortCycleDetected`, [[cohort#Cycles in the Cohort hierarchy]]).
+- Preemption is needed but the Workload's preemption gate is closed: `QuotaReserved=False` reason `PreemptionGated` (was `AdmissionGated` before pr-16627; [[preemption#Preemption-gated Workloads report `PreemptionGated` (pr-16627)]]).
 - `workload.ValidateAdmissibility` rejected the candidate — most commonly `resources didn't satisfy LimitRange constraints`, i.e. the effective requests violate a namespace LimitRange `max`/`min`. This rejection leaves the requeue reason at `RequeueReasonGeneric` and, under BestEffortFIFO, does not recover when the LimitRange is relaxed; see [[workload-resource-adjustment]].
 
 With `UnadmittedWorkloadsObservability` (Beta/on in v0.20) each of these is reported as a distinct `QuotaReserved=False` reason (`WaitingForQuota`, `NoMatchingFlavor`, `ExceedsMaxQuota`, `Misconfigured`, `Suspended`, `AdmissionGated`, ...) rather than `Pending`; see [[unadmitted-workloads-observability]].
@@ -54,11 +56,11 @@ Events are attached to the Workload for each of these cases. The `Admitted` even
 
 ## Wait after quota reservation
 
-Between `QuotaReserved` and `Admitted` a Workload may wait for AdmissionChecks; Admission Fair Sharing counts that reserved usage by default since v0.20 ([[admission-fair-sharing#Accounting anchor: quota reservation, not admission (v0.20, Beta)]]). After `Admitted`, the [[wait-for-pods-ready]] timers run.
+Between `QuotaReserved` and `Admitted` a Workload may wait for AdmissionChecks; Admission Fair Sharing counts that reserved usage by default since v0.20 ([[admission-fair-sharing#Accounting anchor: quota reservation, not admission (v0.20, Beta)]]). On 0.18/0.19 (and v0.20 with the anchor gate off) the AFS entry penalty is settled on the transition into `Admitted`, including `QuotaReserved -> Admitted` since pr-12786. After `Admitted`, the [[wait-for-pods-ready]] timers run.
 
 ## When quota is released
 
-Quota release is governed by the Configuration field `scheduling.quotaReleaseStrategy` (added by [[pr-13224]], KEP-6143): `OnTermination` (default — release as soon as a Pod gets a `deletionTimestamp`) or `OnTerminalBestEffort` (hold until Pods reach `Succeeded`/`Failed`, which [[topology-aware-scheduling]] needs so new Pods are not placed on nodes that terminating Pods still occupy). Details and the current implementation scope in [[cluster-queue#Configuration: `scheduling.quotaReleaseStrategy`]].
+**Correction (2026-10-21)**: this section said quota release is governed by the Configuration field `scheduling.quotaReleaseStrategy` ([[pr-13224]], KEP-6143). That field was **reverted by pr-15371** before v0.20 and does not exist at this snapshot; a per-integration replacement (`.integrations.frameworkConfigs[].quotaReleaseStrategy`) is designed but not merged. Quota is therefore released per each integration's existing behaviour (for batch/v1 Jobs, when Pods get a `deletionTimestamp`). See [[cluster-queue#Configuration: `scheduling.quotaReleaseStrategy` (removed before v0.20)]] (source: pr-15371.md).
 
 ## Admission is not the same as "checks passed"
 

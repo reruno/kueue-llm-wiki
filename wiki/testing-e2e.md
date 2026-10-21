@@ -2,9 +2,9 @@
 
 **Summary**: E2E tests run Kueue against a real (Kind-based) Kubernetes cluster, with any external operators (JobSet, KubeRay, Kubeflow Training, LeaderWorkerSet, AppWrapper, cert-manager, Prometheus Operator) installed alongside. This page covers the per-suite matrix, the dev-mode Kind lifecycle (`E2E_MODE=dev`), the full MultiKueue invocation recipe, and flake patterns specific to e2e.
 
-**Sources**: `raw/kueue/Makefile-test.mk`, `raw/kueue/hack/testing/e2e-common.sh`, `raw/kueue/hack/testing/e2e-test.sh`, `raw/kueue/hack/testing/e2e-multikueue-test.sh`, `raw/kueue/test/e2e/`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-5414]].
+**Sources**: `raw/kueue/Makefile-test.mk`, `raw/kueue/hack/testing/e2e-common.sh`, `raw/kueue/hack/testing/e2e-test.sh`, `raw/kueue/hack/testing/e2e-multikueue-test.sh`, `raw/kueue/test/e2e/`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-5414]]; pr-16348.md, pr-17050.md, pr-16753.md, pr-16723.md.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-10-21
 
 ---
 
@@ -19,7 +19,7 @@ Because each e2e suite spins up its own Kind cluster(s), each suite is expensive
 
 ## Suite matrix
 
-Every target below is in `Makefile-test.mk`. All of them run via `hack/testing/e2e-test.sh` or `hack/testing/e2e-multikueue-test.sh`.
+Every target below is in `hack/make/test.mk` (formerly `Makefile-test.mk`). All of them run via `hack/testing/e2e-test.sh` or `hack/testing/e2e-multikueue-test.sh`.
 
 | Make target | E2E folder | What it covers |
 |---|---|---|
@@ -39,6 +39,12 @@ Every target below is in `Makefile-test.mk`. All of them run via `hack/testing/e
 | `test-e2e-k8s-main-was` | `test/e2e/singlecluster/` | Same as `test-e2e` but against a kind node image built from k/k `main` with `WAS_ENABLED=true`. |
 
 Add `-helm` to any supported target (`test-e2e-helm`, `test-tas-e2e-helm`, `test-multikueue-e2e-helm`, `test-e2e-sequential-baseline-helm`, `test-e2e-sequential-extended-helm`) to install via Helm instead of kustomize. Or set `E2E_USE_HELM=true`.
+
+**Helm and kustomize e2e now test the same configuration.** The Helm path used to carry its own copy of the manager configuration in `test/e2e/config/{default,certmanager}/values.yaml`. Nobody kept it in sync, so Helm e2e ran with **no feature gates enabled** and some settings missing. `helm_install` in `hack/testing/e2e-common.sh` now takes the kustomization directory as a third argument (`test/e2e/config/${E2E_CONFIG_FOLDER:-default}` or `test/e2e/config/certmanager`), runs `kustomize build`, and derives the manager configuration and replica count from it. Edit only the kustomize config (source: pr-16348.md). It also sets the chart's `enableAlphaAPIs` to `true` exactly when the kustomize build contains a CRD from `config/components/crd/alpha`. Without this, the 4 PreemptionConfig RBAC specs failed under Helm because the chart skipped the alpha CRDs (source: pr-17050.md).
+
+**WAS deep-integration TAS targets.** `test-e2e-was-deep-tas-*` (baseline, extended, and two shards) run the `singlecluster/tasapi` suites with `SchedulerLibraryIntegration=true` and `SchedulerLibraryDeepIntegration=true` passed via `E2E_EXTRA_KUEUE_FEATURE_GATES` (source: pr-16753.md, part of #15333).
+
+**When to write an e2e test at all.** Per the writing-tests guide, only when the behaviour needs real kubelets, kube-scheduler, kube-controller-manager or a real operator. Specs that change shared Kueue configuration belong in a sequential suite (source: pr-16723.md; see [[testing#Community test-writing guidelines]]).
 
 ## Running an e2e suite
 

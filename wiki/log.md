@@ -513,3 +513,114 @@ A small batch dominated by cherry-picks and CI-flake retries. Only four merged c
 **Contradictions flagged**: `dra.md` Alpha banner vs Beta gates in code; `TASHandleOverlappingFlavors` / `TASPartialSlices` stage (PR text says Alpha, code says Beta); LimitRange-requeue gotcha appears fixed in code while issue-14965 / pr-14967 still show open; `MaxExecTime` and `KubeRayAccountForRedisCleanup` missing from generated gate list (marked needs verification).
 
 **Open items**: some PR numbers cited in integration pages (14703, 15056, 13375, 13025, 7663, 15565) come from other PR descriptions and were not checked against raw files; `pr-16089` diff not verified.
+
+---
+
+## 2026-10-21 — v0.20.0/v0.20.1 batch: fair-sharing loop fix, exact requests, flavor-scan state, TAS second-pass hardening, v1beta1 removal
+
+**Data-collection commit**: `ed17da0cb28971da805a91773281f434fb601a70` (`[data-collection] 978 new,491 updated items from kubernetes-sigs/kueue, kueue@8922c563e`)
+
+**Operator**: Claude Code, standing wiki ingest, run as four parallel slices with page ownership: core scheduling; TAS/DRA/elastic; integrations/MultiKueue; observability/API/tooling/CVEs. The observability slice forked a fifth agent for kueuectl, KueueViz, release and policy pages.
+
+**Provenance notes**: raw files were read from the `ed17da0c` snapshot (extracted with `git show`), not the newer working tree. Code and CHANGELOG facts were read at kueue@8922c563e via `git -C raw/kueue show 8922c563e:<path>`; `raw/kueue` is a submodule whose working tree is at kueue@3bbb8cce4. The release-prep PR files (pr-16439/16440/16442/16916/16917) carry no changelog text, so release attribution comes from `CHANGELOG/CHANGELOG-0.{18,19,20}.md`. Where a page says a fix ships in v0.20.2 or v0.19.9, it says so explicitly "per CHANGELOG at kueue@3bbb8cce4, released after this snapshot".
+
+**Source files analysed** (978 new files): 26 CVE files in `raw/cve/` (CVE-2026-101919, CVE-2026-103413, CVE-2026-103546, CVE-2026-105216, CVE-2026-105223, CVE-2026-105985, CVE-2026-106487, CVE-2026-106561, CVE-2026-106563, CVE-2026-107446, CVE-2026-108546, CVE-2026-108570, CVE-2026-109358, CVE-2026-18517, CVE-2026-18529, CVE-2026-18533, CVE-2026-18537, CVE-2026-26287, CVE-2026-55252, CVE-2026-55797, CVE-2026-71895, CVE-2026-7767, CVE-2026-86671, CVE-2026-92393, CVE-2026-95837, CVE-2026-95838); 176 issues in `raw/github/kubernetes-sigs__kueue/` (`issue-N`: 12944, 13055, 13151, 13357, 13599, 13781, 13866, 13957, 13991, 14007, 14013, 14015, 14035, 14134, 14186, 14274, 14317, 14371, 14373, 14438, 14486, 14978, 15172, 16346, 16352, 16353, 16354, 16356, 16359, 16363, 16366, 16367, 16368, 16373, 16384, 16386, 16391, 16393, 16405, 16427, 16443, 16445, 16450, 16451, 16453, 16454, 16455, 16457, 16471, 16475, 16477, 16478, 16486, 16497, 16498, 16499, 16504, 16513, 16515, 16517, 16518, 16525, 16526, 16529, 16530, 16534, 16536, 16547, 16559, 16573, 16588, 16590, 16604, 16610, 16615, 16623, 16624, 16629, 16638, 16639, 16643, 16644, 16645, 16646, 16649, 16657, 16661, 16664, 16665, 16666, 16673, 16676, 16680, 16694, 16708, 16729, 16732, 16733, 16734, 16736, 16748, 16749, 16769, 16775, 16782, 16783, 16784, 16785, 16786, 16789, 16794, 16802, 16806, 16825, 16827, 16832, 16840, 16855, 16861, 16862, 16866, 16867, 16872, 16873, 16875, 16876, 16877, 16885, 16887, 16896, 16899, 16900, 16901, 16902, 16906, 16909, 16920, 16924, 16925, 16929, 16938, 16958, 16959, 16970, 16974, 16980, 16983, 16985, 16990, 17011, 17020, 17022, 17026, 17033, 17040, 17043, 17044, 17045, 17047, 17054, 17061, 17066, 17073, 17074, 17085, 17096, 17099, 17102, 17103, 17106, 17112, 17113, 17115, 17120, 17122, 17125); 776 PRs (`pr-N`: 10727, 10774, 10776, 12640, 12678, 12680, 12683, 12684, 12714, 12728, 12767, 12774, 12786, 12839, 12840, 12946, 12948, 12961, 12962, 12963, 12964, 12965, 13014, 13026, 13062, 13063, 13064, 13108, 13244, 13271, 13294, 13316, 13375, 13420, 13433, 13469, 13477, 13481, 13525, 13546, 13555, 13559, 13564, 13616, 13621, 13622, 13635, 13642, 13668, 13671, 13672, 13673, 13706, 13719, 13754, 13755, 13761, 13763, 13775, 13795, 13805, 13844, 13851, 13853, 13896, 13903, 13920, 13945, 13956, 13970, 13995, 13996, 14027, 14036, 14094, 14095, 14110, 14150, 14193, 14283, 14293, 14295, 14296, 14334, 14340, 14343, 14344, 14348, 14405, 14410, 14411, 14414, 14415, 14416, 14439, 14440, 14441, 14443, 14444, 14445, 14446, 14448, 14449, 14520, 14990, 15040, 15092, 15106, 15107, 15111, 15199, 15215, 15222, 15228, 15264, 15265, 15269, 15280, 15281, 15282, 15283, 15286, 15316, 15318, 15320, 15355, 15365, 15371, 15372, 15376, 15387, 15391, 15402, 15403, 15413, 15427, 15432, 15454, 15518, 15520, 15551, 16340, 16341, 16342, 16343, 16344, 16345, 16347, 16348, 16349, 16350, 16351, 16355, 16357, 16358, 16360, 16361, 16362, 16364, 16365, 16369, 16370, 16371, 16372, 16374, 16375, 16376, 16377, 16378, 16379, 16380, 16381, 16382, 16383, 16385, 16387, 16388, 16389, 16390, 16392, 16394, 16395, 16396, 16397, 16398, 16399, 16400, 16401, 16402, 16403, 16404, 16406, 16407, 16408, 16409, 16410, 16411, 16412, 16413, 16414, 16415, 16416, 16417, 16418, 16419, 16420, 16421, 16422, 16423, 16424, 16425, 16426, 16428, 16429, 16430, 16431, 16432, 16433, 16434, 16435, 16436, 16437, 16438, 16439, 16440, 16441, 16442, 16444, 16446, 16447, 16448, 16449, 16452, 16456, 16458, 16459, 16460, 16461, 16462, 16463, 16464, 16465, 16466, 16467, 16468, 16469, 16470, 16472, 16473, 16474, 16476, 16479, 16480, 16481, 16482, 16483, 16484, 16485, 16487, 16488, 16489, 16490, 16491, 16492, 16493, 16494, 16495, 16496, 16500, 16501, 16502, 16503, 16505, 16506, 16507, 16508, 16509, 16510, 16511, 16512, 16514, 16516, 16519, 16520, 16521, 16522, 16523, 16524, 16527, 16528, 16531, 16532, 16533, 16535, 16537, 16538, 16539, 16540, 16541, 16542, 16543, 16544, 16545, 16546, 16548, 16549, 16550, 16551, 16552, 16553, 16554, 16555, 16556, 16557, 16558, 16560, 16561, 16562, 16563, 16564, 16565, 16566, 16567, 16568, 16569, 16570, 16571, 16572, 16574, 16575, 16576, 16577, 16578, 16579, 16580, 16581, 16582, 16583, 16584, 16585, 16586, 16587, 16589, 16591, 16592, 16593, 16594, 16595, 16596, 16597, 16598, 16599, 16600, 16601, 16602, 16603, 16605, 16606, 16607, 16608, 16609, 16611, 16612, 16613, 16614, 16616, 16617, 16618, 16619, 16620, 16621, 16622, 16625, 16626, 16627, 16628, 16630, 16631, 16632, 16633, 16634, 16635, 16636, 16637, 16641, 16642, 16647, 16648, 16650, 16651, 16652, 16653, 16654, 16655, 16656, 16658, 16659, 16660, 16662, 16663, 16667, 16668, 16669, 16670, 16671, 16672, 16674, 16675, 16677, 16678, 16679, 16681, 16682, 16683, 16684, 16685, 16686, 16687, 16688, 16689, 16690, 16691, 16692, 16693, 16695, 16696, 16697, 16698, 16699, 16700, 16701, 16702, 16703, 16704, 16705, 16706, 16707, 16709, 16710, 16711, 16712, 16713, 16714, 16715, 16716, 16717, 16718, 16719, 16720, 16721, 16722, 16723, 16724, 16725, 16726, 16727, 16728, 16730, 16731, 16735, 16737, 16738, 16739, 16740, 16741, 16742, 16743, 16744, 16745, 16746, 16747, 16750, 16751, 16752, 16753, 16754, 16755, 16756, 16757, 16758, 16759, 16760, 16761, 16762, 16763, 16764, 16765, 16766, 16767, 16768, 16770, 16771, 16772, 16773, 16774, 16776, 16777, 16778, 16779, 16780, 16781, 16787, 16788, 16790, 16791, 16792, 16793, 16795, 16796, 16797, 16798, 16799, 16800, 16801, 16803, 16804, 16805, 16807, 16808, 16809, 16810, 16811, 16812, 16813, 16814, 16815, 16816, 16817, 16818, 16819, 16820, 16821, 16822, 16823, 16824, 16826, 16828, 16829, 16830, 16831, 16833, 16834, 16835, 16836, 16837, 16838, 16839, 16841, 16842, 16843, 16844, 16845, 16846, 16847, 16848, 16849, 16850, 16851, 16852, 16853, 16854, 16856, 16857, 16858, 16859, 16860, 16863, 16864, 16865, 16868, 16869, 16870, 16871, 16874, 16878, 16879, 16880, 16881, 16882, 16883, 16884, 16886, 16888, 16889, 16890, 16891, 16892, 16893, 16894, 16895, 16897, 16898, 16903, 16904, 16905, 16907, 16908, 16910, 16911, 16912, 16913, 16914, 16915, 16916, 16917, 16918, 16919, 16921, 16922, 16923, 16926, 16927, 16928, 16930, 16931, 16932, 16933, 16934, 16935, 16936, 16937, 16939, 16940, 16941, 16942, 16943, 16944, 16945, 16946, 16947, 16948, 16949, 16950, 16951, 16952, 16953, 16954, 16955, 16956, 16957, 16960, 16961, 16962, 16963, 16964, 16965, 16966, 16967, 16968, 16969, 16971, 16972, 16973, 16975, 16976, 16977, 16978, 16979, 16981, 16982, 16984, 16986, 16987, 16988, 16989, 16991, 16992, 16993, 16994, 16995, 16996, 16997, 16998, 16999, 17000, 17001, 17002, 17003, 17004, 17005, 17006, 17007, 17008, 17009, 17010, 17012, 17013, 17014, 17015, 17016, 17017, 17018, 17019, 17021, 17023, 17024, 17025, 17027, 17028, 17029, 17030, 17031, 17032, 17034, 17035, 17036, 17037, 17038, 17039, 17041, 17042, 17046, 17048, 17049, 17050, 17051, 17052, 17053, 17055, 17056, 17057, 17058, 17059, 17060, 17062, 17063, 17064, 17065, 17067, 17068, 17069, 17070, 17071, 17072, 17075, 17076, 17077, 17078, 17079, 17080, 17081, 17082, 17083, 17084, 17086, 17087, 17088, 17089, 17090, 17091, 17092, 17093, 17094, 17095, 17097, 17098, 17100, 17101, 17104, 17105, 17107, 17108, 17109, 17110, 17111, 17114, 17116, 17117, 17118, 17119, 17121, 17123, 17124, 17126, 17127, 17128). About 600 are merged PRs, of which 314 are release-branch backports. Roughly 250 merged PRs and 60 issues were read closely; the rest (CI/flake/test-helper refactors, dependency bumps, release bookkeeping, website/agent-tooling, 221 open items) were triaged by title, labels and description.
+
+**Created**: none (depth added to existing pages).
+
+**Updated: core scheduling**
+- `fair-sharing.md` — final-target verification (pr-16343, gate `FairSharingVerifyFinalTargets`, Beta/on; v0.20.1, v0.19.8) fixes the "own-workload" preemption loop (issue-14543), with its "own-only" limitation. Candidate pruning to the contested flavor-resources (pr-16738; issues 16665, 16666). Weighted-share edge-case table (pr-16487, pr-16488, pr-16528) and NaN metric semantics (pr-16581, pr-17057). Lendable capacity precomputed per Cohort (#15955).
+- `preemption.md` — `GetPreemptionStrategyIterator`/`GetTargetsWithStrategy` with a `verify` hook (pr-16537); `preemption/common` renamed to `preemption/policy` (pr-16619); the borrowing-CQ limitation marked fixed (#16060); the `PreemptionGated` reason and dropped-status fix (pr-16627).
+- `scheduler-internals.md` — `FlavorScanState` (pr-13956, pr-15432, pr-16766, pr-17069; gate `FlavorFungibilityPreserveScanProgress`). Zero-count PodSet retry (pr-16466). PodSet groups keyed by name (pr-16658). `isPreferred` ordering (pr-13616). Exact request arithmetic (pr-16479, pr-16492, pr-16527, pr-16672, pr-16682, pr-14520). AFS penalty gating (pr-13844). The `resourceUsage` MaxInt64 known gap (issue-16486).
+- `admission-fair-sharing.md`, `local-queue.md` — entry-penalty leak and gating fixes (pr-12786, pr-13844), sub-milli usage (pr-13621, rounds down), zero/negative LocalQueue weight (pr-13481), lookup-error ordering fallback (pr-13433).
+- `cohort.md`, `cluster-queue.md`, `cache-architecture.md`, `borrowing-and-lending.md` — Cohort cycles surfaced as `CohortCycleDetected` and synced to the queue manager (pr-16438); effective quotas on ClusterQueues and Cohorts (pr-15040, pr-15107); exact requests; per-flavor-resource borrowing judgement.
+- `admission.md`, `workload.md`, `resource-flavor.md` — `quotaReleaseStrategy` revert; new cannot-admit reasons; `PerPodRequests`; `podSetUpdates` location correction; flavor in-place update rules (pr-13622).
+- `configurable-preemptions.md` — build errors stop evaluation (pr-16374), overlapping-TAS-flavor candidates (pr-16695), typed references (pr-16598), evaluator cleanup (pr-17091).
+- `dynamic-quota-orchestration.md` — PR stack history (pr-15199, pr-15283, pr-15286, pr-16349), `EffectiveResourceGroups` callers, 128-flavor-limit correction (issue-16356).
+
+**Updated: TAS / DRA / elastic**
+- `topology-aware-scheduling.md` — `SchedulerLibraryDeepIntegration` (Alpha, main only) and the four TAS modes; `SchedulerLibraryIntegration` now depends on `TopologyAwareScheduling`. Also:
+  - NodePorts/hostPort in the simulator (pr-13555); mutable flavor tolerations.
+  - Overlapping-flavor preemption candidates (pr-16695); spreading ban reporting (pr-16421); `sliceCount [4]int32` (pr-16350).
+  - Slice-size/`subGroupCount` validation (pr-12728, pr-13108); slicing alongside grouping (pr-15111).
+  - Non-adjacent group fixes (pr-16658, pr-17052); cross-PodSet device counting (pr-16625).
+  - Elastic leader fixes (pr-16740, pr-16776, pr-14446).
+  - Second-pass hardening (pr-16462, pr-16468, `OutdatedScheduleCycle` fencing).
+  - Ungater ignores Pods outside the current assignment (pr-16788).
+- `elastic-jobs.md` — within-cycle slice accounting, shrunken-minimum cap (pr-16371), `ElasticJobsViaWorkloadSlicesFlavorChangeFromZero` (pr-16400), ProvisioningRequest annotations (pr-16514), `workloadslicing.Manager` (pr-16780), MultiKueue replaced-slice finishing (pr-16473), metric registration (pr-16743), field-selector fix (pr-15365).
+- `dra.md` — **Correction**: CEL selectors, AdminAccess and constraints are accepted, not rejected. AdminAccess requests are charged nothing (pr-13642). `firstAvailable` under `KueueDRAIntegrationPrioritizedList` with its strict same-resource contract (issue-13599 marked historical).
+- `resource-transformer.md` (issue-14007, `multiplyBy` gotchas), `provisioning-request.md`, `admission-check.md` (`podSetUpdates` lives in `status.admissionChecks[]`), `workload-resource-adjustment.md` (per-Pod partial-admission scaling; corrected to say `Requests` are now exact), `gang-scheduling.md`.
+
+**Updated: integrations / MultiKueue**
+- `integration-plain-pod.md` — adoption-guard history (pr-13014 → revert pr-13945 → #13960, `PodIntegrationValidateGroupOwner` Beta/on). Role-hash forgery check at ungate (#13382, `PodIntegrationVerifyRoleRequests`). Shape-based PodSet ordering. Deletion-deadline fix (#16076). issue-16517 not implemented.
+- `integration-statefulset.md`, `integration-leaderworkerset.md` — independent Pod/Workload reconcile branches (closes issue-14013), rollout gating, legacy finalizer cleanup removed (pr-13316), percentage `maxSurge` (pr-14405).
+- `job-framework-interface.md` — `JobWithOnHold`; `SkipChildJobSuspension` (pr-16370, downgraded to Alpha by pr-16436); internal labels/annotations never inherited (pr-16779, pr-16881); queue-name validation on update; namespace-selector-aware defaulting (pr-13375); `ExtractPriority` takes a recorder.
+- `multikueue.md` — `clientConnection` reuse for worker clients (pr-15280); autoscaling rejection and its messages (pr-13244, pr-13996, pr-16470); RayService `serveConfigV2` forwarding (pr-14036); replaced-slice recovery (pr-16473); kubeconfig-path gate Beta (pr-13706). **Correction**: the spec is copied unchanged, not stripped of `enableInTreeAutoscaling`.
+- `integration-rayjob.md` — worker count is `replicas × numOfHosts`, absent replicas = 0 (pr-16897; **correction** of `× minReplicas`). RayService top-level suspend (pr-16870, ACTION REQUIRED) and validation field paths (pr-17060).
+- `integration-spark.md` — `SUBMISSION_FAILED` no longer finishes the Workload (pr-16364); **correction**: dynamic allocation is allowed for elastic jobs.
+- `workload-priority.md` (`WorkloadPriorityClassNotFound` event, pr-13775; defaulting Beta, pr-13719; nil priority, pr-14411), `wait-for-pods-ready.md` (`WaitForScheduling` eviction, pr-15372/pr-15402; issue-16366), `webhooks.md`, `local-queue-defaulting.md`, `manage-jobs-selectively.md`, `admission-gated-by-annotation.md` (**correction**: Beta/on since 0.19), `integrations.md` (cross-integration roll-up plus a new graduation-levels table from pr-16937/pr-17035), `integration-jobset.md`, `integration-kubeflow.md`, `integration-appwrapper.md`, `failure-recovery.md`.
+
+**Updated: observability / API / tooling / security**
+- `metrics.md` — execution-time histograms (pr-13420). Custom metric labels from Workload labels (pr-13469, pr-13635, pr-16730, pr-16670). Invalid `localQueueSelector` now fails startup (pr-16379, ACTION REQUIRED). Cohort subtree gauges (pr-16398, pr-16762). Pending-gauge refresh (pr-16833). Weighted-share NaN. `kueue_replaced_workload_slices_total` registration. Creation-latency metric GA (pr-16493).
+- `unadmitted-workloads-observability.md` — Beta-by-default rationale (pr-13063); new reasons.
+- `api-versions.md` — v1beta1 deleted on main (pr-16485, issue-13957); `storedVersions` gotcha; migration script changes (pr-16984); config `clientConnection` defaults 1000/1000; validation messages (pr-14445, pr-14449).
+- `visibility-api.md` — v1beta2 paths and response shape; nil-priority 500 (pr-14411).
+- `workload-max-execution-time.md` — **correction**: the field is immutable only while `Admitted=True`.
+- `feature-gates.md` — stage table rebuilt and machine-checked against `kube_features.go` at kueue@8922c563e (119 gates). New "2026-10 batch" section with graduations and new gates. `SkipFinalizersForPodsSuspendedByParent` removed. `FairSharingReevaluatePreemptionCandidates` loop note updated to fixed. `MultiKueueRayInTreeAutoscaling` → `SkipChildJobSuspension` dependency. **Correction**: `MultiKueueBatchJobClearingTTLSecondsAfterFinishedOnWorkerCluster` is Alpha/off.
+- `debugging-guide.md` — log facts; "metrics that lie" table; visibility 500 and v1beta2-migration triage; new tables of scheduling/TAS/integration symptoms and CLI/dashboard/test-suite symptoms.
+- `kueuectl.md`, `dashboard.md`, `importer.md` — kueuectl fixes (pr-15376, pr-16510, pr-16531, pr-16609, pr-16667, pr-16850, pr-16981, pr-17055). KueueViz SubjectAccessReview authorization, WebSocket heartbeat (pr-13970) and empty-list `[]` rule (pr-16392, pr-16739, pr-16394, pr-16696). Importer fixes.
+- `release-process.md` — eight-week cycle and tentative v0.20–v0.22 timelines (pr-14150); release table for v0.20.0, v0.20.1, v0.19.7, v0.19.8 and v0.18.11; v0.20 action-required list; ChatOps automation changes.
+- `code-quality.md` — logging policy (pr-16725). **Correction**: per-object reconcile diagnostics are V(3). AI-assisted contribution rules (pr-10727); Snyk SHA1 false positive (issue-16866).
+- `testing.md`, `testing-integration.md`, `testing-e2e.md`, `testing-performance.md`, `performance-and-scale.md`, `reviewers.md`, `reviewer-mimowo.md`:
+  - Test-writing guidelines (pr-16723) and helper relocation to `test/util/behavioral/...`.
+  - `verifyLogs` teardown check (pr-16793).
+  - Helm e2e config parity (pr-16348, pr-17050) and TAS+DRA perf thresholds (pr-16652).
+  - Client QPS correction and `HighMaxParallelismWithinReconcile`.
+  - `/set-release-note` ChatOps.
+- `security.md` and all `security-*.md` pages:
+  - 2026-10 wave: 26 CVEs, none affecting Kueue or a module it ships.
+  - New rules: CREATE-only validation, kubeconfig exec plugins, controller-identity fallback, redirect/`file://` SSRF, TLS off by default, 0666 file modes, CWE-407.
+  - A Kueue example "failed parse ≠ no restriction" (pr-16379).
+  - Role-hash forgery added as a second pod-group quota-bypass worked example.
+  - KueueViz SAR model and the open `/ws/namespaces` gap.
+- `index.md` — header refreshed; blurbs updated for api-versions, fair-sharing, admission-gated-by-annotation (**Beta**), integration-rayjob, metrics, debugging-guide, scheduler-internals, release-process, security (775 CVEs).
+
+**Contradictions flagged**:
+- Gate names differ between PR text and code; the pages follow the code. pr-13956 says `PreserveFlavorScanProgress` but the code has `FlavorFungibilityPreserveScanProgress`. pr-16343's AI summary says `FairSharingValidatePreemptionTargets` but the code has `FairSharingVerifyFinalTargets`.
+- pr-13621 claims round-half-up; `MulByFloat` rounds down.
+- pr-13622 says ResourceFlavor `nodeLabels` stays immutable, while the v0.20.0 changelog lists a change allowing updates. Both are noted.
+- pr-16362's "automatically enables TAS" is true only of the test helper.
+- The upstream custom-metric-labels guide is stale.
+- pr-14227 calls `priority-boost` a label; the code has it as an annotation.
+- The lendable-precompute fix (#15955) is in v0.19.7 and v0.18.11, but no 0.20 changelog lists it (needs verification).
+
+**Out of scope** (read, excluded): CI/flake fixes and retries, test-helper reorganisation beyond the guideline-level summary, dependency bumps, main/website sync PRs, CodeRabbit/agent-instruction PRs, website-only docs (pr-16469, pr-16597, pr-16618, pr-16894), and every open or closed-unmerged PR/issue as shipped content.
+
+**Open items to revisit when fixed**:
+- **Scheduling and quota:**
+  - issue-17022 / pr-17034: second fair-sharing loop, a "within nominal" mismatch.
+  - issue-16529: zero `weightedShare` for a CQ borrowing only non-lendable resources.
+  - issue-16486: `resourceUsage` capped at MaxInt64, causing endless retries.
+  - issue-16356 / pr-16767: DQO with more than 128 flavors.
+  - pr-17107: 0.20 backport of pr-16466.
+  - pr-17016: 0.19 backport of #16060.
+  - issue-16624: cold leader start double-books TAS nodes.
+  - issue-17040: cache/API divergence on a client timeout.
+- **TAS:**
+  - pr-16771: rank-based ungating.
+  - TAS+DRA per-node charging above node level.
+  - issue-16265: leader/worker roles inferred from counts.
+  - The WAS deep planner is inert.
+- **Integrations:**
+  - issue-16457: `SkipChildJobSuspension` Beta.
+  - issue-16471: `annotationKeysToCopy`.
+  - issue-16629: JobSet requeue memory growth.
+  - issue-16970: wait-for-pods-ready `timeoutSeconds` wraparound.
+  - issue-17099: RayService `rayClusterConfig`/`upgradeStrategy` not forwarded by MultiKueue.
+  - issue-16736: adoption of a finished prebuilt Workload.
+  - issue-16867: Kubeflow eviction quota timing.
+  - issue-16985: RayJob TTL-retained Pods.
+  - pr-16884: Ray min/max replica bounds.
+- **KueueViz:** issue-17073 / pr-17088 (`/ws/namespaces` authz), issue-16276, issue-17102, issue-17103, issue-16694.
+- **kueuectl:** issue-16185 (`delete workload --all` handles only the first page).
+- **Metrics:** Workload-sourced custom labels on CQ resource metrics (#12629); release-0.19 lacks the pr-16762 fix (backport pr-16940 closed); pr-16379's 0.19 backport is not in a release yet.

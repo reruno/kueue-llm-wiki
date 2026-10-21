@@ -2,9 +2,9 @@
 
 **Summary**: Resource transformers let cluster admins define global rules that rewrite a workload's resource requests into different quota units before Kueue applies admission and quota calculations — without touching the actual Pod resource requests seen by kube-scheduler.
 
-**Sources**: `raw/kueue/keps/2937-resource-transformer/README.md`, `raw/kueue/keps/2937-resource-transformer/kep.yaml`, pr-15926.md, pr-15974.md, pr-15954.md, pr-16041.md, issue-14204.md, issue-15979.md, raw/kueue/pkg/workload/workload.go
+**Sources**: `raw/kueue/keps/2937-resource-transformer/README.md`, `raw/kueue/keps/2937-resource-transformer/kep.yaml`, pr-15926.md, pr-15974.md, pr-15954.md, pr-16041.md, issue-14204.md, issue-15979.md, issue-14007.md, pr-12961.md, pr-12962.md, raw/kueue/pkg/workload/workload.go
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -133,10 +133,18 @@ They can coexist — a cluster might use resource transformers for legacy MIG re
 
 Why this order (both bugs let a tenant bypass ClusterQueue quota):
 
-- **Excluded multiplier** (pr-15954): with `excludeResourcePrefixes: [acme.io/vgpu-count]` and `input: acme.io/cores-per-vgpu, multiplyBy: acme.io/vgpu-count`, exclusions used to run first, so `multiplyBy` could not find `vgpu-count` and 2 vGPUs x 20 cores were accounted as 20 cores instead of 40. Excluded resources stay out of direct CQ accounting but remain available to transformations.
+- **Excluded multiplier** (pr-15954; the bug report is issue-14007.md, closed once pr-15954 and pr-16041 landed): with `excludeResourcePrefixes: [acme.io/vgpu-count]` and `input: acme.io/cores-per-vgpu, multiplyBy: acme.io/vgpu-count`, exclusions used to run first, so `multiplyBy` could not find `vgpu-count` and 2 vGPUs x 20 cores were accounted as 20 cores instead of 40. Excluded resources stay out of direct CQ accounting but remain available to transformations.
 - **Excluded input** (pr-16041, backports pr-16053/0.19, pr-16054/0.18): with `excludeResourcePrefixes: [acme.io/]` and `input: acme.io/vgpu-count`, the input was removed before it could generate `quota.acme.io/total-vgpu-cores`, so usage recorded 0. Now the input is transformed first and only then excluded.
 - **No validation error for the overlap.** pr-15926 tried to reject configurations where a transformation `input` matches an exclude prefix (KEP-2937 graduation criterion; issue-14204.md). It was **reverted before release (pr-15974)** because such configurations can be sensible (an input that is `Replace`d, so the exclusion just keeps the raw resource out of quota) and because the docs themselves show `excludeResourcePrefixes: ["example.com"]` next to a transformation on `example.com/gpu-type1`; rejecting it would turn a running cluster into one that fails to start (config errors call `os.Exit(1)`). Validation rules for transformations are to be defined separately (issue-15979.md, open). If a KEP text still says "raise a config error", treat it as not implemented.
 - **Negative output factors** are how an "allowance" is written: outputs from different inputs are summed so they can cancel each other, but the per-resource generated total is clamped to zero and can never reduce an ordinary request under the same name or the DRA charge merged afterwards.
+
+## Milli-valued inputs are not rounded before multiplication
+
+A milli-valued input quantity used to be rounded **before** the output factor was applied, so `300m` CPU times `1000` gave `3000` instead of `300`. The multiplication now keeps the milli precision (main #12953; backports pr-12961.md to release-0.18 and pr-12962.md to release-0.17, shipped v0.18.3 and v0.17.7 per CHANGELOG-0.17/0.18.md). Watch for this when an output factor scales a fractional CPU or memory request.
+
+## `multiplyBy: pods` cannot resolve
+
+issue-14007.md raised a second trigger for the silent multiplier-of-one fallback: `multiplyBy: pods`. `pods` is not a container resource, so it is not in the list transformations run over; flavor assignment writes it from the PodSet count much later. A PodSet of four asking `1024` was charged `1024` per Pod instead of `4096`. Naming `pods` in `multiplyBy` is now refused outright (next section). Any other `multiplyBy` name the workload does not request still multiplies by one silently. That case is visible in configuration rather than hidden by an exclusion (source: issue-14007.md).
 
 ## `pods` is refused in every transformation position
 

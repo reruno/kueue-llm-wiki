@@ -2,9 +2,9 @@
 
 **Summary**: KubeRay's RayJob and RayCluster each have their own Kueue integration. RayCluster is a long-lived cluster you submit Ray jobs into; RayJob bundles a cluster with a job entrypoint. Kueue accounts for the head pod, the worker groups, and (for RayJob) a short-lived submitter Pod.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16870.md, pr-16882.md, pr-16897.md, pr-16908.md, pr-16915.md, pr-17060.md, pr-17097.md, pr-13244.md, pr-13996.md, pr-14036.md, pr-16853.md, pr-16854.md, raw/kueue/pkg/controller/jobs/raycluster/common.go, raw/kueue/pkg/controller/jobs/rayservice/rayservice_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -15,7 +15,7 @@ A RayCluster has `spec.headGroupSpec` and `spec.workerGroupSpecs[]`. A RayJob ad
 Kueue's RayCluster integration produces:
 
 - One PodSet for the head.
-- One PodSet per worker group (where each PodSet's `count = replicas × minReplicas`).
+- One PodSet per worker group. Its `count` is `effectiveWorkerCount`: `replicas`, multiplied by `numOfHosts` when `numOfHosts > 1`. **An absent `replicas` counts as 0**, matching the KubeRay CRD default (`+kubebuilder:default:=0`; KubeRay itself falls back to `minReplicas`, which defaults to 0). The helper is shared by `BuildPodSets`, `UpdatePodSets` and the MultiKueue elastic replica sync (source: raw/kueue/pkg/controller/jobs/raycluster/common.go). **Correction (2026-10-21)**: this page said `count = replicas × minReplicas`. Before [[pr-16897]] an absent `replicas` counted as **1**, so an object built before API defaulting could yield a different PodSet count from the stored object. The fallback changed in v0.20.1 ([[pr-16908]]) and v0.19.8 ([[pr-16915]]) (source: pr-16897.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md). Applying `minReplicas`/`maxReplicas` bounds to the count is open work (pr-16884).
 
 The RayJob integration further accounts for the **submitter Pod** — a transient Pod that drives the job via the Ray client. "PodSets for RayJobs should account for submitter Job Pod" ([[issue-1434]]) tracked making that accounting explicit so the cluster's quota picture doesn't omit it.
 
@@ -79,7 +79,8 @@ v1.7.0 is the first KubeRay release shipping the top-level `RayService.Spec.Susp
 
 ## Elastic RayCluster specifics
 
-- **MultiKueue + in-tree autoscaling is rejected at admission** ([[pr-14061]]) — see [[elastic-jobs#MultiKueue rejects an autoscaling elastic RayCluster]].
+- **MultiKueue + in-tree autoscaling is rejected at admission** ([[pr-14061]], [[pr-13244]]). The reason was a mismatch in autoscaler-sidecar accounting between manager and worker, which finished the Workload right after admission. Opt-in through `MultiKueueRayInTreeAutoscaling`, which now also requires `SkipChildJobSuspension`. See [[multikueue#Elastic RayCluster with in-tree autoscaling]] and [[elastic-jobs#MultiKueue rejects an autoscaling elastic RayCluster]].
+- **Non-elastic autoscaling error message** ([[pr-13996]]) now names the fix: enable `ElasticJobsViaWorkloadSlices` and set `kueue.x-k8s.io/elastic-job: "true"`. The text is built from the constants (source: pr-13996.md).
 - **Partial scale-up (Alpha)** — with `ElasticJobsViaWorkloadSlicesWithPartialReplicaScaleUp` on, the `kueue.x-k8s.io/elastic-job-scale-up-strategy: partial` annotation set, and `minReplicas` configured, `BuildPodSets` sets the worker PodSet's `MinCount` to the effective minimum worker count ([[pr-14909]]). No effect with the gate off.
 
 ## Head-container validation
@@ -95,6 +96,33 @@ The RayCluster webhook now reuses the same shared `raycluster.ValidateCreate` us
 - MultiKueue reverse sync for an autoscaling RayJob is triggered from the child RayCluster on the worker cluster, see [[elastic-jobs#MultiKueue and elastic slices]] (source: pr-16315.md).
 - `RayService.PodSets` uses the `client.Client` passed in (no package-level reconciler state) (source: pr-16042.md).
 
+## RayService suspend uses the top-level `spec.suspend` (KubeRay ≥ 1.7)
+
+Kueue used to read and write `spec.rayClusterConfig.suspend` on a RayService. That field is the suspend setting of the RayCluster **template**. Setting it to true makes KubeRay start a zero-downtime upgrade: it creates a **new** suspended RayCluster while the old one keeps running, and the new one stays suspended forever. KubeRay v1.7.0 added a real top-level `RayService.spec.suspend` (source: pr-16870.md).
+
+- [[pr-16870]] switches `IsSuspended`, `Suspend` and `RunWithPodSetsInfo` to `spec.suspend` behind **`KubeRayServiceUsingTopLevelSuspend`**: **Beta, on by default on `main`** (versioned 0.21, planned GA in 0.23). With the gate off, the legacy nested field is used (source: raw/kueue/pkg/controller/jobs/rayservice/rayservice_controller.go, raw/kueue/pkg/features/kube_features.go). RayJob already used its top-level field correctly; the RayService code was a copy-paste leftover from RayCluster.
+- **ACTION REQUIRED**: if you use the RayService integration, upgrade KubeRay to **v1.7.0+** before upgrading Kueue to a release that has the gate on. Otherwise disable the gate.
+- Backports: release-0.20 ships the gate **Alpha, off by default**, in v0.20.1 ([[pr-16882]]). The release-0.19 backport (pr-16883) was closed, because release-0.19 vendors KubeRay v1.6.2, which has no top-level field (source: pr-16870.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md).
+- Related: with KubeRay ≥ 1.7, suspending a RayService deletes its child RayCluster. This is why disabling Kueue's own child suspension (`SkipChildJobSuspension`) is considered safe for RayService; see [[job-framework-interface#Child jobs: `SkipChildJobSuspension`]].
+
+## RayService validation errors use `spec.rayClusterConfig`
+
+RayService webhook errors reported paths under `spec.rayClusterSpec` (the Go field name). The serialized field is `spec.rayClusterConfig`. For example, the autoscaling error appeared at `spec.rayClusterSpec.enableInTreeAutoscaling`. [[pr-17060]] fixes the head-group, worker-group and cluster-spec paths (`field.NewPath("spec", "rayClusterConfig", ...)`). Backport to release-0.20 is [[pr-17097]]; a 0.19 backport was requested. Not yet released at the snapshot; fixed in v0.20.2 and in v0.19.9 (#17205) per CHANGELOG at kueue@3bbb8cce4, released after this snapshot (source: pr-17060.md, raw/kueue/pkg/controller/jobs/rayservice/rayservice_webhook.go).
+
+## MultiKueue: RayService `serveConfigV2` edits are forwarded
+
+With `MultiKueueRemoteSpecSync` (Beta/on in v0.20.0; also in v0.19.1 / v0.18.5), editing `serveConfigV2` on the manager RayService is applied in place to the worker copy within about a second. `rayClusterConfig` and `upgradeStrategy` changes are still **not** forwarded. See [[multikueue#Manager-side gate `MultiKueueRemoteSpecSync`]] ([[pr-14036]]).
+
+## RayJob `ValidationFailed` puts the Workload on hold
+
+`RayJob` implements `JobWithOnHold`: `IsOnHold()` is true when `status.jobDeploymentStatus == ValidationFailed`. The generic reconciler then releases the Workload's quota with `QuotaReserved=False`, reason `OnHold`, and does not requeue it (source: raw/kueue/pkg/controller/jobs/rayjob/rayjob_controller.go). See [[job-framework-interface#`JobWithOnHold`]].
+
+## Multi-host worker groups: topology subgroups
+
+For worker groups with `replicas` and `numOfHosts`, the worker PodSet's TopologyRequest now carries `SubGroupCount = replicas`, `PodIndexLabel = ray.io/replica-host-index` and `SubGroupIndexLabel = ray.io/worker-group-replica-index`. TAS (and the GKE slice controller) can then place each replica's `numOfHosts` Pods as one group. Before this, such Workloads were never admitted, because the slice size was computed wrongly. Gate `KubeRayEvictOnInconsistentTopologyRequest` (Alpha, **off**) decides whether an already-admitted Workload without these fields is treated as inconsistent and replaced. With the default off, it keeps running (#15677; v0.20.1 pr-16853, v0.19.8 pr-16854; the 0.19 backport omits the MultiKueue runtime-count topology updates) (source: pr-16854.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md). See [[topology-aware-scheduling]].
+
+KubeRay version support: maintainers intend to document support for only the last few KubeRay releases (N-2/N-3); issue-16906 is open (source: pr-16897.md).
+
 ## Related pages
 
 - [[integrations]] — integration mechanics.
@@ -102,3 +130,4 @@ The RayCluster webhook now reuses the same shared `raycluster.ValidateCreate` us
 - [[elastic-jobs]] — Ray is the biggest consumer.
 - [[multikueue]] — Ray + multi-cluster.
 - [[topology-aware-scheduling]] — Ray + topology.
+- [[job-framework-interface]]

@@ -2,9 +2,9 @@
 
 **Summary**: Patterns from the 148 Information Disclosure CVEs in `raw/cve/`. Covers logging hygiene, error-response content, [[metrics]] label cardinality (as a covert channel), [[visibility-api]] cross-tenant exposure, and credential handling.
 
-**Sources**: `raw/cve/` — representative entries `CVE-2019-1002101.md` (kubectl cp path traversal also exposes file contents), `CVE-2020-8554.md` (man-in-the-middle via ExternalIP), `CVE-2020-8563.md` (sensitive info in logs), `CVE-2021-25741.md` (subpath symlink), CWE-200/CWE-532/CWE-522/CWE-552 entries broadly; 2026-09 additions `CVE-2025-71425.md`, `CVE-2025-71423.md`, `CVE-2026-47701.md`, `CVE-2026-86332.md`, `CVE-2026-94611.md`, `CVE-2026-45726.md`.
+**Sources**: `raw/cve/` — representative entries `CVE-2019-1002101.md` (kubectl cp path traversal also exposes file contents), `CVE-2020-8554.md` (man-in-the-middle via ExternalIP), `CVE-2020-8563.md` (sensitive info in logs), `CVE-2021-25741.md` (subpath symlink), CWE-200/CWE-532/CWE-522/CWE-552 entries broadly; 2026-09 additions `CVE-2025-71425.md`, `CVE-2025-71423.md`, `CVE-2026-47701.md`, `CVE-2026-86332.md`, `CVE-2026-94611.md`, `CVE-2026-45726.md`; 2026-10 additions `CVE-2026-106561.md`, `CVE-2026-106563.md`, `CVE-2026-71895.md`, `CVE-2026-18517.md`.
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -107,6 +107,19 @@ The Contrast (Edgeless Systems) runtime supplies four log or key-handling lesson
 | CVE-2026-78600 | ECK up to 3.5.0 | CWE-459, 3.5 | credentials persist after RBAC denied an association |
 | CVE-2026-91164 | Warpgate 0.23.0-0.27.3 | CWE-284/863, 4.3 | API token ignores `allowed_ip_ranges` |
 | CVE-2026-50166, CVE-2026-52724 | Kuma < 2.7.26 / 2.9.16 / 2.11.14 / 2.12.11 / 2.13.7 | CWE-295 | TLS peer verification silently disabled when no CA file is given; see [[security-supply-chain]] |
+
+## 2026-10 additions
+
+None is a Kueue CVE ([[security#2026-10 wave: what the 26 new CVEs add]]).
+
+| CVE | Product / versions | CWE, CVSS | Mechanism and Kueue rule |
+| --- | --- | --- | --- |
+| CVE-2026-106561 | Backstage `@backstage/plugin-kubernetes-backend` < 0.21.9 | CWE-200/863, 5.0 | a user with the standard Kubernetes resource read permission could get values the plugin is designed to **mask**. Exposure was limited to what the Backstage ServiceAccount can read in the entity's namespace and label selector (source: CVE-2026-106561.md). Redaction must happen on every serialisation path, including raw and aggregated views, and have a test per path |
+| CVE-2026-106563 | same plugin < 0.21.8 | CWE-20/862, 5.3 | a **deprecated** services endpoint accepted crafted entity data and returned workload metadata across all configured clusters (source: CVE-2026-106563.md). Deprecated endpoints keep the current endpoint's authorization until they are removed. For Kueue, the [[visibility-api]] serves only `visibility.kueue.x-k8s.io/v1beta2` at this snapshot (`apis/visibility/` has no other version), so there is no legacy version to drift |
+| CVE-2026-71895 | Apache DolphinScheduler 3.2.0 to before 3.4.3 | CWE-862, 7.1 | non-admin users could fetch the kubeconfig held for admin-managed cluster configuration and use it directly against the API server (source: CVE-2026-71895.md). For Kueue, [[multikueue]] worker kubeconfigs are Secrets in the Kueue config namespace. Neither `kueuectl` nor [[dashboard]] may read or return them, and the dashboard backend must not list Secrets |
+| CVE-2026-18517 | IBM Maximo Location Service for Esri 9.0-9.2 | CWE-284, 7.7 | misconfigured NetworkPolicy allowed unintended egress (source: CVE-2026-18517.md). Kueue's manifests ship no NetworkPolicy, so egress restriction for the controller is the installer's choice |
+
+**Rule added:** a UI or API that reads cluster data with its own ServiceAccount must apply redaction and namespace filtering on **every** handler and served version. This restates the 2026-09 `CVE-2026-86332` rule for [[dashboard]] with two more examples.
 
 ## Related pages
 

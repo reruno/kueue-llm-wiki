@@ -2,9 +2,9 @@
 
 **Summary**: With `UnadmittedWorkloadsObservability` (KEP-10852) a Workload without quota reservation reports a specific reason on `QuotaReserved=False` (`WaitingForQuota`, `NoMatchingFlavor`, `PendingEvaluation`, ...) instead of the generic `Pending`/`Inadmissible`, and two gauges count unadmitted Workloads per reason. **Beta and on by default from v0.20**; off by default on the release-0.18/0.19 branches (declared Beta there but default `false`, see below).
 
-**Sources**: pr-15553.md, pr-15562.md, pr-15623.md, issue-15564.md, issue-15547.md, raw/kueue/keps/10852-inadmissible-workloads-observability/README.md, raw/kueue/pkg/features/kube_features.go, raw/kueue/apis/kueue/v1beta2/workload_types.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/metrics/metrics.go
+**Sources**: pr-15553.md, pr-15562.md, pr-15623.md, issue-15564.md, issue-15547.md, raw/kueue/keps/10852-inadmissible-workloads-observability/README.md, raw/kueue/pkg/features/kube_features.go, raw/kueue/apis/kueue/v1beta2/workload_types.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/metrics/metrics.go, pr-13063.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -36,6 +36,23 @@ Controller behaviour (`syncQuotaReservedFalseCondition`): the workload controlle
 ## Dependent behaviour: ConcurrentAdmission variants (pr-15553)
 
 [[concurrent-admission]] uses the `PendingEvaluation` reason to tell "the scheduler has not looked at this Variant yet" from "the scheduler evaluated it and no preemption is needed". The check used to test only for the *presence* of a `QuotaReserved` condition, and `PendingEvaluation` (stamped when the controller clears a Variant's admission after eviction, or on a Variant's first reconcile) counted as "evaluated", so the preemption gate opened on a less favorable Variant and locked out the preferred one for `preemptionTimeout` (5 minutes). Fixed by treating `PendingEvaluation` as not evaluated (issue-15547.md). Caveat noted in the PR: with the observability gate disabled the distinction does not exist (everything collapses to `Pending`), and widening the check to `Pending` would stop any Variant from ever being ungated; the interaction between the two gates was left as a separate decision.
+
+## Graduation to Beta/on (pr-13063, v0.20.0)
+
+pr-13063 (merged 2026-08-03, shipped in v0.20.0) flipped `UnadmittedWorkloadsObservability` to default-on. Review notes that matter for later work (source: pr-13063.md):
+
+- The maintainers deliberately **split** it from `UnadmittedWorkloadsExplicitStatus`: the observability gate only changes condition reasons and metrics, while explicit status adds API writes at the first reconcile and needs a release of scale evidence first. `UnadmittedWorkloadsExplicitStatus` therefore stays Alpha/off.
+- At Beta, tests should be **adjusted to the new behaviour rather than pinning the gate off**, so that GA graduation is a mechanical change (a GA gate cannot be disabled). A side effect surfaced in a TAS second-pass test: each `QuotaReserved=False` status update triggers `WorkloadReconciler.Update`, which calls `QueueSecondPassIfNeeded` with iteration 0 and registers an extra backoff timer, so second-pass wake-ups can exceed one per backoff interval.
+- Unit tests for controllers now expect `PendingEvaluation` where they used to expect `Pending`.
+
+## Reasons added after the first version
+
+Read from `apis/kueue/v1beta2/workload_types.go` at the snapshot and the v0.20 changelogs:
+
+- **`DRAResourcesUnresolved`** — set on `QuotaReserved=False` and on `Requeued=False` when the Workload's DRA resources cannot be resolved (with this gate on); the `underlying_cause` label of the unadmitted metrics changes accordingly (#16123, v0.20.0). See [[dra]].
+- **`AssignmentError`** — Kueue failed to build an assignment because of an unexpected downstream error.
+- **`PreemptionGated`** — a Workload blocked by a closed preemption gate used to keep a stale `QuotaReserved` condition and `status.resourceRequests` and showed `AdmissionGated`; since v0.20.1 (#16699) it reports `PreemptionGated` on `QuotaReserved` (the separate `BlockedOnPreemptionGates` condition also uses `PreemptionGated`). See [[multikueue-orchestrated-preemption]].
+
 
 ## Related pages
 

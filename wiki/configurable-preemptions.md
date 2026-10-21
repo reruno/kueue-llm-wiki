@@ -2,9 +2,9 @@
 
 **Summary**: `PreemptionConfig` (KEP-13396, `kueue.x-k8s.io/v1alpha1`, cluster-scoped) lets an administrator declare extra preemption rules with triggers and candidate selectors; a [[cluster-queue]] opts in through an annotation. **Alpha, feature gate `ConfigurablePreemptions`, off by default, new in v0.20.** Rules add *fallback candidates* on top of the classical and fair-sharing algorithms; they never replace them.
 
-**Sources**: pr-15889.md, pr-15913.md, pr-15992.md, pr-16062.md, pr-16124.md, pr-16130.md, pr-16139.md, pr-16202.md, pr-16208.md, pr-16269.md, pr-16324.md, issue-15892.md, issue-15893.md, issue-16295.md, raw/kueue/apis/kueue/v1alpha1/preemptionconfig_types.go, raw/kueue/pkg/scheduler/preemption/config/, raw/kueue/keps/13396-configurable-preemptions/README.md
+**Sources**: pr-15889.md, pr-15913.md, pr-15992.md, pr-16062.md, pr-16124.md, pr-16130.md, pr-16139.md, pr-16202.md, pr-16208.md, pr-16269.md, pr-16324.md, issue-15892.md, issue-15893.md, issue-16295.md, raw/kueue/apis/kueue/v1alpha1/preemptionconfig_types.go, raw/kueue/pkg/scheduler/preemption/config/, raw/kueue/keps/13396-configurable-preemptions/README.md, pr-16374.md, pr-16390.md, pr-16598.md, pr-17091.md, pr-16695.md, pr-16343.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -81,13 +81,28 @@ If `ConfigurablePreemptionReasonData` is nil the code logs an error and falls ba
 
 Candidate-filter compilation used to return a `rejectAll` boolean and silently skip the selector. Now `NewCandidateFilters` returns typed `FilterBuildError`s (unsupported scope, invalid label selector, unsupported comparison or priority mode) and `PreemptionEvaluator.Candidates` **fails fast**: any build error for a matching rule makes that trigger return no candidates and logs the errors, consistent with an invalid `preemptorSelector` (source: pr-16269.md, issue-16147.md). Because the API has enums, this only triggers for objects that bypassed CRD validation.
 
+**Build errors now stop the whole evaluation (pr-16374, main 2026-09-30, release note NONE).** `orderedCandidates` still logged the error but returned `nil` candidates, so its caller could read a broken `Always` rule as "no Workloads matched" and go on to evaluate the `InsufficientQuota` / topology triggers under that wrong baseline. The error is now propagated and the configurable-preemption evaluation for that attempt stops. Example that reaches it: a `labelSelector.matchExpressions` entry with `operator: In` and `values: []`, which is detected only when the filter is built (source: pr-16374.md). pr-16390 only clarified the related tests (fixes issue-16386).
+
 ## RBAC
 
 `PreemptionConfig` is cluster-scoped, so `preemptionconfig-editor-role` and `preemptionconfig-viewer-role` ClusterRoles aggregate into `kueue-batch-admin-role` (viewer also into the built-in `admin`), and carry no `batch-user` label (source: pr-15992.md). pr-16202 added the manager RBAC found missing on manual verification. The same wave added roles for `AdmissionCheck`, `MultiKueueCluster`, `MultiKueueConfig`, `ProvisioningRequestConfig`, `WorkloadPriorityClass` (pr-16028, fixes issue-15890) and `AppWrapper` (pr-16096), and `hack/testing/rbac/verify.sh` in `make verify` now fails when a manager resource lacks an editor and viewer role (pr-16240). `/status` get rules exist only for CRDs with a status subresource.
 
+## Topology trigger also selects Workloads of overlapping TAS flavors (pr-16695)
+
+With `TASHandleOverlappingFlavors`, TAS flavors whose lowest level is `kubernetes.io/hostname` count each other's usage on shared nodes, but candidate selection required the exact `{flavor, resource}` pair needing preemption, so a `QuotaFeasibleAndInsufficientTopology` rule could never evict a Workload of *another* flavor sitting on the nodes the preemptor needs. Now, **for that trigger only**, a candidate also qualifies if it uses a resource needing preemption from an overlapping flavor and `Snapshot.UsesOverlappingTASCapacity` confirms its topology assignment is on nodes the preemptor's flavor selects (same condition the snapshot uses to propagate overlapping usage, shared via `propagatesTASUsage`). `Always` and `InsufficientQuota` keep the exact match, since only those Workloads free the quota. The removal simulation and minimality pass are unchanged. Fixes issue-16141; backport pr-16919 (0.20) (source: pr-16695.md). TAS side: [[topology-aware-scheduling]].
+
+## Internal API cleanups
+
+- `PreemptionConfigReference` and `PreemptionConfigRuleReference` named types for config and rule identifiers; candidate metadata and `strings.JoinMap` (now generic over string-like keys) use them; eviction messages are unchanged. Fixes issue-16210 (pr-16598; backport pr-16605).
+- `PreemptionEvaluator` binds the preemptor at construction (`NewEvaluatorForClusterQueue` and friends); `FindCandidates`, `orderedCandidates`, `candidatesFor` no longer take it, and the unused `clock` field was removed (pr-17091, no behaviour change).
+
+## Interaction with fair-sharing final-target verification
+
+Targets with reason `ConfigurablePreemption` are exempt from the `FairSharingVerifyFinalTargets` check that fair sharing applies after fill-back ([[fair-sharing#Final-target verification stops the "own-workload" preemption loop (`FairSharingVerifyFinalTargets`)]]) (source: raw/kueue/pkg/scheduler/preemption/fair_strategy.go).
+
 ## Open follow-ups (not shipped)
 
-Topology candidates from overlapping TAS flavors (issue-16141), strongly typed identifiers (issue-16210), defragmentation test isolation (issue-16207) and review follow-ups (issue-16203) remain open.
+Defragmentation test isolation (issue-16207) and review follow-ups (issue-16203) remain open; the umbrella is issue-16367. **Update (2026-10-21)**: issue-16141 (overlapping TAS flavors) and issue-16210 (typed identifiers) are now fixed, see above.
 
 ## Related pages
 

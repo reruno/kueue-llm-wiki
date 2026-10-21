@@ -2,9 +2,9 @@
 
 **Summary**: Kueue's opt-in failure recovery mechanism detects and force-deletes zombie pods — pods stuck in `Terminating` after a node failure — so that job replacement pods can start and quota is not wasted.
 
-**Sources**: `raw/kueue/keps/6757-failure-recovery/README.md`, `raw/kueue/keps/6757-failure-recovery/kep.yaml`, `raw/kueue/pkg/controller/failurerecovery/failurerecovery.go`, `raw/kueue/pkg/controller/failurerecovery/pod_termination_controller.go`, pr-16033.md
+**Sources**: `raw/kueue/keps/6757-failure-recovery/README.md`, `raw/kueue/keps/6757-failure-recovery/kep.yaml`, `raw/kueue/pkg/controller/failurerecovery/failurerecovery.go`, `raw/kueue/pkg/controller/failurerecovery/pod_termination_controller.go`, pr-16033.md, pr-17087.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -70,6 +70,10 @@ Force-deleting a pod does not guarantee the original pod actually stopped. On a 
 ## Duplicate condition and event on retried force-deletes (pr-16033)
 
 With `FailureRecovery` enabled, every reconcile of a Pod still stuck in termination re-ran the forceful delete and added another `KueueFailureRecovery` Pod condition plus another `KueueForcefullyDeleted` warning event. Pod deletion is still retried normally, but the condition is now set **once** and the event is emitted only when the condition actually changes (source: pr-16033.md). Expect one condition and one event per zombie Pod, not a growing list. See also [[wait-for-pods-ready]] for the `WaitForRecovery` timer that runs alongside.
+
+## Related: quota held by stuck-terminating pod-group Pods
+
+Separately from forced deletion, the Pod integration stops counting a Running but terminating Pod as *active* for quota once its `deletionTimestamp` (already the end of the grace period) has passed. Since #16076, the grace period is no longer added a second time. A pod group stuck on a lost node therefore releases its quota at the next reconcile after the deadline. See [[integration-plain-pod#PodGroup activity at the Pod deletion deadline]] (source: pr-17087.md).
 
 ## Related pages
 

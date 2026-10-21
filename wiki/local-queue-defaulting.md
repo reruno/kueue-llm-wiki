@@ -2,9 +2,9 @@
 
 **Summary**: When the `LocalQueueDefaulting` feature gate is enabled, Kueue automatically injects the `kueue.x-k8s.io/queue-name: default` label onto jobs that lack a queue-name label, as long as a LocalQueue named `default` exists in the same namespace.
 
-**Sources**: `raw/kueue/keps/2936-local-queue-defaulting/README.md`, `raw/kueue/keps/2936-local-queue-defaulting/kep.yaml`
+**Sources**: `raw/kueue/keps/2936-local-queue-defaulting/README.md`, `raw/kueue/keps/2936-local-queue-defaulting/kep.yaml`, pr-13375.md, raw/kueue/pkg/controller/jobframework/defaults.go
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -40,7 +40,7 @@ Users can submit jobs without any Kueue-specific labels and they will be automat
 
 ## Namespace selector is now consistently respected
 
-`ManagedJobsNamespaceSelectorAlwaysRespected` (GA since 0.19) applies to both defaulting paths. `ApplyDefaultLocalQueue` was fixed first (pr-13375; hanging workloads were the symptom). The WorkloadPriorityClass defaulting path followed later, returning Namespace read errors from the webhook the same way; see [[workload-priority#Defaulting respects the namespace selector]] (source: pr-15851.md).
+`ManagedJobsNamespaceSelectorAlwaysRespected` (GA since 0.19) applies to both defaulting paths. `ApplyDefaultLocalQueue` was fixed first ([[pr-13375]], v0.20.0). Before that fix, the Job and `BaseWebhook` defaulters injected `queue-name: default` even in namespaces **excluded** by `managedJobsNamespaceSelector`; only the Pod webhook checked first. The labelled Job was then suspended, but the reconciler ignores excluded namespaces, so the Job hung suspended. The selector check now runs inside `ApplyDefaultLocalQueue`, after the cheap checks (a `default` LocalQueue exists, no queue name, owner not Kueue-managed). A Namespace read error is returned from the webhook (source: pr-13375.md, raw/kueue/pkg/controller/jobframework/defaults.go). **Correction (2026-10-21)**: the "Interaction with manage-jobs-selectively" section above described the intended behaviour; on releases before v0.20.0 defaulting did *not* respect the selector. The WorkloadPriorityClass defaulting path followed later, returning Namespace read errors from the webhook the same way; see [[workload-priority#Defaulting respects the namespace selector]] (source: pr-15851.md).
 
 ## Related pages
 

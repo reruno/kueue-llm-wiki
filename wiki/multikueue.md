@@ -2,9 +2,9 @@
 
 **Summary**: MultiKueue dispatches [[workload]]s from a **manager cluster** to one of several **worker clusters**. Users submit jobs on the manager as usual; MultiKueue (implemented as an [[admission-check]]) picks a worker cluster with capacity, forwards the job, and mirrors status back. It's how one Kueue installation governs a fleet of clusters.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15962.md, pr-15986.md, pr-15989.md, pr-16140.md, pr-15871.md, pr-16315.md, pr-16235.md, issue-16172.md, issue-16010.md, issue-15380.md, issue-13243.md, raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go, raw/kueue/pkg/metrics/metrics.go, raw/kueue/pkg/features/kube_features.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15962.md, pr-15986.md, pr-15989.md, pr-16140.md, pr-15871.md, pr-16315.md, pr-16235.md, issue-16172.md, issue-16010.md, issue-15380.md, issue-13243.md, raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go, raw/kueue/pkg/metrics/metrics.go, raw/kueue/pkg/features/kube_features.go, pr-13244.md, pr-13996.md, pr-16470.md, pr-16370.md, pr-14036.md, pr-15280.md, pr-15387.md, pr-16473.md, pr-16772.md, pr-13706.md, pr-15092.md, raw/kueue/pkg/controller/jobs/raycluster/common.go, raw/kueue/pkg/controller/jobs/raycluster/raycluster_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -154,17 +154,47 @@ The MultiKueue AdmissionCheck reconciler skipped the status update whenever the 
 
 Gate **`MultiKueueReuseClientConnectionConfigForWorkers`** (**Beta, default on since v0.20**, depends on `MultiKueue`) makes `clientConfig.toRESTConfig()` copy the Configuration's `clientConnection.qps`/`burst` into each worker `rest.Config`. Because `rest.Config` ignores QPS/Burst when a `RateLimiter` is already set, the code clears any existing limiter and installs a fresh **per-cluster** token bucket (unset values fall back to `rest.DefaultQPS/DefaultBurst`); a negative QPS disables throttling. The direct client and the remote informer cache built from that config share the same per-cluster budget. Disable the gate to restore the old 5/10 behaviour (source: raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go, raw/kueue/pkg/features/kube_features.go). See [[performance-and-scale#Client-side rate limiting]].
 
+Provenance and versions: [[pr-15280]] (fixes issue-14973) merged with the gate first written as `MultiKueueClientConnection` and renamed `MultiKueueReuseClientConnectionConfigForWorkers` in review. It is **Beta/on in v0.20.0**. The backports are **Alpha/off**: v0.19.4 and v0.18.8. The companion fix #15310 ("share one rate limiter across per-worker MultiKueue REST clients") makes the direct client and the remote informer cache of **one** worker draw from one token bucket, instead of each building its own. It shipped in v0.20.0, v0.19.4 (#15326) and v0.18.8 ([[pr-15387]]) (source: pr-15280.md, pr-15387.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md, CHANGELOG-0.18.md). With the gate on, the budget is therefore **per worker cluster**, not one global budget across all workers.
+
 ## A worker-local WorkloadPriorityClass can overwrite a remote Workload's priority
 
 The manager owns the priority of a dispatched Workload; a same-named class on the worker with a different value can silently re-price it. See [[workload-priority#Worker-cluster classes must not re-price MultiKueue remote Workloads]].
 
 ## Elastic RayCluster with in-tree autoscaling
 
-By default an elastic RayCluster with `enableInTreeAutoscaling` is rejected under MultiKueue, because scaling is manager-driven and the adapter clears `enableInTreeAutoscaling` on the remote copy so the worker's autoscaler cannot fight the manager ([[elastic-jobs#MultiKueue rejects an autoscaling elastic RayCluster]], pr-14061). **v0.20 adds an opt-in**: gate `MultiKueueRayInTreeAutoscaling` (**Alpha, off by default**, KEP-13243, depends on `MultiKueue` and `ElasticJobsViaWorkloadSlices`) allows worker-side Ray in-tree autoscaling for MultiKueue-managed elastic RayCluster/RayJob; without the gate the RayCluster webhook keeps rejecting with "in-tree autoscaling for a MultiKueue-managed elastic RayCluster requires enabling the MultiKueueRayInTreeAutoscaling feature gate" (source: raw/kueue/pkg/controller/jobs/raycluster/raycluster_webhook.go, issue-13243.md). Worker-side replica changes flow back to the manager as runtime annotations; for a RayJob the reverse sync is triggered directly by the worker-side child RayCluster (pr-16315), and evicted elastic slices have their remote objects removed (pr-15871). See [[elastic-jobs#MultiKueue and elastic slices]].
+By default an elastic RayCluster with `enableInTreeAutoscaling` is rejected under MultiKueue ([[elastic-jobs#MultiKueue rejects an autoscaling elastic RayCluster]], pr-14061).
+
+**Why the rejection exists ([[pr-13244]]).** An earlier change (#12885) cleared `enableInTreeAutoscaling` on the *remote* copy, but `BuildPodSets` on the manager still counted the autoscaler sidecar in the head PodSet. The worker then derived PodSets **without** the sidecar and judged the prebuilt Workload `OutOfSync`, finishing it right after admission. The manager reacted by creating a replacement slice and deleting the remote Workload. #13244 resolves the inconsistency by keeping that combination out of the system. The webhook rejects it (`validateElasticJob`), `copyJobSpec` now copies the spec unchanged (**no strip**), and `syncWorkerReplicas` syncs only each worker group's `Replicas` and `NumOfHosts`. Manual manager → worker replica edits with autoscaling off still work. Shipped in v0.20.0, v0.19.1 (#13563) and v0.18.5 (source: pr-13244.md, raw/kueue/pkg/controller/jobs/raycluster/raycluster_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md). **Correction (2026-10-21)**: this page used to say the adapter clears `enableInTreeAutoscaling` on the remote copy. That was true only before #13244.
+
+**v0.20 adds an opt-in**: gate `MultiKueueRayInTreeAutoscaling` (**Alpha, off by default**, KEP-13243) allows worker-side Ray in-tree autoscaling for MultiKueue-managed elastic RayCluster/RayJob (#13435). Its dependencies are `MultiKueue`, `ElasticJobsViaWorkloadSlices` **and, since [[pr-16470]] (v0.20.1), `SkipChildJobSuspension`**. Kueue fails startup validation if the last one is disabled or unset, because the generic child-job suspension otherwise races with slice replacement and suspends the running child RayCluster (see [[job-framework-interface#Child jobs: `SkipChildJobSuspension`]]). Validation in the shared `raycluster` helper (source: raw/kueue/pkg/controller/jobs/raycluster/common.go):
+
+- `enableInTreeAutoscaling` without workload slicing is rejected with "a kueue-managed job can use autoscaling only as an elastic job: enable the ElasticJobsViaWorkloadSlices feature gate and set the "kueue.x-k8s.io/elastic-job": "true" annotation". This wording is from [[pr-13996]], and it is built from `workloadslicing.EnabledAnnotationKey/Value`, so it cannot drift from the constant.
+- A MultiKueue-managed elastic job with autoscaling and the gate off is rejected with "in-tree autoscaling for a MultiKueue-managed elastic job requires enabling the MultiKueueRayInTreeAutoscaling feature gate". **Correction (2026-10-21)**: this page quoted the message as "...elastic RayCluster requires...".
+- A MultiKueue-managed **RayService** with in-tree autoscaling is always forbidden ("...is not supported"), even with the gate on. #16260 (v0.20.0) extended the rejection to RayJob and RayService. Worker-side replica changes flow back to the manager as runtime annotations; for a RayJob the reverse sync is triggered directly by the worker-side child RayCluster (pr-16315), and evicted elastic slices have their remote objects removed (pr-15871). See [[elastic-jobs#MultiKueue and elastic slices]].
 
 ## Manager-side gate `MultiKueueRemoteSpecSync`
 
-**Beta, default on since v0.20.** Forwards manager-side spec changes made after admission (currently a RayService `serveConfigV2` edit) onto the worker copy and watches the manager job so the change propagates promptly rather than on the next periodic requeue (source: raw/kueue/pkg/features/kube_features.go).
+**Beta, default on since v0.20.** Forwards manager-side spec changes made after admission onto the worker copy. Today the only such change is a RayService `serveConfigV2` edit. The gate also watches the manager job so the change propagates promptly rather than on the next periodic requeue (source: raw/kueue/pkg/features/kube_features.go).
+
+How it works ([[pr-14036]]; source: pr-14036.md):
+
+- Before this, a dispatched RayService was **create-once**. `SyncJob` copied status back but never re-applied the manager spec, so a `serveConfigV2` edit on the manager was silently dropped. KubeRay applies `serveConfigV2` *in place* to the existing RayCluster, moving deployments `UPDATING → HEALTHY`, with no new Pods.
+- `RemoteSpecSyncer[PtrT]` (`NeedsSync` / `Apply`) plus the `WithRemoteSpecSync` option on the shared Ray MultiKueue adapter. The adapter owns the mechanism (detect on reconcile, patch the remote in place, keep the MultiKueue metadata). Each job type owns the policy. RayService forwards **only `serveConfigV2`**. Changes to `rayClusterConfig` and `upgradeStrategy` (zero-downtime upgrade) are **not** propagated; issue-17099 is open for that.
+- Prompt trigger: the edit changes neither PodSets nor quota, so the Workload does not change and nothing would reconcile until the `workerLostTimeout` requeue (default 15 min). An optional adapter interface **`MultiKueueLocalJobWatcher`** (`NewEmptyLocalJob`; create-once adapters return `nil`) registers a watch on the manager job. `localJobHandler` enqueues the owning Workload, found through the owner-reference index, only when the job's `metadata.generation` changes, so status-only updates cannot cause a sync feedback loop.
+- If the RayService CRD is not installed, the informer must not crash the manager. This was found during review.
+- Versions: Beta/on in v0.20.0. Backported to v0.19.1 and v0.18.5 (source: raw/kueue/CHANGELOG/CHANGELOG-0.19.md, CHANGELOG-0.18.md).
+
+## Recovering a replaced slice that was not finished (worker side)
+
+When a workload slice scales, the scheduler reserves quota for the replacement and then finishes the old slice. If that finish fails, for example on an update conflict, the old slice keeps holding quota. The ordinary job reconcile recovers from this, but the **prebuilt-workload** path used by MultiKueue workers did not. [[pr-16473]] adds `FinishReplacedWorkloadSlices` to prebuilt job reconciliation. A slice is finished there when some replacement points at it via `replacement-for` and that replacement holds quota and is neither evicted nor finished. Ordinary slice normalization is unchanged. Shipped in **v0.20.1** ([[pr-16772]]) (source: pr-16473.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md). See [[elastic-jobs#MultiKueue and elastic slices]].
+
+## Remote `OwnerNotFound` finishes are treated as sync failures
+
+A remote Workload that finished with reason `OwnerNotFound` was mirrored back verbatim. That permanently finished the manager Workload and left the manager Pod's scheduling gates stuck. Such a finish is now treated like `OutOfSync`: the admission check is reset and the Workload is re-dispatched (#14997). Shipped in v0.20.0, v0.19.3 and v0.18.7 ([[pr-15092]]) (source: pr-15092.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md).
+
+## `MultiKueueKubeConfigPathValidation` is Beta (v0.20)
+
+[[pr-13706]] (fixes #13704) graduated the gate to **Beta, on by default in v0.20** (Alpha since 0.19). `MultiKueueCluster` kubeconfigs with `locationType: Path` must then live under **`/etc/multikueue/kubeconfigs/`**. Disabling the gate restores any file path, which can expose sensitive files readable by the manager (source: pr-13706.md, raw/kueue/pkg/features/kube_features.go). See [[security]].
 
 ## Metrics: `multikueue_workloads_evicted_total`
 
@@ -195,3 +225,6 @@ Graduated to **Beta, on by default, in v0.20** (pr-16235, tracked by issue-13966
 - [[workload]] — mirror workloads exist on each worker.
 - [[integrations]] — which job types can be dispatched.
 - [[multikueue-orchestrated-preemption]] — **[Alpha]** serializes preemption across worker clusters to avoid duplicate disruption.
+- [[job-framework-interface]]
+- [[integration-rayjob]]
+- [[elastic-jobs]]

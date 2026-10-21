@@ -2,9 +2,9 @@
 
 **Summary**: Profile of Kueue core maintainer @mimowo — their review philosophy, preferred patterns, recurring concerns, communication style, and what they require before approving a PR. Intended for LLMs performing code review: copy this reasoning to produce feedback that is coherent with Kueue's implicit standards.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` — analysis of review comments across PRs where @mimowo left substantive feedback; representative examples drawn from [[pr-4444]], [[pr-8082]], [[pr-8151]], [[pr-8186]], [[pr-8341]], [[pr-8464]], [[pr-8530]], [[pr-8805]], [[pr-9311]], [[pr-9619]].
+**Sources**: `raw/github/kubernetes-sigs__kueue/` — analysis of review comments across PRs where @mimowo left substantive feedback; representative examples drawn from [[pr-4444]], [[pr-8082]], [[pr-8151]], [[pr-8186]], [[pr-8341]], [[pr-8464]], [[pr-8530]], [[pr-8805]], [[pr-9311]], [[pr-9619]]; pr-16725.md, pr-16723.md, pr-17055.md.
 
-**Last updated**: 2026-04-30
+**Last updated**: 2026-10-21
 
 ---
 
@@ -98,6 +98,8 @@ mimowo monitors log level appropriateness:
 - Per-reconciliation-cycle logs should be V(4) or higher, not V(2)
 - V(2) is reserved for coarse-grained lifecycle events
 - From [[pr-8082]]: `log.V(2).Info("Patching pod...")` → "This might be very verbose if V(2), I would say this is V(4)"
+
+**Update (2026-10-21)**: mimowo wrote down the rules as the project logging policy (pr-16725.md, merged 2026-10-08). Main per-object reconcile diagnostics (`Reconcile` start/end/duration, key decisions) are now **V(3)**. V(2) is for component-level summaries and top-level scheduler cycles, V(4) for decision details (old/new values), V(5) for traces and individual API-write attempts. Errors are logged once at the control layer, and costly log-only work needs an `Enabled()` guard. The per-pod patch log in the pr-8082 example would sit at V(4)/V(5) under the policy. See [[code-quality#7. Logging policy and verbosity]]. He also wrote the community writing-tests guide (pr-16723.md, [[testing#Community test-writing guidelines]]) and points contributors and their AI tools at both, to reduce cleanup toil.
 
 ### Helper extraction
 

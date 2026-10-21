@@ -2,9 +2,9 @@
 
 **Summary**: A LocalQueue (LQ) is a namespaced resource that points to exactly one [[cluster-queue]]. Tenants reference LocalQueues from their jobs via the `kueue.x-k8s.io/queue-name` label; the LQ is what enforces namespace-to-ClusterQueue binding.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-13481.md, pr-13433.md, pr-13621.md, pr-12786.md
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-10-21
 
 ---
 
@@ -60,9 +60,16 @@ Retargeting a LocalQueue's `spec.clusterQueue` used to leave the **previous** Cl
 
 LocalQueue names are namespace-scoped, so `spec.queueName` alone is **not** an identity. Comparing Workloads by `spec.queueName` made `team-a/default` and `team-b/default` indistinguishable and broke admission fair-sharing preemption ordering; the comparison must use the namespace-qualified key (`utilqueue.KeyFromWorkload`) — [[pr-14547]], see [[admission-fair-sharing#LocalQueue identity is namespace-qualified]].
 
+## `fairSharing.weight` on a LocalQueue (Admission Fair Sharing)
+
+With [[admission-fair-sharing]], pending Workloads in a ClusterQueue are ordered by LocalQueue usage divided by `spec.fairSharing.weight` (default 1). Validation accepts `0`; since pr-13481 (v0.20.0, backported to 0.19/0.18) a weight `<= 0` gives usage `+Inf`, so the LocalQueue is served **last**. Before, an idle zero-weight LocalQueue computed `0/0 = NaN`, which sorted first. Weights are read from a per-ClusterQueue cache in the queue manager (`lqWeights`, default `1.0` for an unknown LocalQueue), not from the API at sort time ([[fair-sharing#LocalQueue weight lookup: one cached path for heap and snapshot (AFS ordering)]]).
+
+Other AFS accounting fixes that show up in LocalQueue `status.fairSharing` (`admissionFairSharingStatus.consumedResources`): sub-milli CPU/GPU contributions are no longer truncated to 0 (pr-13621), and Workloads admitted via AdmissionChecks no longer keep their entry penalty forever (pr-12786). Both can change observed ordering after an upgrade ([[admission-fair-sharing#Sub-milli usage is no longer truncated (pr-13621)]]).
+
 ## Related pages
 
 - [[cluster-queue]] — the quota pool the LQ points to.
 - [[workload]] — what gets created when an LQ-bound job is submitted.
 - [[feature-gates]] — `LocalQueueDefaulting` lifecycle.
 - [[visibility-api]] — how tenants query pending workloads.
+- [[admission-fair-sharing]] — LocalQueue usage-based ordering.

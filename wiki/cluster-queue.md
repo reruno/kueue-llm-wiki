@@ -2,9 +2,9 @@
 
 **Summary**: A ClusterQueue (CQ) is a cluster-scoped resource that owns a pool of quota. It groups quota into resource groups of flavors, limits how workloads queue up, and optionally joins a [[cohort]] so unused capacity can be lent to peers.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15633.md, pr-16140.md, pr-15949.md, pr-16282.md, pr-15913.md, pr-16168.md, raw/kueue/apis/kueue/v1beta2/clusterqueue_types.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15633.md, pr-16140.md, pr-15949.md, pr-16282.md, pr-15913.md, pr-16168.md, raw/kueue/apis/kueue/v1beta2/clusterqueue_types.go, pr-15371.md, pr-16375.md, pr-16438.md, pr-15040.md, pr-17010.md, pr-16487.md, pr-16488.md, pr-16528.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -37,7 +37,9 @@ A CQ's `spec.cohort` field joins it into a [[cohort]]. CQs in the same cohort ca
 
 `status.flavorsReservation` and `status.flavorsUsage` are the authoritative view of what's reserved and what's actually consumed. `status.pendingWorkloads` and `status.admittedWorkloads` count head-of-queue and admitted jobs. `status.conditions` includes `Active` (the CQ is healthy, referenced flavors exist, webhooks pass).
 
-A CQ becomes inactive if a referenced [[resource-flavor]] is missing or a referenced [[admission-check]] is not `Active` — by design ([[issue-3645]] — TAS: CQ is not deactivated when there is no Topology, which was fixed).
+A CQ becomes inactive if a referenced [[resource-flavor]] is missing or a referenced [[admission-check]] is not `Active` — by design ([[issue-3645]] — TAS: CQ is not deactivated when there is no Topology, which was fixed). It also becomes inactive with reason **`CohortCycleDetected`** (`ClusterQueueActiveReasonCohortCycleDetected`) when its Cohort's parent chain contains a cycle (#13774, v0.20.0, backported to 0.19.7/0.18.11); see [[cohort#Cycles in the Cohort hierarchy]].
+
+`status.fairSharing.weightedShare` is an int64 view of the float share: `MaxInt64` for zero-weight borrowers and for shares at or past 2^63, and at least `1` for any positive share (pr-16487, pr-16488, pr-16528; [[fair-sharing#Weighted share edge cases (v0.20.1 / v0.19.8)]]).
 
 ## `kubectl get -o wide` shows ACTIVE and REASON (v0.20)
 
@@ -46,7 +48,7 @@ A CQ becomes inactive if a referenced [[resource-flavor]] is missing or a refere
 ## Fields and annotations added around the ClusterQueue in v0.20
 
 - **`kueue.x-k8s.io/preemption-config-name` annotation** (Alpha, gate `ConfigurablePreemptions`) references a cluster-scoped `PreemptionConfig`; it becomes a real field in Beta ([[configurable-preemptions]]).
-- **`status.effectiveQuotas`** (`orchestratorRef` + `resourceGroups`, max 16 groups): written by a `DynamicQuotaOrchestrator` under gate `DynamicQuotaOrchestration` (Alpha); when set, the scheduler uses it instead of `spec.resourceGroups`, and an empty list is a complete override ([[dynamic-quota-orchestration]]).
+- **`status.effectiveQuotas`** (`orchestratorRef` + `resourceGroups`, max 16 groups): written by a `DynamicQuotaOrchestrator` under gate `DynamicQuotaOrchestration` (Alpha); when set, the scheduler uses it instead of `spec.resourceGroups` (via `resourcegroups.EffectiveResourceGroups`, pr-15040), and an empty list is a complete override. Webhooks still validate only `spec` ([[dynamic-quota-orchestration]]).
 - **`spec.concurrentAdmissionPolicy`** requires a single ResourceGroup with at most **32** flavors (was 16) ([[concurrent-admission]]).
 - The API comments on `resourceGroups[].flavors` now warn that many flavors have performance implications (pr-16282).
 - The manager-side `MultiKueueManagerQuotaAutomation` condition's `observedGeneration` is refreshed even when the condition itself is unchanged (pr-16140; [[multikueue]]).
@@ -86,16 +88,9 @@ In all four the admitted Workloads keep running; only *future* admissions see th
 
 The gate that makes the validating webhook reject ClusterQueue updates referencing invalid flavors in `AdmissionCheckStrategy.OnFlavors` graduated **Alpha → Beta, on by default** ([[pr-14776]]). Fix pre-existing invalid references before upgrading. See [[feature-gates]].
 
-## Configuration: `scheduling.quotaReleaseStrategy`
+## Configuration: `scheduling.quotaReleaseStrategy` (removed before v0.20)
 
-A Configuration-level (not per-ClusterQueue) field added in both `v1beta1` and `v1beta2` by [[pr-13224]], the API foundation of KEP-6143 ([[pr-13163]] is the KEP; #10076 is the gap it addresses):
-
-| Value | Behaviour |
-|---|---|
-| `OnTermination` (**default**) | quota is released as soon as a Pod receives a `deletionTimestamp`. Preserves the historical `batch/v1` Job behaviour. |
-| `OnTerminalBestEffort` | quota is held until Pods actually reach a terminal phase (`Succeeded`/`Failed`). |
-
-`OnTerminalBestEffort` exists for [[topology-aware-scheduling]]: with `OnTermination`, new Pods can be assigned to nodes that terminating Pods still physically occupy, and scheduling then fails. Validation rejects any other value, and defaulting writes `OnTermination` when the field is unset. [[pr-13224]] shipped the **API types, defaults, validation and generated conversions only** — reconciler wiring and per-integration behaviour land in later PRs of the KEP-6143 series.
+**Correction (2026-10-21)**: this section described `scheduling.quotaReleaseStrategy` (`OnTermination` default, `OnTerminalBestEffort`), the Configuration field added in `v1beta1`/`v1beta2` by [[pr-13224]] for KEP-6143. **pr-15371 reverted it** (merged 2026-09-09, ahead of the v0.20 code freeze): the field, its type, defaults, validation, tests and reference docs are gone, and no `quotaReleaseStrategy` exists in `apis/config` at this snapshot. The design moved to a **per-integration** setting (`.integrations.frameworkConfigs[].quotaReleaseStrategy`, KEP-10076 / #15146), which is **not merged** in this batch, so there is currently no released configuration knob for "hold quota until Pods are terminal" (source: pr-15371.md, raw/kueue/apis/config/).
 
 ## Related pages
 

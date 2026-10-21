@@ -2,9 +2,9 @@
 
 **Summary**: Reference for the `waitForPodsReady` Configuration block and the four v0.19/v0.20 knobs around it: enabled-by-default with a 30 minute timeout, per-Workload overrides, a separate unscheduled-Pods timeout, and a not-ready Pod budget for Pod groups. Complements the conceptual description in [[gang-scheduling]].
 
-**Sources**: pr-15503.md, pr-15672.md, pr-15734.md, pr-16059.md, pr-15531.md, pr-15627.md, pr-16217.md, issue-13502.md, raw/kueue/apis/config/v1beta2/configuration_types.go, raw/kueue/apis/config/v1beta2/defaults.go, raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/config/validation.go, raw/kueue/pkg/features/kube_features.go
+**Sources**: pr-15503.md, pr-15672.md, pr-15734.md, pr-16059.md, pr-15531.md, pr-15627.md, pr-16217.md, issue-13502.md, raw/kueue/apis/config/v1beta2/configuration_types.go, raw/kueue/apis/config/v1beta2/defaults.go, raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/config/validation.go, raw/kueue/pkg/features/kube_features.go, pr-15372.md, pr-15402.md, issue-16366.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -34,6 +34,8 @@ Rules (source: raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueu
 - `determineTimeouts`: an annotation replaces the cluster `timeout`; `recoveryTimeoutSeconds` present and >0 replaces `recoveryTimeout`; absent falls back to the cluster value. (An explicit `0` cannot arrive through the webhook.)
 - Config validation refuses enabling the gate together with `DisableWaitForPodsReady`.
 - `maxTimeoutOnWorkload` has no effect on Workloads without an override.
+- The Configuration never lacks a `waitForPodsReady` block: v1beta2 defaulting always creates it (`cmp.Or(cfg.WaitForPodsReady, &WaitForPodsReady{})`) and defaults `timeout` to 30m. So `determineTimeouts` cannot hit a nil config when the annotation omits `recoveryTimeoutSeconds`. [[issue-16366]] (a feared nil-config panic) was closed for this reason (source: issue-16366.md, raw/kueue/apis/config/v1beta2/defaults.go).
+- Known gap, open as of this snapshot: a huge `timeoutSeconds` in the annotation can wrap around and bypass validation (issue-16970).
 
 ## Separate timeout for unscheduled Pods: `WaitForPodsReadyUnscheduledTimeout` (KEP-13502)
 
@@ -42,6 +44,7 @@ Rules (source: raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueu
 - Validation: non-negative, must not exceed `timeout`, and setting the field (even `0s`) **requires the gate**. `nil`/`0s` disables scheduling tracking entirely (`PodsScheduledTrackingEnabled`).
 - New condition `PodsScheduled` (`WaitForScheduling` / `AllRequiredPodsScheduled`); the deadline never exceeds `timeout` since admission; eviction needs a **current-admission** `PodsScheduled=False` observation, so a late observation does not restart the timer. Eviction reason stays `PodsReadyTimeout` with a `WaitForScheduling` underlying cause.
 - For elastic jobs the workload-slice tracker only tracks the *active* slice (pr-15531).
+- How the pieces landed: [[pr-15372]] added the config field `waitForPodsReady.unscheduledTimeout` to v1beta2. The v1beta1 Configuration type also got it, for the API reference docs. [[pr-15402]] added the `PodsScheduled` condition (`AllRequiredPodsScheduled` | `WaitForScheduling`) and `WaitForScheduling` as a `PodsReady` reason, and made that reason trigger eviction. In `admittedNotReadyWorkload`, a `PodsReady` reason of `WaitForScheduling` (with tracking enabled) uses `schedulingDeadline`. Otherwise the normal `WaitForStart` deadline (`admittedAt + timeout`) applies. The `WaitForScheduling` cause also appears in eviction events, metrics and scheduling statistics. The evicted Workload is requeued after the usual backoff. Release note: "Requires a positive timeout and the WaitForPodsReadyUnscheduledTimeout feature gate" (v0.20.0) (source: pr-15372.md, pr-15402.md, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md).
 - Enabling it with `DisableWaitForPodsReady` is rejected at startup.
 
 ## Not-ready budget for Pod groups: `WaitForPodsReadyMaxNotReady` (pr-16059)
@@ -54,6 +57,12 @@ Rules (source: raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueu
 - Admission and quota reservation still use the full `pod-group-total-count`.
 - Works for StatefulSet and LeaderWorkerSet only if the annotation is in their Pod template(s); Kueue does not copy it from the parent object. Other integrations, MultiKueue and a descriptive `PodsReady=False` message are out of scope for Alpha; the generic message `Not all pods are ready or succeeded` is kept.
 
+## Interactions found in the v0.20 line
+
+- **Pod groups with an oversized Pod.** With `PodIntegrationVerifyRoleRequests`, a group member that requests more than its role's PodSet stays gated. The group can then never become `PodsReady`, and `waitForPodsReady` evicts and requeues the Workload up to the requeue limit. See [[integration-plain-pod#Role-hash forgery: requests are verified before ungating]].
+- **SparkApplication `SUBMISSION_FAILED`** no longer finishes the Workload, so an application the operator resubmits stays under `waitForPodsReady` (see [[integration-spark]]).
+- Known gap, open as of this snapshot: controller-manager memory grows during repeated JobSet `PodsReadyTimeout` / requeue cycles (issue-16629, reopened).
+
 ## Related pages
 
 - [[gang-scheduling]] — why all-or-nothing matters and the eviction flow.
@@ -61,3 +70,4 @@ Rules (source: raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueu
 - [[integration-plain-pod]] — Pod-group readiness rules.
 - [[feature-gates]]
 - [[workload]]
+- [[integration-spark]]

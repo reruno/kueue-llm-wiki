@@ -2,9 +2,9 @@
 
 **Summary**: KueueViz is a web UI for Kueue: it reads the Kueue API (and, partially, the [[visibility-api]]) to show per-[[cluster-queue]] usage, pending workloads, cohort utilization, and per-namespace quotas. It's a separate component (backend + frontend) deployed alongside Kueue, not part of the controller-manager.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-13970.md, pr-16392.md, pr-16394.md, pr-16696.md, pr-16739.md, pr-16608.md; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`; `raw/kueue/cmd/kueueviz/backend/`.
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -51,12 +51,41 @@ The frontend reads the backend WebSocket URL from `REACT_APP_WEBSOCKET_URL` / `V
 
 By default the browser opens the WebSocket straight at the backend Service, which needs two DNS names, an `env.js` ConfigMap carrying the backend's external address, and `KUEUEVIZ_ALLOWED_ORIGINS` matching the frontend origin. The opt-in Helm value `kueueViz.ingress` (disabled by default) renders one Ingress on one host: `/ws`, `/api` and `/auth` go to the `kueueviz-backend` Service, `/` to the frontend (source: pr-15574.md; backports pr-15673.md, pr-15676.md). The Ingress is generated from the shared config directory, so non-Helm installs get an equivalent single-host manifest (docs cover host, TLS and migration) (source: pr-15863.md, issue-15669.md).
 
-## Open backend bugs
+## Per-user authorization (v0.20, action required)
 
-After the move to the typed client (pr-7663) the handlers return bare objects: the workload detail handler `fetchWorkloadDetails` drops `clusterQueueName` and `preemption` (the page shows no ClusterQueue and links to `/cluster-queue/undefined`, [[issue-16275]]), and the `/ws/workloads` list returns the raw `WorkloadList`, so the "Preempted" column always shows "No" ([[issue-16276]]); both open at writing. Backend tests now run in CI (source: pr-16257.md).
+When authentication is enabled, the backend now checks Kubernetes RBAC for every API and WebSocket request with a **SubjectAccessReview** on the caller's identity (user, groups, UID, extra) instead of serving everything with its own ServiceAccount. `middleware.RequireAuthorization` wraps each route (`/ws/workloads`, `/ws/workloads/dashboard`, `/ws/workload/:ns/:name[/events]`, `/ws/local-queues`, `/ws/local-queue/...`, `/ws/cluster-queues`, `/ws/cohorts`, `/ws/resource-flavors`, their detail routes, and `/api/:resourceType/:name`). `sarAuthorizer` caches each decision in an LRU keyed by identity + resource attributes, with separate TTLs for allow (`CacheTTL`) and deny (`NegativeCacheTTL`). Users need `get`, `list` and `watch` for the views they open; the backend ServiceAccount needs `create` on `subjectaccessreviews.authorization.k8s.io` (included in the Helm chart; custom RBAC installs must add it) (source: CHANGELOG-0.20.md #13810; `cmd/kueueviz/backend/middleware/auth.go`, `handlers/handlers.go`). Known gap, open as of this snapshot: `/ws/namespaces` is not wrapped and does not check LocalQueue `watch` access (issue-17073; fix pr-17088 open). See [[security-authn-authz]].
+
+## WebSocket heartbeat
+
+The backend sends a WebSocket **ping control frame every 30 seconds** (`Handlers.heartbeatInterval`, default `30 * time.Second` in `handlers.New`) inside `handleInformerUpdates`, even when no dashboard data has changed, so idle connections are not dropped by proxies or load balancers. The ticker is created only when the interval is positive. A failed ping write closes the connection (the handler returns); a reviewer noted that a single transient write error therefore ends the session. Shipped in v0.20.0 (source: pr-13970.md, fixes #13961; CHANGELOG-0.20.md).
+
+## Empty results must serialize as `[]`, not `null`
+
+Several bugs had the same cause. A Go handler that builds its result with `var xs []any` and finds nothing returns a **nil slice**, which `encoding/json` writes as `null`. The frontend treats `null` as "not loaded yet":
+
+- **LocalQueue detail page.** `fetchLocalQueueWorkloads` returned `null` for a queue with no Workloads; `if (workloadsData)` skipped `setWorkloads`, so removed Workloads stayed on screen. The same PR added the missing Status `<TableCell>` (first condition type, or `Unknown`) to the "Admitted Workloads" table, whose header had a Status column that rows never filled. Shipped in v0.20.1 / v0.19.8 (source: pr-16392.md, fixes issue-16391; backports pr-16692, pr-16693).
+- **Resource list pages.** The Local Queues, Cluster Queues, Cohorts and Resource Flavors pages spun forever when a successful query returned nothing, for example an admin opening Cohorts on a cluster with no Cohorts. Handlers now return non-nil empty slices, so the page shows `No Cohorts found.` and similar. Unit tests assert on the returned value with `cmp.Diff([]map[string]any{}, got)`, because comparing only extracted names cannot tell nil from empty (source: pr-16739.md).
+
+Rule for new handlers: initialise result slices with `make([]T, 0)` (or a literal), never a bare `var`.
+
+## Frontend crash fixes
+
+- **Workloads page empty state.** `Workloads.jsx` used `<Alert severity="info">` for "No workloads found" without importing `Alert` from MUI, so an empty cluster crashed the page instead of showing the message. Shipped in v0.20.0, v0.19.7 and v0.18.11 (source: pr-16394.md, fixes issue-16393; backports pr-16396, pr-16397).
+- Also in v0.20.0 (source: CHANGELOG-0.20.md): one notification per preemption instead of thousands of duplicate error toasts (#13175); no crash when error details contain values that cannot be serialized (#13984); debug `console.log`/`console.error` removed from the frontend (#13983); Helm `kueueViz.{backend,frontend}.ingress.tlsEnabled` to turn TLS on or off independently of `tlsSecretName` (#13784).
+
+## Workload → Pod matching
+
+The workloads dashboard (`buildWorkloadPodsIndex` in `cmd/kueueviz/backend/handlers/workloads_dashboard.go`) indexes Pods by their `controller-uid` label and looks up each Workload by its `kueue.x-k8s.io/job-uid` label. Pods without `controller-uid` (anything not created by a batch Job) all shared the empty key, and Workloads without a job UID (pod groups, for example) looked up that same key, so they showed **every unlabelled Pod in the namespace**. Pods without `controller-uid` are now skipped when building the index, so such Workloads show an empty Pods list. They only ever matched by accident; showing the real Pods of pod-group Workloads is a separate feature, not yet shipped (issue-16694, pr-16849 open) (source: pr-16696.md; backports pr-16702, pr-16707).
+
+## Workload detail: ClusterQueue and preemption restored
+
+After the move to the typed client (pr-7663) the handlers returned bare objects. The workload detail handler `fetchWorkloadDetails` dropped `clusterQueueName` and `preemption`, so the page showed no ClusterQueue and linked to `/cluster-queue/undefined` ([[issue-16275]]). Fixed by #16279, shipped in v0.20.1 and v0.19.8 (source: pr-16608.md, pr-16905; CHANGELOG-0.20.md, CHANGELOG-0.19.md).
+
+Still open at this snapshot: the `/ws/workloads` list returns the raw `WorkloadList`, so the "Preempted" column always shows "No" ([[issue-16276]]; pr-17104 open). Also open: the workload Status column shows the first condition type instead of a derived status (issue-17102), and the workload details page fails when its LocalQueue was deleted (issue-17103). Backend tests run in CI (source: pr-16257.md); the frontend image build retries `npm install` and backend tests retry `go mod download` against transient network failures (pr-16719, pr-16724).
 
 ## Related pages
 
 - [[visibility-api]] — underlying API surface for some views.
 - [[metrics]] — alternate Prometheus-based visibility.
 - [[cluster-queue]], [[cohort]] — core entities shown.
+- [[security-authn-authz]] — SubjectAccessReview pattern used by the backend.

@@ -2,9 +2,9 @@
 
 **Summary**: The plain-Pod integration lets Kueue govern Pods that aren't owned by a supported higher-level controller. Kueue attaches a scheduling gate at Pod admission-webhook time, creates a Workload, and removes the gate once the Workload is admitted. Groups of related Pods can be treated as a gang using the `kueue.x-k8s.io/pod-group-name` label — a "PodGroup."
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13014.md, pr-13945.md, pr-17123.md, pr-17124.md, pr-16358.md, pr-16365.md, pr-16385.md, pr-17077.md, pr-17087.md, issue-16517.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -32,6 +32,8 @@ A PodGroup is a set of Pods sharing `kueue.x-k8s.io/pod-group-name: <name>`. Kue
 ## Known-owner plain Pods
 
 Some workflows (including custom controllers) create plain Pods with owner references to their own CRDs. "Add Support for Plain Pods with Known OwnerReferences" ([[issue-4106]]) covers the case where Kueue should treat those Pods as a PodGroup but respect the owner's lifecycle.
+
+**No opt-out exists at the snapshot.** The Pod integration skips any Pod whose owner chain contains an object of another enabled Kueue integration, for example TrainJob → JobSet → Job → Pod. [[issue-16517]] asked for an explicit opt-in such as `kueue.x-k8s.io/manage-as-standalone-pod: "true"`. The use case was a MultiKueue setup where plain Pods are the cross-cluster boundary and the worker cluster has no TrainJob/KubeRay CRDs. The issue was closed without an implementation, and no such annotation exists in the code (source: issue-16517.md, raw/kueue/pkg/controller/jobs/pod/).
 
 ## MultiKueue
 
@@ -69,6 +71,16 @@ Two design points worth remembering:
 
 See [[security-code-patterns]]: a client-supplied string used as a cross-object primary key is the pattern.
 
+### How the fix got there: merge, revert, re-land
+
+The fix landed twice on `main`. Knowing why the first attempt was reverted explains why the shipped predicate has two conditions.
+
+1. **[[pr-13014]]** (merged 2026-08-05) guarded only the **adoption** path. Inside `FindMatchingWorkloads`, a Workload found by group name without the `is-group-workload` marker was refused. Kueue emitted a `WorkloadNameConflict` Warning, returned an unretryable error, and kept the foreign Workload out of the to-delete set. The gate was described as `RefuseForeignPodGroupWorkloadAdoption` and merged as `PodIntegrationValidateGroupOwner` (source: pr-13014.md, pr-13945.md).
+2. **[[pr-13945]]** reverted it two days later. The **finalization** path still resolved by name alone: `(*Pod).ListChildWorkloads` → `JobReconciler.getWorkloads` → `finalizeWorkloads` → `workload.FinalizeOrphanedWorkload`. That path could still strip the finalizer from a victim Workload and finish it. The release-0.18 cherry-pick (#13882) was closed. The gate had never been released, so removing it withdrew nothing (source: pr-13945.md).
+3. **[[pr-13960]]** re-landed a fix that covers both paths (described above). At the snapshot, `PodIntegrationValidateGroupOwner` is **Beta and on by default**, with its versioned spec at 0.18 (source: raw/kueue/pkg/features/kube_features.go). It shipped in **v0.20.0, v0.19.2 and v0.18.6** (source: raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md, CHANGELOG-0.18.md).
+
+A second attack, forging the role hash, was split out of #13014 into #13382. See [[integration-plain-pod#Role-hash forgery: requests are verified before ungating]].
+
 ## Finalizer removal on eviction (serving pod groups)
 
 `Stop()` used to call `Finalize()` unconditionally only for `StopReasonWorkloadDeleted`. For every other stop reason — a `waitForPodsReady.recoveryTimeout` eviction, a `spec.active` toggle, scheduler preemption — removal of the `kueue.x-k8s.io/managed` finalizer was left to a later `FindMatchingWorkloads` pass, which had two independent gaps for **serving** groups ([[issue-13830]], fixed by [[pr-14632]]; cherry-picks [[pr-14793]], [[pr-14795]]):
@@ -83,7 +95,31 @@ See [[security-code-patterns]]: a client-supplied string used as a cross-object 
 `getRoleHash` returns the `kueue.x-k8s.io/role-hash` annotation verbatim when the client already set it, and that value becomes the PodSet name. Two consequences:
 
 - It fed the scheduling-equivalence hash, so a client stamping a unique role hash per Workload got one equivalence class per Workload — fixed by excluding the PodSet name from the hash (see [[scheduler-internals#Scheduling-equivalence hash: what it does and does not include]], [[pr-14784]]).
-- Because the client controls it, it also controls **PodSet order**, which changes flavor assignment and the representative mode ([[issue-14802]], open).
+- Because the client controls it, it used to control **PodSet order** as well, which changed flavor assignment and the representative mode ([[issue-14802]]). **Correction (2026-10-21)**: this page listed issue-14802 as open. It was fixed by #14809, described in the next section (source: pr-16358.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md).
+- It is the PodSet a Pod is **charged against**. Kueue now checks a Pod against that PodSet before ungating it. See the role-hash forgery section below.
+
+## PodSet order comes from scheduling shape, not role-hash (`PodGroupSchedulingShapeOrdering`)
+
+#14809 (fixes [[issue-14802]]) sorts a pod group's PodSets by a hash derived from their scheduling shape instead of by the client-supplied role-hash name. The sort key at the snapshot is: shape hash, then PodSet `count`, then PodSet name (source: raw/kueue/pkg/controller/jobs/pod/pod_controller.go). The count tie-breaker has its own unit coverage (pr-16385, backport pr-16975). When a Workload already has a PodSet order (`referenceOrder`), reconciliation keeps that order, so existing Workloads are not reshuffled.
+
+- Gate `PodGroupSchedulingShapeOrdering`: **Beta, on by default in v0.20.0**. The backports are **Alpha and off by default**: v0.19.7 ([[pr-16358]]) and v0.18.11 ([[pr-16365]]) (source: pr-16358.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md, CHANGELOG-0.18.md).
+- Effect: flavor assignment for a pod group is deterministic whatever role-hash values clients choose.
+
+## Role-hash forgery: requests are verified before ungating
+
+**This was the second pod-group quota bypass.** `getRoleHash` trusts a client-supplied `kueue.x-k8s.io/role-hash`. A tenant could copy a cheap role's hash onto an oversized Pod and run it under that role's reservation, within the role's count. #13382 (merged 2026-10-12) closes this (source: pr-17124.md, raw/kueue/pkg/controller/jobs/pod/pod_controller.go).
+
+**Design: check once, where quota starts being used.** The annotation is treated as a PodSet *name*, not a credential. The webhook does not rewrite it, and the Workload is built exactly as before. The check runs only in `Pod.Run()`, the single place where the `kueue.x-k8s.io/admission` gate is removed (through `prepare()`). Replacement Pods that join an admitted group also pass through `startJob` → `Run`, so they are checked too.
+
+- `validatePodsBeforeUngating` takes each **still-gated** Pod and looks up the PodSet its role hash names. It compares the Pod's requests with that PodSet's **effective** spec, the same view quota is charged against. The effective spec comes from `workload.ResolveAdjustmentInputs` + `workload.EffectivePodSpecs`, which apply LimitRange defaults, default requests from limits, and add RuntimeClass overhead. The comparison covers **requests only** (`resources.NewRequestsFromPodSpec`). Full template equivalence was rejected because drift in image, env or tolerations would block ungating without affecting quota.
+- A Pod that exceeds its PodSet stays **gated** and gets a Warning event `PodExceedsRoleRequests` ("Pod %q requests more %s than podset %q reserves"). The rest of the group is ungated as usual. This is not an error: the Workload stays admitted and running peers are left alone, so a Pod that anyone can create in the namespace cannot fail someone else's group. The cost: the group cannot become `PodsReady` until the oversized Pod is replaced by one that fits. With [[wait-for-pods-ready]], the Workload is evicted and requeued, up to the requeue limit.
+- A role hash that names no PodSet returns the permanent `podset.ErrInvalidPodsetInfo`. This check moved into the pre-pass; its behaviour did not change.
+- Adjustment inputs are resolved only when the gate is on **and** the group has a gated Pod.
+- Not covered: Pods that never carried Kueue's gate, for example Pods in an excluded namespace, Pods whose gate another plugin stripped, or Pods created while the webhook was down.
+- Gate **`PodIntegrationVerifyRoleRequests`**: **Beta, on by default** on `main`, versioned 0.21. The backports to release-0.20 ([[pr-17123]]) and release-0.19 ([[pr-17124]]) ship it **Alpha and off by default**. The 0.19 backport uses `workload.AdjustResources` on a copy, because `EffectivePodSpecs` does not exist on that branch. None of these appears in a tagged release at the snapshot (through v0.20.1 / v0.19.8). The backports were fixed in v0.20.2 and v0.19.9 per CHANGELOG at kueue@3bbb8cce4, released after this snapshot (source: pr-17123.md, pr-17124.md, raw/kueue/pkg/features/kube_features.go).
+- **Action required** (release note): if a trusted controller sets `role-hash` itself, for example to a stable per-group value so replacement Pods keep matching immutable PodSet names, check that its Pods never request more than the PodSet built from the group's first Pod of that role. Larger Pods now stay gated (source: pr-17124.md).
+
+Validation of owner-reference UIDs in `FindAncestorJobManagedByKueue`, raised in the same review, was moved to a separate PR (#13802) and is not part of this check.
 
 ## All-terminating groups are finalized, not re-adopted
 
@@ -116,7 +152,20 @@ With `FailureRecoveryPolicy` on, retries of forceful termination of a Pod stuck 
 
 ## Empty PodGroups of StatefulSet / LeaderWorkerSet
 
-When the last member Pod of a StatefulSet/LWS-backed PodGroup is gone, `Pod.Load()` reports an empty composable job (`jobFound=false`) and finalization ran before the normal eviction branch, so a Workload evicted by `PodsReadyTimeout` kept its admission and quota, or was finished as an orphan while the owner was still live. The empty-PodGroup path now reads the owner through the `IntegrationManager` and checks UID and deletion state; for an unfinished Workload with a live, Kueue-managed non-Pod owner it retains the Workload and finalizer and completes eviction via the same admission-clearing helper as the normal inactive-job path (which re-checks eviction and quota-reservation state inside the status patch). Deleted, terminating or UID-mismatched owners still let the Workload be finished (source: pr-14578.md; backports pr-16127.md, pr-16128.md). Separate, still open at writing: scale-to-zero of a StatefulSet with active Pods can release quota prematurely ([[issue-16043]]); the pod-group activity check double-counts the deletion grace period ([[issue-16075]]).
+When the last member Pod of a StatefulSet/LWS-backed PodGroup is gone, `Pod.Load()` reports an empty composable job (`jobFound=false`) and finalization ran before the normal eviction branch, so a Workload evicted by `PodsReadyTimeout` kept its admission and quota, or was finished as an orphan while the owner was still live. The empty-PodGroup path now reads the owner through the `IntegrationManager` and checks UID and deletion state; for an unfinished Workload with a live, Kueue-managed non-Pod owner it retains the Workload and finalizer and completes eviction via the same admission-clearing helper as the normal inactive-job path (which re-checks eviction and quota-reservation state inside the status patch). Deleted, terminating or UID-mismatched owners still let the Workload be finished (source: pr-14578.md; backports pr-16127.md, pr-16128.md). Separate, still open at writing: scale-to-zero of a StatefulSet with active Pods can release quota prematurely ([[issue-16043]]). The deletion-grace double count ([[issue-16075]]) is now fixed; see the next section.
+
+## PodGroup activity at the Pod deletion deadline
+
+`Pod.IsActive()` decides whether a group still holds quota. Only `Running` Pods count. A Running Pod with a `deletionTimestamp` used to stay active until `deletionTimestamp + deletionGracePeriodSeconds`. But for graceful deletion the API server already sets `deletionTimestamp` to the *end* of the grace period, so a Pod stuck Running past its deadline (for example on a lost node) kept the group's quota for one extra grace period (#16076, fixes [[issue-16075]]; source: pr-17087.md).
+
+Rules at the snapshot (source: raw/kueue/pkg/controller/jobs/pod/pod_controller.go):
+
+- A Running, terminating Pod **with** a recorded `deletionGracePeriodSeconds` is inactive once `now` is after `deletionTimestamp`. At exactly the timestamp it still counts as active.
+- A terminating Pod **without** a recorded grace period still counts as active, as before.
+- With `FastQuotaReleaseInPodIntegration` (Alpha, off) any terminating Pod is inactive at once.
+- The new decision applies at the **next reconcile** after the deadline. No reconcile is scheduled at the deadline itself.
+
+Main merged 2026-10-12. Backports: [[pr-17077]] (release-0.20) and [[pr-17087]] (release-0.19). None was in a tagged release at the snapshot. The backports were fixed in v0.20.2 and v0.19.9 per CHANGELOG at kueue@3bbb8cce4, released after this snapshot. **Correction (2026-10-21)**: the "Empty PodGroups" section above listed [[issue-16075]] as open.
 
 ## Pod-level requests and quota
 
@@ -135,3 +184,5 @@ The Pod webhook enforces `managedJobsNamespaceSelector` earlier in admission, so
 - [[multikueue]] — MultiKueue with plain Pods.
 - [[security]] — the pod-group adoption bug is the wiki's worked example of a tenant-reachable quota bypass.
 - [[integration-statefulset]] — shares the Pod reconciler and the same-name replacement hazard.
+- [[wait-for-pods-ready]]
+- [[security-code-patterns]]

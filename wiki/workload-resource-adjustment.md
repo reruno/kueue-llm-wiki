@@ -2,9 +2,9 @@
 
 **Summary**: Before a [[workload]]'s requests are counted against quota or validated, Kueue derives an *effective* PodSpec from external inputs (RuntimeClass overhead, limits-as-requests, namespace `LimitRange` defaults). Since pr-15284 (v0.20) this effective view is stored in `workload.Info` and constructed in one place; the old per-call `AdjustResources` on a deep-copied Workload is gone from production code. The stored API object is never rewritten.
 
-**Sources**: pr-15284.md, pr-16129.md, pr-16047.md, pr-15736.md, pr-14958.md, issue-14964.md, issue-14965.md, issue-14255.md, issue-15702.md, issue-13911.md, issue-16095.md, raw/kueue/pkg/workload/effective_resources.go, raw/kueue/pkg/workload/workload.go, raw/kueue/pkg/controller/core/workload_controller.go
+**Sources**: pr-15284.md, pr-16129.md, pr-16047.md, pr-15736.md, pr-14958.md, issue-14964.md, issue-14965.md, issue-14255.md, issue-15702.md, issue-13911.md, issue-16095.md, pr-14520.md, raw/kueue/pkg/workload/effective_resources.go, raw/kueue/pkg/workload/workload.go, raw/kueue/pkg/controller/core/workload_controller.go
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -45,7 +45,9 @@ Validation of `admission.podSetAssignments[].resourceUsage` (must be a multiple 
 
 ## Large amounts
 
-A PodSet total is `per-pod * count` with saturating multiplication; the `Unlimited` sentinel problem that used to make a total landing exactly on `MaxInt64` corrupt usage accounting was removed by making amounts exact. See [[cache-architecture#Quota amounts are exact past int64 (pr-15026)]].
+A PodSet total is `per-pod * count`; since pr-16479 (v0.20.1 / v0.19.8) the in-memory `Requests` are exact `resources.Amount` values, not saturating `int64` (see [[scheduler-internals]]). The `Unlimited` sentinel problem that used to make a total landing exactly on `MaxInt64` corrupt usage accounting was removed by making amounts exact. See [[cache-architecture#Quota amounts are exact past int64 (pr-15026)]].
+
+**Partial admission scales from the per-Pod request** (source: pr-14520.md, part of issue-14371; shipped v0.20.1 / v0.19.8 as #16519 / #16520 per CHANGELOG). At the time, PodSet `Requests` was an `int64` sum that saturated at `MaxInt64`. `PodSetResources.ScaledTo` rebuilt the request for a smaller count as `total / oldCount * newCount`, which is meaningless once the total has saturated. Example: 3 Pods at 4e18 each saturate the total; against a 7e18 quota, partial admission tried 2 Pods, computed `MaxInt64/3*2 = 6148914691236517204`, saw it fit, and admitted 2 Pods that really need 8e18. The pending path now multiplies the stored per-Pod request (`PerPodRequests`) by the new count. The admitted path (`totalRequestsFromAdmission`) has no per-Pod value and still divides the admitted total. Because partial admission now depends on `PerPodRequests`, `computeSchedulingHash` and `sameHashedRequests` read it too. Otherwise two pending Workloads that differ only in per-Pod **DRA** charges (DRA charges only through the total) could share an equivalence hash once saturated, and in `BestEffortFIFO` one could drag the other to inadmissible. **Correction (2026-10-21)**: `Requests` themselves became exact when pr-16479 merged (fixes issue-16405), so the quota check now sees the real total. What remains is the API write: the admitted total is stored in `status.admission.podSetAssignments[].resourceUsage` as a `Quantity`, which caps a non-CPU total at `MaxInt64`. The webhook rejects that value when it is not a multiple of the count, and the scheduler retries endlessly without setting a condition. Known gap, open as of this snapshot (source: issue-16486.md, pr-16479.md).
 
 ## Related pages
 

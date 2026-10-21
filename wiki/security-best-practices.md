@@ -2,9 +2,9 @@
 
 **Summary**: Actionable checklist a Kueue contributor or reviewer can apply to a PR. Distilled from the `Mitigation` sections of `raw/cve/` and adapted to Kueue's code shape (controller-runtime, webhooks, scheduler cache).
 
-**Sources**: `raw/cve/CVE-*.md` mitigation blocks (which repeat per category); the category pages [[security-denial-of-service]], [[security-authn-authz]], [[security-information-disclosure]], [[security-injection-and-input-validation]], [[security-supply-chain]]; [[code-quality]] for the project's existing review bar.
+**Sources**: `raw/cve/CVE-*.md` mitigation blocks (which repeat per category); the category pages [[security-denial-of-service]], [[security-authn-authz]], [[security-information-disclosure]], [[security-injection-and-input-validation]], [[security-supply-chain]]; [[code-quality]] for the project's existing review bar; 2026-10 CVE additions (`CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-26287.md`, `CVE-2026-7767.md`, `CVE-2026-86671.md`, `CVE-2026-109358.md`).
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -59,6 +59,15 @@
 - [ ] Optional fields are nil-guarded even when a `recover()` exists: a persistent poison object re-panics on every reconcile.
 - [ ] No fixed log leak without a test that greps captured logs for the secret.
 - [ ] Single-use tokens or approvals use an optimistic-concurrency write (`resourceVersion`), not read-then-write.
+
+### Update path, credentials and defaults (added 2026-10-21)
+
+- [ ] Each `ValidateCreate` check on a queue, priority, prebuilt-workload or pod-group field has a `ValidateUpdate` twin, and "is this job managed?" on update considers the old object as well as the new one (CVE-2026-92393; Kueue #13293) ([[security-authn-authz]]).
+- [ ] Any new credential source (kubeconfig, ClusterProfile, token) is validated like MultiKueue's `validateKubeconfig`: no exec plugins, auth providers, token or CA file paths, basic auth, or `insecure-skip-tls-verify` (CVE-2026-101919).
+- [ ] A missing or unsupported credential configuration is an error. Nothing falls back to `rest.InClusterConfig()` (CVE-2026-106487).
+- [ ] Defaulting and multi-phase setup never overwrite a security-relevant value set earlier. A test asserts the final effective configuration (CVE-2026-26287).
+- [ ] HTTP clients that carry credentials do not follow cross-host redirects. URLs from config or CRs pass a scheme allow-list before the host check (CVE-2026-7767, CVE-2026-86671).
+- [ ] New file writes use `0600`/`0644` and `0700`/`0755`, never world-writable (CVE-2026-109358).
 
 ### Supply chain
 

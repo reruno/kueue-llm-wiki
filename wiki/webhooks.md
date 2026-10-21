@@ -2,9 +2,9 @@
 
 **Summary**: Kueue ships validating and mutating admission webhooks for every CRD it defines and for every job type it integrates with. Validation enforces API-level invariants (flavor existence, immutability of certain fields). Mutation defaults fields, stamps finalizers, and — crucially — injects `.spec.suspend` or Pod scheduling gates so jobs are gated the instant they are created.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13375.md, pr-16972.md, pr-16973.md, pr-16705.md, pr-16710.md, pr-17060.md, pr-13996.md, pr-16779.md, raw/kueue/pkg/controller/jobframework/defaults.go
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -79,9 +79,18 @@ The `mworkload.kb.io` mutating webhook keeps `verbs=create`; an earlier attempt 
 
 ## Update-rejection webhooks added in v0.19/v0.20
 
-- Removing `kueue.x-k8s.io/queue-name` from a RayJob / RayCluster / RayService / SparkApplication is rejected — see [[integration-rayjob#Removing the queue-name label is rejected]] ([[pr-13293]], gate `ValidateRayAndSparkJobUpdates`, Beta/on).
+- Removing `kueue.x-k8s.io/queue-name` from a RayJob / RayCluster / RayService / SparkApplication is rejected — see [[integration-rayjob#Removing the `queue-name` label is rejected]] ([[pr-13293]], gate `ValidateRayAndSparkJobUpdates`, Beta/on).
 - A quota-reserved Workload's `priorityClassRef` is frozen by CRD CEL; Kueue skips writes the API server would refuse rather than retrying them forever ([[pr-14565]]). See [[workload#`priorityClassRef` is frozen once quota is reserved]].
 - Admission webhooks should return **no warnings** on the valid paths; [[pr-14688]] / [[pr-14715]] ([[issue-14665]], [[issue-14713]]) added assertions across the Ray, Spark and remaining webhook validation tests to keep it that way.
+
+## Defaulting and validation fixes in the v0.20 line (job integrations)
+
+- **The default `queue-name` is not injected in excluded namespaces** (#13375, v0.20.0). `ApplyDefaultLocalQueue` now checks `managedJobsNamespaceSelector` itself, for every integration. Before, Jobs in excluded namespaces got `queue-name: default` and were suspended. See [[job-framework-interface#Defaulting must respect `managedJobsNamespaceSelector`]] (source: pr-13375.md).
+- **A queue-name change is validated on update** (#16221; pr-16972 / pr-16973). A changed, non-empty value must be a valid LocalQueue name. This matters for Pod, AppWrapper and Kubeflow (`BaseWebhook`), whose update path did not re-run create validation. See [[job-framework-interface#Queue-name format is validated on update]].
+- **StatefulSet queue changes are rejected while the Workload holds quota**, even with zero ready replicas (#16320; v0.20.1 pr-16705, v0.19.8 pr-16710). See [[integration-statefulset#Queue changes are rejected while the Workload holds quota]].
+- **RayService error paths** now use `spec.rayClusterConfig` ([[pr-17060]]). The **RayCluster autoscaling error** names the gate and annotation that make it valid ([[pr-13996]]). See [[integration-rayjob]].
+- **`integrations.labelKeysToCopy` naming internal labels** is accepted but logged at startup ([[pr-16779]]); see [[job-framework-interface#Internal labels and annotations are never inherited]].
+- **The Pod webhook does not rewrite `kueue.x-k8s.io/role-hash`.** Forged role hashes are caught at ungate time, not in the webhook (#13382); see [[integration-plain-pod#Role-hash forgery: requests are verified before ungating]].
 
 ## Related pages
 
@@ -89,3 +98,5 @@ The `mworkload.kb.io` mutating webhook keeps `verbs=create`; an earlier attempt 
 - [[integrations]] — integrations ship their own webhooks.
 - [[resource-flavor]] — finalizer is webhook-added.
 - [[feature-gates]] — LocalQueueDefaulting controls a mutating default.
+- [[job-framework-interface]]
+- [[integration-statefulset]]

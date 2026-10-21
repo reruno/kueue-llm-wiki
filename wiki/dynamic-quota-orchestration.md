@@ -2,11 +2,15 @@
 
 **Summary**: Dynamic Quota Orchestration (KEP-12382) lets an external source of capacity (autoscaler, node inventory, cloud reservation) drive [[cluster-queue]] and [[cohort]] nominal quota through two alpha cluster-scoped APIs, `CapacityProvider` and `DynamicQuotaOrchestrator` (DQO). **Alpha, feature gate `DynamicQuotaOrchestration`, off by default, new in v0.20.**
 
-**Sources**: pr-15505.md, pr-16168.md, raw/kueue/keps/12382-dynamic-quota-orchestration/README.md, raw/kueue/apis/kueue/v1alpha1/dynamicquotaorchestrator_types.go, raw/kueue/apis/kueue/v1alpha1/capacityprovider_types.go, raw/kueue/pkg/controller/core/dqo/
+**Sources**: pr-15505.md, pr-16168.md, pr-15040.md, pr-15107.md, pr-15199.md, pr-15283.md, pr-15286.md, pr-16349.md, issue-16356.md, raw/kueue/pkg/util/resourcegroups/effective.go, raw/kueue/keps/12382-dynamic-quota-orchestration/README.md, raw/kueue/apis/kueue/v1alpha1/dynamicquotaorchestrator_types.go, raw/kueue/apis/kueue/v1alpha1/capacityprovider_types.go, raw/kueue/pkg/controller/core/dqo/
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
+
+## How it landed (all v0.20.0, Alpha)
+
+The feature arrived as a PR stack: scheduler/cache/controller support for `status.effectiveQuotas` on ClusterQueues (pr-15040) and Cohorts (pr-15107); Phase 1 capacity discovery reconciler (pr-15199); field indexers (#15260); Phase 2 distribution logic, largest-remainder math and soft validation with 22 table-driven tests (pr-15283); watches and envtest integration tests (pr-15286); then the bug fixes pr-15505/pr-16168 and API-comment clarifications (pr-16349, docs only: capacity synchronization, flavor coverage, zero-capacity flavors) (source: pr-15040.md, pr-15107.md, pr-15199.md, pr-15283.md, pr-15286.md, pr-16349.md).
 
 ## Two phases
 
@@ -18,6 +22,8 @@ The `DynamicQuotaOrchestrator` reconciler (`pkg/controller/core/dqo`) runs two p
 ## Effective quota is the source of truth for the scheduler
 
 When the gate is on and `status.effectiveQuotas` is set, Kueue components use `status.effectiveQuotas.resourceGroups` instead of `spec.resourceGroups`; an empty list is a valid complete override (no fallback to spec). `EffectiveQuotaStatus` is on the ClusterQueue and Cohort status. The scheduler cache records the owning orchestrator name (`dqo.EffectiveOrchestrator`) (source: raw/kueue/pkg/util/dqo/effective.go, raw/kueue/keps/12382-dynamic-quota-orchestration/README.md).
+
+The switch is centralized in `resourcegroups.EffectiveResourceGroups(cq)` and `EffectiveCohortResourceGroups(cohort)` (`pkg/util/resourcegroups/effective.go`): effective groups when the gate is on and `status.effectiveQuotas != nil`, otherwise `spec.resourceGroups` (so **clearing** `status.effectiveQuotas` falls back to spec). Consumers: scheduler cache ClusterQueue/Cohort quotas, pending-workloads view, ClusterQueue metrics, the ClusterQueue/Cohort/ResourceFlavor controllers' update predicates (a change in effective groups triggers reconciliation), admission-check flavor lists, ConcurrentAdmission and `workload` flavor lookups. Deliberately still on `spec`: webhooks (they validate spec, effective quota is status), MultiKueue manager quota automation (to be replaced by DQO), kueueviz and the importer (source: pr-15040.md, pr-15107.md, raw/kueue/pkg/util/resourcegroups/effective.go).
 
 How the quota is built (source: raw/kueue/pkg/controller/core/dqo/distribution.go, KEP README):
 
@@ -50,7 +56,9 @@ Overlapping DQOs are not rejected by webhook; the controller does "soft validati
 
 ## Discovery-only mode
 
-Omit `capacityDistribution` to validate what capacity a DQO computes (`status.effectiveCapacity`) before it starts writing quotas. Aggregated capacity is capped at 128 flavors in DQO status vs 64 per provider; exceeding limits deactivates the DQO (source: KEP README, raw/kueue/apis/kueue/v1alpha1/dynamicquotaorchestrator_types.go).
+Omit `capacityDistribution` to validate what capacity a DQO computes (`status.effectiveCapacity`) before it starts writing quotas. Aggregated capacity is capped at 128 flavors in DQO status vs 64 per provider (source: KEP README, raw/kueue/apis/kueue/v1alpha1/dynamicquotaorchestrator_types.go).
+
+**Correction (2026-10-21)**: this page said exceeding the limits deactivates the DQO. That is the KEP intent, but per issue-16356 (open) discovery can aggregate more than 128 distinct flavors from valid providers (e.g. 64 + 64 + 1), and the `status.effectiveCapacity.flavors` update (`MaxItems=128`) is then **rejected by the API server**, leaving effective capacity unavailable; soft validation for this case is proposed in pr-16767 (open) (source: issue-16356.md).
 
 ## Related pages
 

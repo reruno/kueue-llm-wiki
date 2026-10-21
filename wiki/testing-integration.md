@@ -2,9 +2,9 @@
 
 **Summary**: Integration tests run Kueue's controllers and webhooks against a controller-runtime `envtest` (an etcd + kube-apiserver pair; no kubelet, no kube-scheduler). They are Ginkgo + Gomega suites under `test/integration/`. This page covers the suites, the CI variants (main / baseline / extended / multikueue), how to write one, and the flake patterns that recur.
 
-**Sources**: `raw/kueue/Makefile-test.mk`, `raw/kueue/test/integration/`, `raw/kueue/test/util/constants.go`, `raw/kueue/test/util/util.go`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[pr-2415]], [[pr-6906]].
+**Sources**: `raw/kueue/Makefile-test.mk`, `raw/kueue/test/integration/`, `raw/kueue/test/util/constants.go`, `raw/kueue/test/util/util.go`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[pr-2415]], [[pr-6906]]; pr-16793.md, issue-16789.md, pr-16781.md, pr-16791.md, pr-16723.md; `raw/kueue/test/integration/framework/framework.go`, `raw/kueue/test/util/behavioral/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-10-21
 
 ---
 
@@ -150,16 +150,21 @@ var _ = ginkgo.Describe("Kueuectl Resume", ginkgo.Ordered, ginkgo.ContinueOnFail
 ### Conventions worth internalizing
 
 - **`ginkgo.Ordered` + `ginkgo.ContinueOnFailure`** on `Describe` blocks when later specs depend on earlier setup. Used throughout the kueuectl suite.
-- **`ginkgo.DescribeTable` + `ginkgo.Entry`** for parameterized tests. The Go-level `testcases := []struct{}{}` table-test pattern is also used in unit tests ([[pr-6906]]).
+- **One `ginkgo.It` per independent scenario.** `ginkgo.DescribeTable` + `ginkgo.Entry` (as in the skeleton above) is still found in older suites, but the community writing-tests guide keeps table-driven style for **unit** tests (map-based tables), and CodeRabbit was told to stop suggesting `DescribeTable` (source: pr-16723.md, pr-16481.md). See [[testing#Community test-writing guidelines]].
 - **`ginkgo.DeferCleanup(...)`** for per-spec teardown. Prefer over manual `AfterEach`.
 - **Builders from `pkg/util/testing`**: `testing.MakeClusterQueue(...)`, `testing.MakeLocalQueue(...)`, `testing.MakeWorkload(...)`, chained with fluent setters and closed with `.Obj()`.
-- **Assertion helpers from `test/util/util.go`**: `util.ExpectLocalQueueToBeDeleted`, `util.ExpectAdmittedWorkloadsTotalMetric`, `util.ExpectWorkloadToFinish`, `util.ExpectWorkloadsToBePending`, etc. These wrap `Eventually` with the right timeout/interval already.
-- **Never `time.Sleep`.** Use `gomega.Eventually(..., util.Timeout, util.Interval).Should(...)` or `gomega.Consistently(...)`.
+- **Assertion helpers from `test/util/behavioral`** (package `behavioral`): `behavioral.ExpectAdmittedWorkloadsTotalMetric`, `behavioral.ExpectWorkloadToFinish`, `behavioral.ExpectWorkloadsToBePending`, `behavioral.ExpectObjectToBeDeleted`, etc. They wrap `Eventually` with the right timeout and interval. Helpers that **simulate** kubelet or controller behaviour (valid only in envtest) live in `test/util/behavioral/integration` (source: pr-16781.md, pr-16791.md). **Correction (2026-10-21)**: earlier text cited `test/util/util.go` and a `util.` prefix, which no longer exist after the helper reorganization.
+- **Never `time.Sleep`.** Use `gomega.Eventually(..., behavioral.Timeout, behavioral.Interval).Should(...)` or `gomega.Consistently(...)`.
+- **Do not call `Reconcile` directly**; let event handlers trigger the work. Retry only transient errors such as conflicts inside `Eventually`, and clean up so the spec can run in a loop (source: pr-16723.md).
+
+### Suite teardown fails on Error-level write-conflict logs
+
+`Framework.Teardown()` stops envtest and then calls `verifyLogs(f.ObservedLogs)` (`test/integration/framework/framework.go`). It filters observed zap entries at `Error` level or above with `behavioral.IsLoggedEntryAConcurrentModification` and expects **none**. A controller that logs an optimistic-concurrency conflict at Error therefore fails the whole suite, which enforces the logging policy rule that handled `Conflict`s are diagnostics, not errors (see [[code-quality#7. Logging policy and verbosity]]). The helper did an unchecked `.(string)` on the entry's `"error"` context value, so an Error entry whose `error` field was not a string (for example `zap.Bool("error", true)`) **panicked** the teardown. It now uses a checked assertion (`errLog, ok := ...(string); return ok && utillogging.IsWriteConflictError(errLog)`), and missing, nil or non-string values return false (source: pr-16793.md, fixes issue-16789.md; cherry-picked to release-0.19/0.20).
 - **Label your spec**. `ginkgo.It("...", ginkgo.Label("feature:fairsharing"), func(){})` lets baseline/extended pickups work.
 
 ### Timeout constants
 
-From `test/util/constants.go`:
+From `test/util/behavioral/constants.go` (formerly `test/util/constants.go`):
 
 | Name | Value | When to use |
 |---|---|---|

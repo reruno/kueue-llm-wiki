@@ -2,9 +2,9 @@
 
 **Summary**: Kueue's in-memory cache stores the live state of ClusterQueues, Cohorts, and admitted workloads; the scheduler takes an immutable per-cycle snapshot of this cache to make admission decisions without holding locks.
 
-**Sources**: `raw/kueue/pkg/cache/scheduler/`, `raw/kueue/pkg/cache/hierarchy/`, `raw/kueue/pkg/cache/queue/`
+**Sources**: `raw/kueue/pkg/cache/scheduler/`, `raw/kueue/pkg/cache/hierarchy/`, `raw/kueue/pkg/cache/queue/`, pr-16375.md, pr-16438.md, pr-16360.md, pr-16479.md, pr-16492.md, pr-16527.md, pr-16738.md, pr-15040.md, pr-15107.md, pr-16382.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -64,7 +64,9 @@ The `pkg/cache/hierarchy` package provides a generic `Manager[CQ, C]` type that 
 
 ### Cycle detection
 
-When a Cohort's parent is set or changed, the hierarchy manager checks for cycles (a Cohort being its own ancestor). A cycle is a fatal configuration error and is rejected. (source: pkg/cache/hierarchy/)
+When a Cohort's parent is set or changed, the hierarchy manager checks for cycles (a Cohort being its own ancestor). (source: pkg/cache/hierarchy/)
+
+**Correction (2026-10-21)**: a cycle is *not* rejected. The cache applies the new parent and returns `ErrCohortHasCycle`; ClusterQueues under the cycle go `Active=False` with reason `CohortCycleDetected`, their usage is updated on their own node only (the recursive ancestor walk would not terminate), and ancestor usage is rebuilt once the cycle is resolved (#13774, backports pr-16375/pr-16376). Since pr-16438 the Cohort reconciler also records the cyclic parent in the **queue manager**, which tolerates cycles, so the two hierarchies stay identical when another Cohort later resolves the cycle. See [[cohort#Cycles in the Cohort hierarchy]] (source: pr-16375.md, pr-16438.md, raw/kueue/pkg/cache/scheduler/cache.go).
 
 **Ordering invariant, currently violated.** A ClusterQueue is registered in the hierarchy manager (`hm.AddClusterQueue`) *before* its scheduler-cache state is fully populated, so a `updateClusterQueue` that fails part-way leaves a cached CQ with a **nil `NamespaceSelector`**. `MatchingClusterQueues` dereferences it on the next Namespace event and the manager **panics**. Two paths reach that state: `updateCohortTreeResources` returning `ErrCohortHasCycle` before the selector is assigned, and `LabelSelectorAsSelector` failing on an unparsable selector (after `AddClusterQueue` has already run). Open bug #13553 (source: pr-13571.md, open). Anyone adding a fallible step to `updateClusterQueue` should assign the selector before it, or default it to `labels.Nothing()`.
 
@@ -112,7 +114,17 @@ Behaviour changes operators can observe ([[borrowing-and-lending]], [[metrics]])
 - **Metrics** report `+Inf` for an amount at or past `MaxInt64`, as before; for CPU the threshold moved from `MaxInt64/1000` cores to `MaxInt64` milli (0.807 cores apart).
 - **Fair sharing** is otherwise unchanged: a share that underflows to zero still reads as within quota, and `weightedShare` still goes through `int64(math.Ceil(...))`. (Saturating share conversion and the underflow floor were split into a separate follow-up.)
 
-The workload-request side still uses saturating `Requests.Mul(int64(count))`; a huge per-pod request times count can saturate to `MaxInt64`, but that is now just a big number, not an unlimited sentinel. See [[scheduler-internals#Quota arithmetic and integer-overflow safety]] and [[workload-resource-adjustment]].
+**Correction (2026-10-21)**: the workload-request side is no longer saturating. Since pr-16479 (v0.20.1/v0.19.8) `MapRequests` and `SliceRequests` store `Amount`, so totals stay exact past `int64` and quota fit checks see the real total; `AmountFromQuantity` keeps in-range non-negative values on an allocation-free `int64` path (pr-16492) and routes far-exponent values to the decimal path without building 10^n (pr-16527). The remaining cap is the API boundary: a non-CPU `resourceUsage` past `MaxInt64` is still written as `MaxInt64` (issue-16486, open). See [[scheduler-internals#Quota arithmetic and integer-overflow safety]] and [[workload-resource-adjustment]].
+
+## Per-Cohort lendable capacity is cached (#15955)
+
+`resourceNode.Lendable` is maintained by `updateCohortLendable` alongside `SubtreeQuota` on every Cohort mutation and copied into `CohortSnapshot`; fair-sharing DRS reads the parent's `Lendable` instead of walking the tree per candidate (`computeLendable` is the fresh derivation, used by tests to assert the stored value stays in sync, including across `DeleteCohort`). Shipped v0.19.7/v0.18.11 via pr-16361/pr-16360 (source: pr-16360.md). `CohortSnapshot` also gained `Borrowing(fr)` (= `BorrowingWith(fr, 0)`, i.e. `SubtreeQuota[fr] < Usage[fr]`) and `DRS` gained `IsBorrowingOnAny(frs)` for contested-resource pruning in fair-sharing preemption (pr-16738).
+
+## Effective resource groups (DQO, Alpha)
+
+With `DynamicQuotaOrchestration` on and `status.effectiveQuotas` set, the cache builds ClusterQueue and Cohort quotas from `resourcegroups.EffectiveResourceGroups(cq)` / `EffectiveCohortResourceGroups(cohort)` (`pkg/util/resourcegroups/effective.go`) instead of `spec.resourceGroups`; the same helper is used by the pending-workloads view, ClusterQueue metrics, the ResourceFlavor and ClusterQueue/Cohort controllers' change predicates, admission-check flavor lists and ConcurrentAdmission. Webhooks, MultiKueue quota automation, kueueviz and the importer still read `spec` (source: pr-15040.md, pr-15107.md). See [[dynamic-quota-orchestration]].
+
+Minor (queue manager, `pkg/cache/queue`): `newClusterQueue`/`newClusterQueueImpl` no longer take an unused `client.Client`, left over after pr-16241 stopped reading LocalQueues during sorts (#16309; backports pr-16382/0.19, pr-16383/0.18).
 
 ## Queue manager: inflight and LocalQueue weights
 

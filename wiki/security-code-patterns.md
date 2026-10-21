@@ -2,9 +2,9 @@
 
 **Summary**: Master checklist of code patterns reviewers should flag, distilled from the `Security Code Patterns` section of every CVE in `raw/cve/`. Grouped by category and mapped to CWE.
 
-**Sources**: `raw/cve/CVE-*.md` (749 entries). Pattern text is taken verbatim from the CVE files where the same checklist repeats per category.
+**Sources**: `raw/cve/CVE-*.md` (775 entries); 2026-10 additions `CVE-2026-26287.md`, `CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-106563.md`, `CVE-2026-7767.md`, `CVE-2026-86671.md`, `CVE-2026-105216.md`, `CVE-2026-105223.md`, `CVE-2026-109358.md`, `CVE-2026-107446.md`; Kueue `pr-16379.md`. Pattern text is taken verbatim from the CVE files where the same checklist repeats per category.
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -102,12 +102,14 @@ This page is the single-pane reference. The category pages ([[security-denial-of
 | CWE-78 | OS command injection | [[security-injection-and-input-validation]] |
 | CWE-79 | XSS (relevant to [[dashboard]]) | [[security-injection-and-input-validation]] |
 | CWE-94 | Code injection | [[security-injection-and-input-validation]] |
+| CWE-190 | Integer overflow in a length field (containerd overlaybd) | [[security-denial-of-service]] |
 | CWE-200 | Sensitive info exposure | [[security-information-disclosure]] |
 | CWE-269 | Improper privilege management | [[security-authn-authz]] |
 | CWE-276 | Incorrect default permissions | [[security-authn-authz]] |
 | CWE-23 | Relative path traversal (Flux source-controller, Fleet) | [[security-injection-and-input-validation]] |
 | CWE-250 | Execution with unnecessary privileges (CRI-O, Strimzi) | [[security-authn-authz]] |
 | CWE-284 | Improper access control | [[security-authn-authz]] |
+| CWE-441 | Confused deputy (ECK annotation refs, Backstage in-cluster identity fallback) | [[security-authn-authz]] |
 | CWE-285 | Improper authorization | [[security-authn-authz]] |
 | CWE-287 | Improper authentication | [[security-authn-authz]] |
 | CWE-295 | Improper cert validation | [[security-supply-chain]] |
@@ -121,6 +123,8 @@ This page is the single-pane reference. The category pages ([[security-denial-of
 | CWE-532 | Sensitive info in log files | [[security-information-disclosure]] |
 | CWE-552 | Files/dirs accessible to outside parties | [[security-information-disclosure]] |
 | CWE-601 | Open redirect | [[security-injection-and-input-validation]] |
+| CWE-696 | Incorrect behaviour order (External Secrets flag cleared by later init) | [[security-code-patterns]] |
+| CWE-732 | Incorrect permission on a critical file (Contrast world-writable containerd config) | [[security-supply-chain]] |
 | CWE-639 | IDOR / user-controlled key (Traefik, Argo Workflows) | [[security-authn-authz]] |
 | CWE-770 | Allocation without limits | [[security-denial-of-service]] |
 | CWE-789 | Memory allocation with excessive size (Envoy Gateway) | [[security-denial-of-service]] |
@@ -166,6 +170,23 @@ The 2026-09-29 data-collection added 67 CVEs (all non-Kueue operators, gateways 
 | Compound identifier verified on one half only | `CVE-2026-85781` (EFS CSI `volumeHandle` pairs an access point with a different filesystem, CWE-283, 8.7) | verify ownership of every component of a key before a destructive action |
 
 **Extension of the review rule:** after finding *who can write the key*, ask *what does every sibling path do with the same key*. Four of the 2026-09 CVEs (Envoy Gateway x2, Argo, Traefik) are one guard missing from one branch. The Kueue-side instance remains #13014 versus [[pr-13960]].
+
+## Ordering, update-path and fallback patterns (2026-10 additions)
+
+The 26 CVEs added by the 2026-10 data-collection are all non-Kueue and none affects a Kueue dependency ([[security#2026-10 wave: what the 26 new CVEs add]]). They add these diff-checkable patterns:
+
+| Pattern | Ecosystem CVE | What to check in Kueue code |
+|---|---|---|
+| A security flag is set, then **reset by a later initialisation or defaulting step**, so the check silently never runs | `CVE-2026-26287` (External Secrets Operator 0.10.0 to before 1.3.2, CWE-696, 7.1: `webhook` generator init order cleared `EnforceLabels` after it was set, skipping the `external-secrets.io/type=webhook` label check) | Configuration defaulting (`SetDefaults_*`) must not overwrite a value the admin set. Feature-gate and integration setup that runs in several phases needs a test that asserts the final state, not the state after the first phase |
+| Check enforced on CREATE, missing on UPDATE | `CVE-2026-92393` (YuniKorn: queue and user annotation re-written on UPDATE) | every `ValidateCreate` rule on a routing field has a `ValidateUpdate` twin; "managed?" decided from old **or** new (Kueue #13293, see [[security-authn-authz]]) |
+| A configuration format that can execute code is copied from a tenant into a privileged context | `CVE-2026-101919` (HyperShift kubeconfig `exec` plugin) | kubeconfigs, Helm values or templates read from Secrets go through an allow-list validator; MultiKueue's `validateKubeconfig` is the model |
+| An unsupported auth mode falls back to the controller's own identity | `CVE-2026-106487` (Backstage Kubernetes backend) | unsupported credential source is an error; no `rest.InClusterConfig()` fallback |
+| A deprecated or alternate endpoint skips validation that the current one applies | `CVE-2026-106563` (Backstage deprecated services endpoint), `CVE-2026-106561` (masking bypass) | every served API version and every handler for the same data applies the same authz and redaction (relevant to [[visibility-api]] and [[dashboard]]) |
+| A credential-bearing HTTP client follows a redirect, or accepts any URL scheme | `CVE-2026-7767` (GitLab Kubernetes proxy), `CVE-2026-86671` (Eclipse Che `file://`) | custom HTTP clients set `CheckRedirect` to stop or same-host-only; URLs from config or CRs are limited to `https` and validated hosts |
+| Secure transport is **off by default**, or off when the CA is missing | `CVE-2026-105216` (go-micro TLS helper `InsecureSkipVerify: true` by default), `CVE-2026-105223` (maclof kubernetes-client skipped verification when `certificate-authority-data` was absent) | keep the `InsecureSkipVerify` grep in [[security-supply-chain]]; missing CA means system roots or refuse |
+| Privileged component writes files world-writable | `CVE-2026-109358` (Contrast node installer wrote the containerd config `0666`) | any `os.WriteFile`/`MkdirAll` uses `0600`/`0700` (or `0644` for non-secret), never `0666`/`0777` |
+| A failed parse is represented by the **same value as "no restriction"** (`nil` selector, empty list), so an invalid rule silently widens scope | Kueue's own, no CVE: before v0.20.0, `NewLocalQueueMetricsConfig` discarded the parse error from `metrics.localQueueMetrics.localQueueSelector` and returned `nil`, which downstream treated as "no LocalQueue filtering". With `LocalQueueMetrics` on, an invalid selector (for example `operator: InvalidOp`) emitted LocalQueue metrics for **all** queues: wider monitoring scope and higher cardinality, with no error reported. Fixed in v0.20.0 by returning the error to callers, so the controller fails startup (ACTION REQUIRED: correct invalid selectors before upgrading) (source: pr-16379.md) | a parse or validation error is returned, never mapped to the zero value. Where `nil`/empty means "match everything", test that an invalid input is rejected rather than matching everything. Same fail-closed rule as the Traefik conflict fallback row above. See [[metrics]] |
+| Length field from an untrusted binary format overflows | `CVE-2026-107446` (overlaybd `index_bytes`, CWE-190) | see [[security-denial-of-service]] |
 
 ## Related pages
 

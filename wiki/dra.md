@@ -2,9 +2,9 @@
 
 **Summary**: Kueue's alpha integration with Kubernetes Dynamic Resource Allocation (DRA) enables quota management, borrowing, and preemption for workloads that request devices via ResourceClaimTemplates or extended resources backed by DRA DeviceClasses.
 
-**Sources**: `raw/kueue/keps/2941-DRA/README.md`, `raw/kueue/keps/2941-DRA/kep.yaml`, `raw/kueue/pkg/dra/claims.go`, `raw/kueue/pkg/dra/extended_resources.go`, `raw/github/kubernetes-sigs__kueue/pr-14951.md`, `issue-14964.md`, pr-14200, pr-14367, pr-15577, pr-15888, pr-15961, pr-15983, pr-16081, pr-16098, pr-16169, pr-16317, issue-14393, issue-15769; `raw/kueue/pkg/features/kube_features.go`, `raw/kueue/pkg/cache/scheduler/dra/`, `raw/kueue/pkg/cache/scheduler/tas_dra.go`
+**Sources**: `raw/kueue/keps/2941-DRA/README.md`, `raw/kueue/keps/2941-DRA/kep.yaml`, `raw/kueue/pkg/dra/claims.go`, `raw/kueue/pkg/dra/extended_resources.go`, `raw/github/kubernetes-sigs__kueue/pr-14951.md`, `issue-14964.md`, pr-14200, pr-14367, pr-15577, pr-15888, pr-15961, pr-15983, pr-16081, pr-16098, pr-16169, pr-16317, issue-14393, issue-15769, pr-13642, pr-16469, issue-13599, issue-14035, pr-16625, pr-16652; `raw/kueue/pkg/features/kube_features.go`, `raw/kueue/pkg/cache/scheduler/dra/`, `raw/kueue/pkg/cache/scheduler/tas_dra.go`
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -93,8 +93,7 @@ Note the ratcheting argument that made failing fast acceptable here: this field 
 
 - **ResourceClaims not supported** — only `ResourceClaimTemplates`. Pods with direct `ResourceClaim` references result in an inadmissible workload. (source: keps/2941-DRA/README.md)
 - **No Topology-Aware Scheduling** — TAS + DRA is a future body of work. (source: keps/2941-DRA/README.md)
-- **No CEL selectors** — `devices.requests[*].exactly.selectors` and `FirstAvailable` are unsupported and produce a validation error. (source: pkg/dra/claims.go)
-- **No AdminAccess or device constraints** — `adminAccess: true` and `devices.constraints` are rejected. (source: pkg/dra/claims.go)
+- ~~**No CEL selectors**~~ / ~~**No AdminAccess or device constraints**~~ — **Correction (2026-10-21)**: these two bullets are outdated. In the snapshot code (`pkg/dra/claims.go` at kueue@8922c563e), CEL selectors are compiled (`validateCELSelectors`) and checked against devices (`validateCELSelectorsAgainstDevices`). The CHANGELOG dates CEL support to v0.18.0 (#9742) and acceptance of `devices.constraints` / device config to v0.19 (#12451). `adminAccess: true` has been accepted with zero charge since v0.20.0 (pr-13642.md), and `firstAvailable` is supported behind `KueueDRAIntegrationPrioritizedList` (see *Prioritized lists* below). The earlier text cited the same file at an older revision (source: claims.go, CHANGELOG-0.18.md, CHANGELOG-0.19.md, pr-13642.md).
 - **AllocationMode=All not supported** — worst-case counting for `All` mode is deferred. (source: pkg/dra/claims.go)
 - **GPU time-slicing / MPS not supported** in alpha extended-resources path.
 
@@ -165,6 +164,7 @@ From `pkg/features/kube_features.go` (source: kube_features.go). Contradiction w
 | `KueueDRADeviceFeasibility` | Alpha, off (v0.20) | `KueueDRAIntegration`, `TopologyAwareScheduling`, `TASNodeFeasibilityForAllLevels` |
 | `KueueDRAIntegrationDeviceTaints` | Alpha, off (v0.20) | `KueueDRADeviceFeasibility` |
 | `ReservedResourceNameValidation` | Beta, on (v0.20) | see the reserved `pods` section |
+| `KueueDRAIntegrationPrioritizedList` | Alpha, off (v0.20) | `firstAvailable` requests (see *Prioritized lists*); also needs Kubernetes `DRAPrioritizedList` (on by default since 1.34) |
 
 The "No Topology-Aware Scheduling" alpha limitation above is superseded for feasibility: `KueueDRADeviceFeasibility` runs inside the TAS placement path.
 
@@ -183,7 +183,27 @@ The "No Topology-Aware Scheduling" alpha limitation above is superseded for feas
 
 **Device taints** ([[pr-16081]], gate added in [[pr-16169]], fixes [[issue-15621]], [[issue-16112]]): the check ignored `DeviceTaintRule` taints, so Kueue could admit onto a device kube-scheduler rejects. `applyDeviceTaintRules` overlays matching rule taints onto the ResourceSlices (equivalent to kube-scheduler's `resourceslice/tracker`, but without a second typed-informer cache of every slice). It only applies when the `DeviceTaintRules` API is served (decided once at startup, to avoid a discovery request per list), `KueueDRAIntegrationDeviceTaints` is on **and** Kubernetes' own `DRADeviceTaintRules` gate is on. Claims that tolerate the taint may still use the device. The separate gate mirrors Kubernetes' `DRADeviceTaints` so taints graduate independently of feasibility; it covers taints in ResourceSlices as well as rules, including the rule watch.
 
-**Requeue** ([[pr-16098]], fixes [[issue-15769]]): Workloads rejected by the check are requeued when a ResourceSlice, DeviceClass, ResourceClaim (deallocated or deleted) or DeviceTaintRule change may free devices. The ResourceSlice watch is not limited to drivers named in `deviceClassMappings`, since the check reads every slice. Alongside, the TAS ResourceFlavor reconciler now requeues only ClusterQueues using the flavor ([[pr-16152]]). Perf: a TAS+DRA scheduler-performance config measures the check's per-cycle cost ([[pr-16317]], part of [[issue-14994]]).
+**Requeue** ([[pr-16098]], fixes [[issue-15769]]): Workloads rejected by the check are requeued when a ResourceSlice, DeviceClass, ResourceClaim (deallocated or deleted) or DeviceTaintRule change may free devices. The ResourceSlice watch is not limited to drivers named in `deviceClassMappings`, since the check reads every slice. Alongside, the TAS ResourceFlavor reconciler now requeues only ClusterQueues using the flavor ([[pr-16152]]). Perf: a TAS+DRA scheduler-performance config measures the check's per-cycle cost ([[pr-16317]], part of [[issue-14994]]). Its pass/fail thresholds were then set from 10 CI runs (source: pr-16652.md, fixes issue-16352, closes issue-14994).
+
+**PodSets of one Workload now see each other's devices** (source: pr-16625.md; backport pr-16809, shipped v0.20.1; 0.20-only). Usage recorded between PodSets used `SinglePodRequests`, where delegated extended resources are zeroed, so two PodSets could share a node's single device-plugin device, and an elastic scale-up could stay pending. Recording now goes through `TASFlavorSnapshot.RequestsForDomain`, the same rule `forLeaf` uses. Remaining gaps: rack-level usage is not charged per node, and a node counts delegated resources only if it publishes all of them. Details: [[topology-aware-scheduling#DRA-backed extended resources counted between PodSets]].
+
+## AdminAccess requests are not charged
+
+A device request with `exactly.adminAccess: true` gives shared, read-only access to devices that are already allocated, for example to a monitoring agent. Charging quota for it would count the device twice, once for the real owner and once for the monitor. kube-scheduler likewise leaves AdminAccess out of `allocatedDevices`. Since v0.20.0, such requests are accepted and **skipped** in every DRA quota path: `isAdminAccessRequest` in `claims.go`, the capacity path (`capacity.go`) and the counter path (`counters.go`). Other requests in the same claim are counted normally. This is a behaviour change, so it was not cherry-picked (source: pr-13642.md, claims.go).
+
+## Prioritized lists (`firstAvailable`, `KueueDRAIntegrationPrioritizedList`, Alpha)
+
+With the gate off, a request with `firstAvailable` is still refused with `FirstAvailable device selection is not supported`, and the Workload is inadmissible. With the gate on, `chargeForFirstAvailable` charges the request **only when the charge equals whatever alternative kube-scheduler will pick** (source: claims.go; CHANGELOG-0.20.md):
+
+- every alternative must map, through `deviceClassMappings`, to the **same logical resource** (otherwise `every alternative must map to "<r>", this one maps to "<r2>"`);
+- every alternative must ask for the **same count** (`every alternative must have count N, this one has M`);
+- each alternative must be `ExactCount` with `count > 0` and a mapped `deviceClassName` (`NotFound` otherwise), and its CEL selectors must compile;
+- an alternative on a **counter-backed or capacity-backed** mapping is refused (`a counter-backed or capacity-backed DeviceClass is not supported for firstAvailable`), because those paths read only `Exactly` requests and would charge nothing;
+- an empty `firstAvailable` list is refused (`must list at least one alternative`).
+
+The request is then charged that count once, on the logical resource. The design issue (issue-13599.md) first proposed a looser **component-wise maximum envelope** over alternatives that map to different resources (e.g. a GPU alternative and a CPU alternative charge both). The shipped Alpha contract is the stricter rule above, from the KEP-2941 update in #13601, which "refuses a charge no active representation can hold exactly rather than saturating it". Treat the envelope text in the issue as historical.
+
+User docs (source: pr-16469.md, docs only; website cherry-pick pr-16523). The Workload does **not** record which alternative a Pod received. Read it from the Pod's generated ResourceClaim: `status.allocation.devices.results[*].request` reads `<request>/<alternative>`, e.g. `gpu/a100`. Mismatched counts and unmapped classes are refused with `DRAResourcesUnresolved`. If **any** alternative's DeviceClass does not exist, the kube-scheduler allocator fails the whole claim even when an earlier alternative could be satisfied, and the Pod stays Pending (`device class ... does not exist`). This was verified on kind during review.
 
 ## Extended-resource charge computation
 

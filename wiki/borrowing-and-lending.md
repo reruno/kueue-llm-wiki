@@ -2,9 +2,9 @@
 
 **Summary**: Within a [[cohort]], a [[cluster-queue]] that's below its nominal quota can lend its headroom to a sibling that's above. The lending CQ can reclaim it at any time via [[preemption]]. Per-CQ `borrowingLimit` and `lendingLimit` cap how much can move.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-17010.md, issue-16049.md, pr-16738.md, issue-16665.md, issue-16666.md, pr-16479.md, pr-16360.md, issue-17022.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -21,7 +21,7 @@
 
 ### Oversized limits are no longer collapsed to "unlimited" (pr-15026, v0.20)
 
-Quota amounts are exact integers past `int64` ([[cache-architecture#Quota amounts are exact past int64 (pr-15026)]]). Before, a `1E` nominal quota with a `10P` `lendingLimit` turned both into the `Unlimited` sentinel, so nothing stayed local; now `990P` stays local. A `borrowingLimit` beyond `int64` used to equal everything the Cohort had spare; now it bounds what the ClusterQueue can reach. An unset limit is still unset (unlimited).
+Quota amounts are exact integers past `int64` ([[cache-architecture#Quota amounts are exact past int64 (pr-15026)]]). Before, a `1E` nominal quota with a `10P` `lendingLimit` turned both into the `Unlimited` sentinel, so nothing stayed local; now `990P` stays local. A `borrowingLimit` beyond `int64` used to equal everything the Cohort had spare; now it bounds what the ClusterQueue can reach. An unset limit is still unset (unlimited). Since pr-16479 the Workload side is exact as well: a Workload whose total request exceeds `int64` is checked against `borrowingLimit`/nominal with its real total, not a saturated `MaxInt64`.
 
 ## When reclaim happens
 
@@ -53,7 +53,11 @@ Reparenting a cohort under a smaller root, dropping an ancestor's nominal quota 
 
 ## Preemption knobs beyond borrowing
 
-`borrowWithinCohort` gates preemption that would leave the preemptor borrowing; the Alpha `PreemptionConfig` can additionally allow preemption in that situation ([[configurable-preemptions]]). A reported open limitation: with `borrowWithinCohort: Never`, a borrowing ClusterQueue cannot preempt lower-priority Workloads of its *own* queue ([[preemption#Known limitation: classical preemption within a borrowing ClusterQueue]]).
+`borrowWithinCohort` gates preemption that would leave the preemptor borrowing; the Alpha `PreemptionConfig` can additionally allow preemption in that situation ([[configurable-preemptions]]). **Correction (2026-10-21)**: the limitation "with `borrowWithinCohort: Never`, a borrowing ClusterQueue cannot preempt lower-priority Workloads of its *own* queue" is fixed by #16060 (main; release-0.20 pr-17010): when `withinClusterQueue` is not `Never`, the flavor assigner simulates in-CQ preemption for a Workload that would borrow and returns `Preempt` if candidates exist ([[preemption#Fixed: classical preemption within a borrowing ClusterQueue (#16060)]]).
+
+## "Borrowing" is per flavor-resource, and per subtree, in fair-sharing preemption
+
+Fair-sharing preemption only targets ClusterQueues that borrow the flavor-resources the preemptor actually needs, and only if every Cohort between the candidate and the LCA with the preemptor is also borrowing them (pr-16738, fixes issue-16665 / issue-16666). Borrowing on an unrelated flavor, or borrowing from a sibling inside a sub-cohort that is itself within quota, no longer exposes Workloads within nominal quota to outside preemption. See [[fair-sharing#Candidate ClusterQueues are pruned by the *contested* flavor-resources (pr-16738)]]. Known gap: preemption (`FairSharingPreemptWithinNominal`, contested resources only) and admission ordering (`FairSharingPrioritizeNonBorrowing`, any requested resource) still define "borrowing" differently, which can loop (issue-17022, open).
 
 ## Related pages
 

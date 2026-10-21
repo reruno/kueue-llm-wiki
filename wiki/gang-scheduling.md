@@ -2,9 +2,9 @@
 
 **Summary**: "Gang scheduling" in Kueue means: if a [[workload]] can't get *all* its Pods running within a deadline, tear it down and requeue — rather than leave it partially running and holding quota. The mechanism is `WaitForPodsReady`, an opt-in config gate per ClusterQueue (and globally in the Kueue configuration).
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (this update: pr-16904.md, `raw/kueue/pkg/cache/scheduler/was/virtual_podgroups.go`).
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-10-21
 
 ---
 
@@ -44,6 +44,10 @@ For multi-template jobs (JobSet, RayJob), gang means "all PodSets' replicas must
 
 [[topology-aware-scheduling]] adds a twist: if an admitted Workload has `UnhealthyNodes` and needs re-admission but the AdmissionCheck `Retry` path is active, the workload might not get re-evicted as expected ([[issue-10660]] — TAS: admitted workload with UnhealthyNodes is not evicted due to AdmissionCheck Retry or PodsReadyTimeout).
 
+## Not the same thing: Kubernetes gang `PodGroup`s in the WAS simulator
+
+Kubernetes workload-aware scheduling has its own gang object, `scheduling.k8s.io/v1beta1` `PodGroup` with `spec.schedulingPolicy.gang.minCount`. For the Alpha, main-only `SchedulerLibraryDeepIntegration` work, Kueue gained `was.BuildVirtualPodGroup(wl)`. It builds one **in-memory** gang PodGroup per Workload, named `virtual-pg-<workload>-<sha1>` with `minCount` equal to the sum of PodSet counts, so the scheduler library's `ScheduleWorkload()` can simulate all-or-nothing placement. Nothing is written to the API server. At this snapshot the builder has no callers, and real PodGroups are ignored. It does not change `WaitForPodsReady` semantics (source: pr-16904.md, virtual_podgroups.go). See [[topology-aware-scheduling]] (section "Deep integration").
+
 ## Related pages
 
 - [[workload]] — the object being evicted.
@@ -51,3 +55,4 @@ For multi-template jobs (JobSet, RayJob), gang means "all PodSets' replicas must
 - [[admission-check]] — AdmissionChecks and their interaction with the PodsReady timer.
 - [[elastic-jobs]] — dynamic Pod-count changes on admitted Workloads.
 - [[wait-for-pods-ready]] — config, defaults and per-workload override.
+- [[topology-aware-scheduling]] — WAS simulator and virtual PodGroups.

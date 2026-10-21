@@ -2,13 +2,13 @@
 
 **Summary**: The `kueue.x-k8s.io/admission-gated-by` annotation lets external controllers delay Kueue's admission of a job until the controller has finished preparing it, without requiring a webhook or blocking job creation.
 
-**Sources**: `raw/kueue/keps/6915-scheduling-gated-by-annotation/README.md`, `raw/kueue/keps/6915-scheduling-gated-by-annotation/kep.yaml`
+**Sources**: `raw/kueue/keps/6915-scheduling-gated-by-annotation/README.md`, `raw/kueue/keps/6915-scheduling-gated-by-annotation/kep.yaml`, raw/kueue/pkg/features/kube_features.go, raw/kueue/pkg/controller/jobframework/reconciler.go
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-10-21
 
 ---
 
-> **Stage: Alpha** — Feature gate `AdmissionGatedBy`, disabled by default. (source: keps/6915-scheduling-gated-by-annotation/kep.yaml)
+> **Stage: Beta** — Feature gate `AdmissionGatedBy`, **enabled by default since v0.19** (Alpha/off in 0.17–0.18) (source: raw/kueue/pkg/features/kube_features.go). **Correction (2026-10-21)**: this page said Alpha, disabled by default; that came from the KEP's original `kep.yaml` and is outdated.
 
 ## Problem
 

@@ -2,9 +2,9 @@
 
 **Summary**: Kueue integrates with the Kubeflow Training Operator's job types — PyTorchJob, TFJob, MPIJob, MXJob, PaddleJob, XGBoostJob, JAXJob. Each has its own controller and its own replica-type decomposition; Kueue's per-integration adapter maps replica types to PodSets.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16972.md, pr-16973.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -52,6 +52,10 @@ Topology-aware PyTorchJobs ([[issue-1476]] — pytorchjobs scheduling unaware of
 
 `orderedReplicaTypes()` in `pkg/controller/jobs/mpijob/mpijob_controller.go` checked only key presence in `MPIJobSpec.MPIReplicaSpecs`, so a key with a nil `*ReplicaSpec` value (e.g. `Launcher`) would panic in `PodSets()`. It now skips nil specs. This is defense in depth: the CRD schema is not `nullable`, so API-server pruning already strips null values, and the case was not reachable through a real cluster (only via programmatically built objects) (source: pr-13714.md, issue-12564).
 
+## Queue-name changes are validated on update
+
+These webhooks did not re-run create-time validation on update, so a suspended job could switch `kueue.x-k8s.io/queue-name` to a valid label value that is not a valid LocalQueue name (for example `Bad_Queue`). The job reconciler then failed on every retry. Since #16221 a changed, non-empty value is validated (backports pr-16972 / release-0.20 and pr-16973 / release-0.19; not yet released at the snapshot; fixed in v0.20.2 and v0.19.9 per CHANGELOG at kueue@3bbb8cce4, released after this snapshot). See [[job-framework-interface#Queue-name format is validated on update]] (source: pr-16973.md).
+
 ## Related pages
 
 - [[integrations]] — integration mechanics.
@@ -59,3 +63,4 @@ Topology-aware PyTorchJobs ([[issue-1476]] — pytorchjobs scheduling unaware of
 - [[gang-scheduling]] — WaitForPodsReady.
 - [[topology-aware-scheduling]] — placement for bandwidth-sensitive training.
 - [[multikueue]] — cross-cluster dispatch.
+- [[job-framework-interface]]

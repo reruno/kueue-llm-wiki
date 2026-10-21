@@ -2,9 +2,9 @@
 
 **Summary**: The Kueue job framework defines the `GenericJob` interface and base reconciler that any new job type must implement to get full Kueue integration — suspend/resume lifecycle, quota accounting, condition propagation, and webhook scaffolding — for free.
 
-**Sources**: `raw/kueue/keps/369-job-interface/README.md`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`
+**Sources**: `raw/kueue/keps/369-job-interface/README.md`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`, pr-16370.md, pr-16436.md, pr-16460.md, pr-16461.md, pr-16470.md, pr-13375.md, pr-16773.md, pr-16774.md, pr-16779.md, pr-16881.md, pr-16972.md, pr-16973.md, pr-13775.md, pr-12948.md, raw/kueue/pkg/controller/jobframework/defaults.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -49,6 +49,7 @@ Additional optional interfaces enable specific features:
 | `JobWithCustomValidation` | Custom webhook create/update validation |
 | `JobWithManagedBy` | MultiKueue: the job has a `spec.managedBy` field for multi-cluster dispatch |
 | `JobWithCustomQueueNameChange` | Override the default handling when the job's `queue-name` label changes (see below) |
+| `JobWithOnHold` | `IsOnHold()`: the job asks for its Workload's quota to be released without requeueing (see below) |
 
 (source: pkg/controller/jobframework/interface.go)
 
@@ -61,6 +62,10 @@ type JobWithCustomQueueNameChange interface {
 ```
 
 Added in [[pr-11191]] (documented in [[pr-11215]]). The base reconciler normally syncs/reverts the Workload's `queue-name` to match the job. For **serving workloads** — long-running, non-completing integrations, specifically **LeaderWorkerSet** and **StatefulSet** (both managed through the Pod controller) — that generic handling raced with manual queue-name edits and could **revert** a deliberate label change at the Workload-object level. A job type that implements `JobWithCustomQueueNameChange` opts out of the generic path; the integration's own `CustomQueueNameChange` decides what to do. When the queue-name does change, the reconciler now also logs structured `oldQueueName`/`newQueueName` fields ([[pr-11148]]).
+
+### `JobWithOnHold`
+
+`IsOnHold() bool`. In `ReconcileGenericJob` the on-hold check runs right after the Workload-deletion branch and **before** the finished check. If the job is on hold and its Workload holds quota, the reconciler sets `QuotaReserved=False` with reason **`OnHold`** (`kueue.WorkloadOnHold`) and returns. The quota is released and the Workload is not requeued. `RayJob` implements it as `status.jobDeploymentStatus == ValidationFailed`. StatefulSet uses the same reason for scale-to-zero from its own reconciler (source: raw/kueue/pkg/controller/jobframework/interface.go, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobs/rayjob/rayjob_controller.go). A *pending* Workload that turns `OnHold` is removed from the scheduling queue (`DeleteWorkload`), so it does not leave a stale queue entry. This fix (#12929) shipped in v0.19.0 and v0.18.3, with a release-0.17 backport ([[pr-12948]]) (source: pr-12948.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md).
 
 ## The base reconciler
 
@@ -138,7 +143,39 @@ When a reconciler resolves a Workload from a **client-supplied** label or annota
 
 ## Defaulting must respect `managedJobsNamespaceSelector`
 
+**The LocalQueue path (#13375, v0.20.0).** Before this fix, the Job and `BaseWebhook` `Default()` methods applied the default `queue-name` without checking `managedJobsNamespaceSelector`, so a Job in an *excluded* namespace got `kueue.x-k8s.io/queue-name: default` and was then suspended. Only the Pod webhook checked the selector first. The check now lives in `IntegrationManager.ApplyDefaultLocalQueue` itself, so every integration that calls it is covered: Job, Deployment, JobSet, LWS, MPIJob, Ray*, SparkApplication, StatefulSet, TrainJob and the Kubeflow jobs. It runs only after the cheap eligibility checks: a default LocalQueue exists, the object has no queue name, and its owner is not managed by Kueue. Only then is the Namespace read through the unexported helper `namespaceMatchesSelector`, and a read error is returned from the webhook. Jobs in excluded namespaces are left unchanged. The CHANGELOG lists this only for v0.20.0; no backport entry appears (source: pr-13375.md, raw/kueue/pkg/controller/jobframework/defaults.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md).
+
 `ApplyDefaultLocalQueue` and `ApplyDefaultWorkloadPriorityClass` both check the namespace selector before mutating and return a Namespace read error from the webhook rather than swallowing it; every Job webhook passes the configured selector through, and the Pod webhook passes `nil` because it already enforced the selector. See [[workload-priority#Defaulting respects the namespace selector]] (source: pr-15851.md).
+
+## Child jobs: `SkipChildJobSuspension`
+
+A *non-top-level* job is one whose ancestor is a Kueue-managed job, for example a JobSet's child `batch/v1 Job` or a RayJob's RayCluster. For such a job, `ReconcileGenericJob` returns right after the namespace-selector check. Historically it first **suspended the child** if the child was not finished and not suspended and no unfinished ancestor Workload could be found (`shouldSuspendChildJob` → `getLatestNotFinishedWorkloadForObject(ancestor)`, with special cases for workload slicing). This dates from early integrations. Every supported parent controller (JobSet, Kubeflow Trainer v2, KubeRay ≥ 1.7) now suspends or deletes its own children, so the code mostly generated extra API traffic (source: pr-16370.md, raw/kueue/pkg/controller/jobframework/reconciler.go).
+
+It is also **racy with elastic Workload slices under MultiKueue** (Ray autoscaling). Suppose a worker scales W0 → W1 → W2. Slice W1 is already finished, while W2 does not yet have an owner reference to the worker-side RayJob. In that window the ancestor lookup returns nil, and the generic reconciler suspends the running child RayCluster, even though W2 is already admitted.
+
+- Gate **`SkipChildJobSuspension`**: when enabled, `shouldSuspendChildJob` returns `false` and the child's lifecycle is left to the ancestor's controller. When disabled, the old behaviour applies. #16370 introduced it as Beta and on; #16436 downgraded it to **Alpha, off by default** (versioned 0.20) "to have more time to evaluate". Graduation to Beta is tracked in issue-16457 (open) (source: pr-16436.md, raw/kueue/pkg/features/kube_features.go).
+- Backports: release-0.19 ([[pr-16460]], **v0.19.8**) and release-0.18 ([[pr-16461]]), both Alpha/off, with the gate version adjusted to the branch (source: pr-16460.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md).
+- **Dependency**: `MultiKueueRayInTreeAutoscaling` now requires `MultiKueue`, `ElasticJobsViaWorkloadSlices` **and `SkipChildJobSuspension`**. Startup validation rejects the combination if the last one is disabled or omitted ([[pr-16470]], v0.20.1 via pr-16814). **Action required** if you enable Ray in-tree autoscaling under MultiKueue (source: pr-16470.md, raw/kueue/pkg/features/kube_features.go).
+- RayService caveat raised in review: KubeRay < 1.7 relied on Kueue to suspend a RayService's child. With KubeRay ≥ 1.7, suspending a RayService deletes its children (source: pr-16370.md). See [[integration-rayjob#RayService suspend uses the top-level `spec.suspend` (KubeRay ≥ 1.7)]].
+
+## Internal labels and annotations are never inherited
+
+Some Kueue labels and annotations are read by controllers that **trust** them. A configuration could ask for these keys to be copied from the Job or Pod onto its Workload, either through `integrations.labelKeysToCopy` or as `CustomMetricLabels` sources. That let a job author forge them. #14227 makes `WithLabelKeysToCopy` / `WithAnnotationsToCopy` drop these keys whatever the configuration says. Every path that copies metadata onto a Workload reads its keys from these two options, including the pod group and the LWS adapter (source: pr-16773.md, raw/kueue/pkg/controller/jobframework/reconciler.go):
+
+- labels (`nonInheritableLabels`): `kueue.x-k8s.io/multikueue-origin`, `kueue.x-k8s.io/concurrent-admission-parent`, `kueue.x-k8s.io/job-uid`;
+- annotations (`nonInheritableAnnotations`): `component-workload-index`, `job-owner-gvk`, `job-owner-name`, `priority-boost`, `workload-allowed-resource-flavors`, `workload-slice-name`, `workload-slice-replacement-for`, `is-group-workload` (all `kueue.x-k8s.io/`).
+
+What the keys protect: `multikueue-origin` marks a Workload as MultiKueue-placed for the worker watch, the GC and `ValidateRemoteObjectOwnership`. `priority-boost` feeds effective priority. `job-owner-*` are read by MultiKueue ahead of the owner reference. MultiKueue's remote copy is built by `cloneForCreate`, not from these options, so it is unaffected. `job-uid` is filtered too, but integrations write the real owner UID right after building the Workload. Shipped in **v0.20.1 (pr-16773) and v0.19.8 (pr-16774)**.
+
+The configuration is still **accepted**, because refusing it would break existing setups. Instead, since #16779 the manager logs any `labelKeysToCopy` entries that `NonInheritableLabelsIn` reports, once at startup at Info level (v0.20.1 pr-16874, v0.19.8 pr-16878). #16881 removed the log mention from the API field comment and added a "keep in sync" note on the two lists. Workload-scoped custom metric sources are not checked, because a metric naming an internal key reports the Workload's own value (source: pr-16779.md, pr-16881.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md). Copying annotations generally (`integrations.annotationKeysToCopy`) is an open feature request (issue-16471).
+
+## Queue-name format is validated on update
+
+`ValidateJobOnUpdate` now validates a **changed, non-empty** `kueue.x-k8s.io/queue-name`. Before, webhooks that do not re-run `ValidateJobOnCreate` on update (Pod, AppWrapper, and the Kubeflow jobs served by `BaseWebhook`) let a suspended job switch to a valid label value that is not a valid LocalQueue name, such as `Bad_Queue`. The reconciler then failed to update `spec.queueName` on every retry. Unchanged values are not re-validated, so a job already stored with an invalid name stays updatable. Integrations that also re-run create validation (Job, JobSet, MPIJob, Ray, Spark, TrainJob) now put the error into the `field.ErrorList` twice. `ToAggregate()` deduplicates it, so users see it once (#16221; backports pr-16972 / release-0.20 and pr-16973 / release-0.19, not yet released at the snapshot; fixed in v0.20.2 and v0.19.9 per CHANGELOG at kueue@3bbb8cce4, released after this snapshot) (source: pr-16973.md, raw/github/kubernetes-sigs__kueue/pr-16221.md).
+
+## Priority lookup takes an event recorder
+
+`ExtractPriority` and `PrepareWorkloadPriority` now take an `events.EventRecorder`, so that a missing WorkloadPriorityClass can be reported on the object (see [[workload-priority#Missing WorkloadPriorityClass: Warning event]]). `ExtractPriority` stays exported. **Out-of-tree integrations that call these helpers must pass a recorder** (source: pr-13775.md).
 
 ## Related pages
 
@@ -150,3 +187,6 @@ When a reconciler resolves a Workload from a **client-supplied** label or annota
 - [[multikueue]]
 - [[local-queue-defaulting]]
 - [[testing-integration]]
+- [[workload-priority]]
+- [[integration-statefulset]]
+- [[integration-rayjob]]

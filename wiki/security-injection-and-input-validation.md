@@ -2,9 +2,9 @@
 
 **Summary**: Combined coverage for Injection (27), Path Traversal (12), and Code Execution (218) CVE categories — they share the same root cause (untrusted input crossing a parse/exec boundary) and the same mitigations (validate at boundary, allowlist, type-safe builders).
 
-**Sources**: `raw/cve/` — representative entries `CVE-2018-17450.md` (Jenkins SSRF), `CVE-2019-10165.md` (OpenShift command injection), `CVE-2019-11246.md` (kubectl cp tar extraction path traversal), `CVE-2019-1002101.md` (related path traversal), `CVE-2021-25741.md` (subpath symlink), `CVE-2022-23524-26.md` (Helm SSRF), `CVE-2025-15613.md` (Kyverno Service Call SSRF), 2026-09 additions `CVE-2026-80352.md` (Camel K YAML injection), `CVE-2026-77180.md`, `CVE-2026-52831.md`, `CVE-2026-53713.md`, `CVE-2026-84721.md`, `CVE-2026-59341.md`, and CWE-20/22/74/77/78/89/94/502/918/601 entries.
+**Sources**: `raw/cve/` — representative entries `CVE-2018-17450.md` (Jenkins SSRF), `CVE-2019-10165.md` (OpenShift command injection), `CVE-2019-11246.md` (kubectl cp tar extraction path traversal), `CVE-2019-1002101.md` (related path traversal), `CVE-2021-25741.md` (subpath symlink), `CVE-2022-23524-26.md` (Helm SSRF), `CVE-2025-15613.md` (Kyverno Service Call SSRF), 2026-09 additions `CVE-2026-80352.md` (Camel K YAML injection), `CVE-2026-77180.md`, `CVE-2026-52831.md`, `CVE-2026-53713.md`, `CVE-2026-84721.md`, `CVE-2026-59341.md`, and CWE-20/22/74/77/78/89/94/502/918/601 entries; 2026-10 additions `CVE-2026-55797.md`, `CVE-2026-18529.md`, `CVE-2026-108546.md`, `CVE-2026-86671.md`, `CVE-2026-7767.md`, `CVE-2026-55252.md`, `CVE-2026-105985.md`, `CVE-2026-108570.md`.
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -118,6 +118,30 @@ These extend the existing `CVE-2025-15613`, `CVE-2026-71208` and `CVE-2026-73263
 ### Side channel through templates
 
 **Sealed Secrets, CVE-2026-59341** (CWE-203, 4.2): the unauthenticated `POST /v1/verify` and `/v1/rotate` handlers unsealed a secret and then rendered Go templates from `spec.template.data`, which was **not bound into the AEAD label**. An attacker copies a victim's metadata and ciphertext, swaps in `{{ if eq (substr 0 1 .password) "S" }}ok{{ else }}{{ fail "x" }}{{ end }}` and reads HTTP 200 versus 409 as one bit per request (source: CVE-2026-59341.md). Rules: every field that influences interpretation of ciphertext must be inside the authenticated data; never evaluate tenant templates in a context that contains decrypted data; and do not map internal errors to distinguishable status codes on unauthenticated endpoints.
+
+## 2026-10 additions
+
+None is a Kueue CVE; Kueue has no `os/exec`, template rendering or tenant-URL fetch in `pkg/`, so these strengthen existing rules for future features ([[security#2026-10 wave: what the 26 new CVEs add]]).
+
+### Shell commands built from config fields
+
+- **Argo CD 2.11.0 to before 3.3.15 / 3.4.10 / 3.5.4 / 3.6.0-rc2, CVE-2026-55797** (CWE-78, 8.8): when the repo-server cloned an SSH Git repository with a proxy URL, it embedded the proxy host and port in an SSH `ProxyCommand` run through a shell without neutralising metacharacters. Anyone who can create or update a repository or repository-credential template ran commands in the repo-server and read its Git, Helm and OCI credentials (source: CVE-2026-55797.md).
+- **IBM Maximo Location Service for Esri 9.0-9.2, CVE-2026-18529** (CWE-78, 8.7): a user-controlled value was passed to a shell command in a Kubernetes operator task (source: CVE-2026-18529.md).
+- **Spotweb <= 1.5.8, CVE-2026-108546** (CWE-78, 7.5): a spot title was substituted unescaped for `$SPOTTITLE` and passed to `exec()` (source: CVE-2026-108546.md). Not Kubernetes; same rule.
+
+The Argo CD case shows the field need not look like a command: a **proxy host** became shell text. Kueue analogue: a MultiKueue kubeconfig's `proxy-url` is consumed by client-go as a URL, not through a shell. Any future feature that turns a host, port or path into an `ssh`/`sh -c` argument must use `exec.Command` with an argv slice and validate the host as a hostname.
+
+### SSRF via scheme and redirect
+
+- **Eclipse Che >= 7.29.0, CVE-2026-86671** (CWE-73/522/918, no CVSS, no fix available): `/api/scm/resolve` and `/api/factory/resolver` passed an attacker URL to `new URL(url).openConnection()` with no scheme or host allow-list and returned the body. The `file://` scheme read the pod's ServiceAccount token at `/var/run/secrets/kubernetes.io/serviceaccount/token`. HTTP reached `169.254.169.254`. The user's stored SCM token was attached as `Authorization` to a host of the attacker's choosing (source: CVE-2026-86671.md). This extends the SSRF list above with the **scheme** dimension: an allow-list of hosts is not enough if `file://` (or `gopher://`, `unix://`) is accepted.
+- **GitLab CE/EE 13.11 to before 19.2.8 / 19.3.5 / 19.4.2, CVE-2026-7767** (CWE-601, 5.8): a user controlling a Kubernetes agent could make the Kubernetes proxy send authentication tokens to an unintended server through improper redirect validation (source: CVE-2026-7767.md).
+- **OpenRun < 0.17.7, CVE-2026-55252** (CWE-601): redirect-URL restrictions were bypassable, an open redirect (source: CVE-2026-55252.md).
+
+**Rules:** (1) URLs from a CR or config are parsed, then the scheme is checked against an allow-list (`https`, and `http` only where documented) before any host check. (2) A client that attaches credentials must not follow redirects to another host. Go's `http.Client` drops `Authorization` on a cross-domain redirect only when the header was set on the original request. Credentials added by a wrapping `RoundTripper` (as client-go auth transports do) are added again on every hop, so set `CheckRedirect` to stop or allow same-host only. (3) [[dashboard]] and any future Kueue UI must not take a post-login or "return to" URL from a query parameter without same-origin validation.
+
+### Template injection
+
+**Craft CMS 5.10.13.2, CVE-2026-105985** (CWE-1336, 8.8): request-controlled component classes and property overrides made `renderObjectTemplate()` evaluate attacker Twig outside a sandbox, reaching `system()`. **Furion <= 4.9.9.95, CVE-2026-108570** (CWE-1336, 6.3): `ViewEngine.RunCompile` compiled attacker-supplied template content (source: CVE-2026-105985.md, CVE-2026-108570.md). Both are outside Kubernetes and restate the existing rule: never evaluate a tenant-supplied string as a template. In Go, `text/template` with a FuncMap that reaches `os`/`exec` is the equivalent.
 
 ## Related pages
 

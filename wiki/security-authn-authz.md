@@ -2,9 +2,9 @@
 
 **Summary**: Patterns from Authentication Bypass (40), RBAC Misconfiguration (15), Privilege Escalation (70), and Unauthorized Write Access (38) CVE categories. Covers Kueue's controller ServiceAccount, [[webhooks|webhook]] handlers, [[multikueue]] cross-cluster credentials, and tenant isolation between [[cluster-queue|ClusterQueues]].
 
-**Sources**: `raw/cve/` — representative entries `CVE-2018-18264.md` (Kubernetes Dashboard auth bypass), `CVE-2018-16886.md` (etcd RBAC), `CVE-2019-3779.md` (privilege escalation), `CVE-2019-11247.md` (cross-namespace custom resource access), `CVE-2019-11249.md`, `CVE-2020-8559.md`, `CVE-2022-23524-26.md` (Helm SSRF/auth issues); 2026-09 additions `CVE-2026-19274.md`, `CVE-2026-55225.md`, `CVE-2026-53718.md`, `CVE-2026-85594.md`, `CVE-2026-61682.md`, `CVE-2026-93991.md`, `CVE-2026-55636.md`, and others cited inline.
+**Sources**: `raw/cve/` — representative entries `CVE-2018-18264.md` (Kubernetes Dashboard auth bypass), `CVE-2018-16886.md` (etcd RBAC), `CVE-2019-3779.md` (privilege escalation), `CVE-2019-11247.md` (cross-namespace custom resource access), `CVE-2019-11249.md`, `CVE-2020-8559.md`, `CVE-2022-23524-26.md` (Helm SSRF/auth issues); 2026-09 additions `CVE-2026-19274.md`, `CVE-2026-55225.md`, `CVE-2026-53718.md`, `CVE-2026-85594.md`, `CVE-2026-61682.md`, `CVE-2026-93991.md`, `CVE-2026-55636.md`, and others cited inline; 2026-10 additions `CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-103413.md`, `CVE-2026-103546.md`, `CVE-2026-18533.md`, `CVE-2026-18537.md`, `CVE-2026-95837.md`; Kueue code `pkg/controller/jobframework/validation.go`, `pkg/controller/admissionchecks/multikueue/multikueuecluster.go`., raw/kueue/CHANGELOG/CHANGELOG-0.20.md, issue-17073.md (open; known gap only)
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -21,7 +21,7 @@ Kueue runs as a single, privileged controller. Three boundaries must be enforced
 Patterns from `raw/cve/` Authentication Bypass entries:
 
 - **Webhook handlers that skip token validation on certain HTTP methods.** Kueue's webhooks are called only by the API server (mTLS), so this is low-risk *if* the webhook handler doesn't expose any other HTTP routes on the same listener. Verify the metrics port and webhook port are on separate listeners with separate auth.
-- **Missing `SubjectAccessReview` (SAR) calls before privileged operations.** Kueue rarely performs operations on behalf of an end-user identity — most actions run as the controller SA. But the [[visibility-api]] and any future user-facing endpoint *must* SAR the caller before disclosing per-queue data; that surface today escapes traditional RBAC because it's served by Kueue, not the API server.
+- **Missing `SubjectAccessReview` (SAR) calls before privileged operations.** Kueue rarely performs operations on behalf of an end-user identity — most actions run as the controller SA. But the [[visibility-api]] and any future user-facing endpoint *must* SAR the caller before disclosing per-queue data; that surface today escapes traditional RBAC because it's served by Kueue, not the API server. **KueueViz does this since v0.20.0 (#13810, ACTION REQUIRED):** with authentication enabled, every API and WebSocket route runs a SubjectAccessReview for the caller (user, groups, UID, extra) via `middleware.RequireAuthorization` (`cmd/kueueviz/backend/middleware/auth.go`), with decisions cached in an LRU with separate allow and deny TTLs (`CacheTTL`/`NegativeCacheTTL`); the backend ServiceAccount needs `create` on `subjectaccessreviews` (source: CHANGELOG-0.20.md). Known gap, open as of this snapshot: `/ws/namespaces` is registered without the wrapper and does not check LocalQueue watch access (issue-17073; fix pr-17088 open). See [[dashboard]].
 - **Trusting `X-Forwarded-For` / `X-Remote-User` headers without validation.** Relevant if a Kueue endpoint is fronted by a proxy. Strip and re-set these at the proxy; never trust them in handler code.
 - **Admission webhooks with `failurePolicy: Ignore`.** Kueue's validating webhook is `failurePolicy: Fail` (correct). Any new mutating webhook added for an integration must not silently default to `Ignore`.
 
@@ -121,6 +121,52 @@ Roughly two dozen operator and gateway CVEs added on 2026-09-29 share one shape:
 
 Kueue has no header-based identity and no unauthenticated data endpoint beyond metrics; the check is that the [[visibility-api]] aggregated server delegates to the API server's authenticator and never reads `X-Remote-*` itself. Any future Kueue endpoint that mutates state on first-come semantics (single-use token, one-time approval) needs an optimistic-concurrency write.
 
+
+## 2026-10 additions: UPDATE-path gaps, kubeconfig trust and identity fallback
+
+None of these is a Kueue CVE or affects a Kueue dependency; see [[security#2026-10 wave: what the 26 new CVEs add]].
+
+### Checks enforced on CREATE but not on UPDATE
+
+**Apache YuniKorn <= 1.9.0, CVE-2026-92393** (CWE-863, no CVSS, fixed 1.10.0): the admission controller enforced label and user-info annotation checks for CREATE of Deployments, ReplicaSets, StatefulSets, DaemonSets, Jobs and CronJobs, but not for UPDATE. One UPDATE could set an arbitrary user-info annotation and change the application ID, placing the workload in a queue the user may not use and side-stepping per-user quota tracking (source: CVE-2026-92393.md).
+
+This is the scheduler-quota version of the "guard missing from a sibling method" rule, and Kueue has had the same shape:
+
+- Kueue's job webhooks validate the `kueue.x-k8s.io/queue-name` label on update in `validateUpdateForQueueName` (`pkg/controller/jobframework/validation.go`): it is immutable while the job is unsuspended, a changed value on a suspended job is re-validated, and removing it is rejected in a namespace that has a default LocalQueue.
+- RayJob/RayCluster/SparkApplication webhooks only validated an update when the *new* object was managed, so removing the queue-name label from a managed job skipped validation and left it running unmanaged. #13293 added `ShouldValidateRayOrSparkJobOnUpdate`, which also validates when the *old* object had a queue name, behind `ValidateRayAndSparkJobUpdates` (Beta, on by default since 0.18). See [[integration-rayjob]], [[integration-spark]] and [[webhooks]].
+- Kueue derives no quota from a user-identity annotation. The tenant boundary is the namespace: a LocalQueue is namespaced and a ClusterQueue admits only namespaces matching its `namespaceSelector`, so changing the queue-name label can only reach LocalQueues in the job's own namespace.
+
+**Rules:** every `ValidateCreate` check on a routing or identity field (queue name, priority class, prebuilt-workload name, pod-group name) needs a `ValidateUpdate` counterpart. An "is this object managed?" decision on update must look at old **or** new, not only new. Any future per-user quota must take the user from the admission request's `UserInfo`, never from an object label or annotation.
+
+### Kubeconfigs from Secrets run code
+
+**HyperShift operator, CVE-2026-101919** (CWE-20, 8.8): user-supplied kubeconfig Secrets were copied into the privileged control-plane namespace without sanitisation. A kubeconfig with an `exec` credential plugin then ran attacker-chosen commands inside the control plane when a downstream controller loaded it (source: CVE-2026-101919.md).
+
+A kubeconfig is executable configuration, not data: `users[].exec`, `auth-provider`, `tokenFile` and `certificate-authority` paths all make the consuming process run a command or read a local file. Kueue's [[multikueue]] already blocks this class. Since #7439 (2025-10), `validateKubeconfig` and `validateRestConfig` in `multikueuecluster.go` reject, for kubeconfig-sourced `MultiKueueCluster`s:
+
+- `tokenFile`, `bearerTokenFile`, and `certificate-authority` file paths (only `certificate-authority-data` is allowed)
+- `insecure-skip-tls-verify`
+- basic auth
+- exec plugins and auth providers
+- a server host that is neither an IP nor a valid DNS-1123 subdomain
+
+A failed check sets the cluster's `Active` condition to false with reason `InsecureKubeConfig`. The one exception is the ClusterProfile path (`MultiKueueClusterProfile` gate), which allows exec providers because the credential plugins are configured by the Kueue operator rather than read from the Secret. Kubeconfigs loaded by `locationType: Path` are confined to `/etc/multikueue/kubeconfigs/` when `MultiKueueKubeConfigPathValidation` is on (Beta, on by default in 0.20). **Rule:** keep this validation for every new credential source, and never relax it to "warn only".
+
+### Falling back to the controller's own identity
+
+**Backstage `@backstage/plugin-kubernetes-backend` < 0.21.10, CVE-2026-106487** (CWE-441, 3.5): when a catalog-supplied cluster entity used an auth mode the backend did not support, the backend used its **local in-cluster identity** against the local API server, exposing resources readable by that ServiceAccount (source: CVE-2026-106487.md). **Rule:** an unsupported or missing credential configuration must be an error, never a fallback to `rest.InClusterConfig()`. Kueue's MultiKueue `loadClientConfig` returns a reason (`BadKubeConfig`, `InsecureKubeConfig`, `BadClusterProfile`, `BadRestConfig`) and has no in-cluster fallback. Keep it that way.
+
+### Operators that apply tenant-authored manifests
+
+- **Apache Camel Karavan 4.0.0 to before 4.22.1, CVE-2026-103413** (CWE-20, 8.8): on deployment, Karavan unmarshalled a project's `kubernetes.yaml` and applied every resource in it with its own ServiceAccount. It did not restrict kinds or pin the namespace, and it did not reject `hostNetwork`, `hostPID`, `hostIPC`, `hostPath`, host ports, privileged containers or added capabilities. Any authenticated user of any role could use it (source: CVE-2026-103413.md).
+- **IBM Maximo Location Service for Esri 9.0-9.2, CVE-2026-18533 / CVE-2026-18537** (CWE-94, 6.5 / 8.7): an unsanitised container image reference from configuration was rendered into an operator template (source: CVE-2026-18533.md, CVE-2026-18537.md).
+- **MongoDB Controllers for Kubernetes, CVE-2026-103546** (CWE-918, 4.3): Ops Manager backup configuration from the `OpsManager` CR was used for administrative actions without enough validation (source: CVE-2026-103546.md).
+
+Kueue mapping: the [[multikueue]] manager re-creates the user's job object in the worker cluster with the worker kubeconfig's identity. The worker's Pod Security Admission and RBAC still apply. So what limits the kinds and namespaces Kueue can write remotely is the **worker kubeconfig's RBAC** (see "MultiKueue-specific concerns" above), not Kueue code. **Rule:** a controller that writes objects derived from tenant input must fix the namespace to the source object's namespace, allow-list the kinds, and never widen the pod security context.
+
+### Restored state overrides the requested security context
+
+**containerd 2.1.0 to before 2.2.7 / 2.3.4, CVE-2026-95837** (CWE-269, 7.8): CRI checkpoint restore let CRIU restore credentials, capabilities, `no_new_privs` and seccomp from checkpoint data instead of enforcing the destination `ContainerConfig`, while CRI status reported the requested config (source: CVE-2026-95837.md). This is the containerd twin of CRI-O CVE-2026-92574 above and strengthens the "re-apply security context after restore or adoption" rule. Kueue does not use checkpoint restore.
 
 ## Related pages
 

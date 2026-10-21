@@ -2,9 +2,9 @@
 
 **Summary**: `kueue-importer` is a one-shot tool for onboarding existing workloads into Kueue. Run it against a cluster that has jobs/Pods already running and it creates the corresponding [[workload]]s, wiring them up to the right [[local-queue]]s, so the state is consistent without re-creating jobs.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`.
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -50,6 +50,13 @@ The importer selects Pods by `--namespace` and by queue-mapping rules. Rules mat
 ## Other fixes
 
 Flavor assignment in the Pod importer was corrected (backports pr-14579.md, pr-14582.md of #12924), and the importer returns an error when listing Pods fails instead of continuing (source: pr-15596.md, pr-15597.md).
+
+All of these shipped in v0.20.0 (source: CHANGELOG-0.20.md):
+
+- the `match.resources` rule above (#15573);
+- ResourceFlavors are resolved **per requested resource**, not one flavor for the whole Pod, so Pods whose resources map to different flavors get the right assignment (#12924);
+- a failed Pod list (missing RBAC, wrong namespace) is an error with a non-zero exit, not a silent success (#15484);
+- `importer import --concurrent-workers=0` is rejected and asks for at least 1 worker. Before, it reported success without checking or importing any Pod (#15490).
 
 ## Related pages
 

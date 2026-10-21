@@ -2,9 +2,9 @@
 
 **Summary**: AppWrapper (a Project CodeFlare CRD) wraps one or more component objects — Jobs, Deployments, custom CRDs — into a single gated unit. Kueue's AppWrapper integration is the escape hatch for running Kueue-aware gating against job types that don't have a dedicated Kueue integration yet.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16972.md, pr-16973.md
 
-**Last updated**: 2026-05-08
+**Last updated**: 2026-10-21
 
 ---
 
@@ -40,7 +40,12 @@ AppWrapper + TAS ([[issue-4495]] — Flaky test: TopologyAwareScheduling for App
 
 Kueue v0.18.0 ships against **AppWrapper v1.2.1** ([[pr-10898]]). v1.2.1 is a dependency-only patch over v1.2.0: bumps `go.opentelemetry.io/otel/sdk` to 1.43.0, `google.golang.org/grpc` to 1.79.3, and the Go toolchain to 1.26. No behavior change in the integration itself.
 
+## Queue-name changes are validated on update
+
+These webhooks did not re-run create-time validation on update, so a suspended job could switch `kueue.x-k8s.io/queue-name` to a valid label value that is not a valid LocalQueue name (for example `Bad_Queue`). The job reconciler then failed on every retry. Since #16221 a changed, non-empty value is validated (backports pr-16972 / release-0.20 and pr-16973 / release-0.19; not yet released at the snapshot; fixed in v0.20.2 and v0.19.9 per CHANGELOG at kueue@3bbb8cce4, released after this snapshot). See [[job-framework-interface#Queue-name format is validated on update]] (source: pr-16973.md).
+
 ## Related pages
 
 - [[integrations]] — integration mechanics.
 - [[multikueue]] — AppWrapper adapter for MultiKueue.
+- [[job-framework-interface]]

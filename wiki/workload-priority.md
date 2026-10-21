@@ -2,9 +2,9 @@
 
 **Summary**: A [[workload]]'s priority is the integer used by the [[queueing-strategy]] heap and by [[preemption]]. It comes from either a stock `scheduling.k8s.io/PriorityClass` (via the Pod template) or, more commonly for Kueue, a `kueue.x-k8s.io/WorkloadPriorityClass` — the latter decouples "how does this job queue?" from "how does the Pod preempt other Pods on the node?"
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13775.md, pr-13719.md, pr-16422.md, pr-14411.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -24,7 +24,7 @@ In-place updates were added for specific cases: the label-based update path ([[i
 
 ## Defaulting
 
-Without any priority annotation and without a `priorityClassName` on the Pod template, the Workload gets priority `0`. A missing `WorkloadPriorityClass` raises an event ([[issue-3439]]) rather than silently failing.
+Without any priority annotation and without a `priorityClassName` on the Pod template, the Workload gets priority `0`. A label that names a missing `WorkloadPriorityClass` now produces a Warning event on the job ([[issue-3439]], shipped in v0.20.0; see [[workload-priority#Missing WorkloadPriorityClass: Warning event]]). A Workload stored with a nil `spec.priority`, such as a prebuilt Workload created when no default class existed, is read everywhere through `priority.Priority`, which resolves nil to `constants.DefaultPriority`. The visibility pending-workloads endpoints dereferenced the pointer directly; one such pending Workload made them panic and return 500 for every caller. Fixed in #14411 (source: pr-14411.md).
 
 ## Observability
 
@@ -50,9 +50,27 @@ The shape before the fix also explains the failure signature: the `List` is unpa
 
 ### Worker-cluster classes must not re-price MultiKueue remote Workloads
 
-The same sweep is a [[multikueue]] hazard. The manager cluster resolves `priorityClassRef` locally and copies both the ref and the resolved `spec.priority` to the worker, tagging the remote Workload with `kueue.x-k8s.io/multikueue-origin` — so the **manager owns that priority**. If the worker cluster defines a `WorkloadPriorityClass` with the *same name but a different value* (e.g. `high = 100` on the manager, `high = 999` on the worker) and that class is created, recreated or modified, the worker's sweep rewrites the remote Workload's priority to its own value, because it does not distinguish locally owned Workloads from remote ones. Open bug, fix in review as [[pr-14963]] (skip Workloads carrying `multikueue-origin`); tracked alongside #13929.
+The same sweep is a [[multikueue]] hazard. The manager cluster resolves `priorityClassRef` locally and copies both the ref and the resolved `spec.priority` to the worker, tagging the remote Workload with `kueue.x-k8s.io/multikueue-origin` — so the **manager owns that priority**. If the worker cluster defines a `WorkloadPriorityClass` with the *same name but a different value* (e.g. `high = 100` on the manager, `high = 999` on the worker) and that class is created, recreated or modified, the worker's sweep rewrites the remote Workload's priority to its own value, because it does not distinguish locally owned Workloads from remote ones. **Correction (2026-10-21)**: this was described as an open bug with a fix in review. [[pr-14963]] merged and shipped in **v0.20.0**: the WorkloadPriorityClass controller now skips MultiKueue remote Workloads during priority synchronization (source: raw/kueue/CHANGELOG/CHANGELOG-0.20.md).
 
 Known related bug, still open: restarting the controller can overwrite `.spec.priority` with the WorkloadPriorityClass's priority ([[issue-14698]]).
+
+## `WorkloadPriorityClassDefaulting` is Beta (v0.20)
+
+[[pr-13719]] (fixes #13689) graduated the gate from Alpha (since 0.18) to **Beta, on by default in v0.20**. When a WorkloadPriorityClass named `default` exists, jobs that set no class get `kueue.x-k8s.io/priority-class: default`. The **job-webhook** defaulting approach is kept for Beta, the same as `LocalQueueDefaulting`. Moving defaulting to the Workload level is left for later, if problems show up. That item was moved to the KEP's GA criteria at the reviewer's request. In 0.18/0.19 the gate is still off unless enabled (source: pr-13719.md, raw/kueue/pkg/features/kube_features.go). This is why the sweep below can now touch every Workload in the cluster.
+
+## Missing WorkloadPriorityClass: Warning event
+
+A job whose `kueue.x-k8s.io/priority-class` names a class that does not exist cannot get a Workload: the reconcile fails, the job stays suspended, and nothing is queued. The only trace used to be a manager log line. [[pr-13775]] (fixes [[issue-3439]]; v0.20.0) reports it on the job object:
+
+```
+Warning  WorkloadPriorityClassNotFound  WorkloadPriorityClass "low" not found
+```
+
+- `ExtractPriority` records the event (reason `WorkloadPriorityClassNotFound`) at the point where the label-driven lookup returns NotFound. The error is still returned, so the reconcile still fails and no Workload is created. One call site covers Workload creation, Workload update and a changed priority label. A Forbidden on the same lookup, or a missing `scheduling.k8s.io` PriorityClass named in the Pod template, does **not** emit this event (source: pr-13775.md, raw/kueue/pkg/controller/jobframework/reconciler.go).
+- Paths that never resolve the label emit nothing: a prebuilt Workload; a StatefulSet whose Workload already exists (#13827, where a label change is ignored); a Workload whose priority came from a Pod `PriorityClass` (deliberate, #13781); and a Workload that reserved quota without a `priorityClassRef`.
+- LeaderWorkerSet resolves the class per component, so it emits one event per component (folded into one event with a count) until #13820 lands.
+- **Recovery is the reconcile retry.** The controller watches the job and its Workload, not `WorkloadPriorityClass`. Creating the missing class later does not enqueue the job; it is picked up at the next backoff step (#13779 tracks adding a watch).
+- The lookup reads through the informer cache. A job created immediately after its class can briefly see NotFound and emit a spurious warning before the retry succeeds. Maintainers accepted this rather than adding a live API read (source: pr-13775.md).
 
 ## Defaulting respects the namespace selector
 
@@ -62,7 +80,7 @@ With `WorkloadPriorityClassDefaulting` (on by default since v0.20), the defaulti
 
 - The namespace check runs after the existing eligibility checks, so objects that would return early cost no extra Namespace `Get`; with no selector configured no Namespace read happens.
 - Every Job webhook passes the configured selector; the Pod webhook passes `nil` because it enforced the selector earlier.
-- A Namespace read error is returned from the admission webhook (as `ApplyDefaultLocalQueue` does). `DefaultWorkloadPriorityClassExist` still logs at V(2) and continues if the default class is missing; the read of the default class happens before the Namespace read, so tests use a separate sentinel error per lookup (source: pr-15997.md).
+- A Namespace read error is returned from the admission webhook (as `ApplyDefaultLocalQueue` does). `DefaultWorkloadPriorityClassExist` still logs at V(2) and continues if the default class is missing; the read of the default class happens before the Namespace read, so tests use a separate sentinel error per lookup (source: pr-15997.md; release-0.18 backport pr-16422.md, test-only).
 
 Open bug: for Deployment, StatefulSet and LeaderWorkerSet the defaulting also runs on **update**, so Ready objects that predate the `default` class become un-updatable ([[issue-16333]]; expected behaviour: default only on create).
 
@@ -72,3 +90,6 @@ Open bug: for Deployment, StatefulSet and LeaderWorkerSet the defaulting also ru
 - [[queueing-strategy]] — how priority affects queue order.
 - [[preemption]] — priority determines candidates.
 - [[preemption-cost]] — **[Alpha]** dynamic priority adjustment via the `priority-boost` annotation.
+- [[integration-statefulset]]
+- [[integration-leaderworkerset]]
+- [[job-framework-interface]]

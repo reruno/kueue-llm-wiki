@@ -2,9 +2,9 @@
 
 **Summary**: A Workload is the Kueue-internal CRD that wraps an underlying job (Job, JobSet, RayJob, …) and exposes the fields Kueue needs: PodSets, priority, queue-name, admission state, conditions. Every admitted job has exactly one Workload, owned by the job via an ownerReference.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16479.md, pr-14520.md, pr-13671.md, pr-16627.md, pr-13956.md, pr-17069.md, issue-16486.md, pr-16779.md, pr-16881.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -16,7 +16,7 @@ Key fields:
 - `spec.priorityClassName` / `spec.priorityClassSource` / `spec.priority` — see [[workload-priority]]. `priorityClassSource` distinguishes a stock `scheduling.k8s.io/PriorityClass` from a `kueue.x-k8s.io/WorkloadPriorityClass` ([[issue-7342]]).
 - `spec.podSets[]` — one entry per distinct Pod template the job needs, with `count` and `template`. A Workload has multiple PodSets when the job is multi-template (e.g. a JobSet, RayJob with head + workers, PyTorchJob with master + workers).
 - `spec.active` — can be flipped to `false` to deactivate a Workload (stop it from being admitted again after eviction).
-- `spec.podSetUpdates` — mutations that [[admission-check]]s applied (additional tolerations, node selectors, annotations) before admission, so the integration can patch them into the job's Pod template when unsuspending.
+- `status.admissionChecks[].podSetUpdates[]` (`AdmissionCheckState.PodSetUpdates`) — mutations that [[admission-check]]s applied (additional tolerations, node selectors, labels, annotations) before admission, so the integration can patch them into the job's Pod template when unsuspending. **Correction (2026-10-21)**: this page listed it as `spec.podSetUpdates`; there is no such spec field (source: apis/kueue/v1beta2/workload_types.go at kueue@8922c563e).
 - `status.admission` — populated after QuotaReservation; records which CQ admitted the Workload and the flavor assignment per PodSet.
 - `status.conditions[]` — `QuotaReserved`, `Admitted`, `Evicted`, `Requeued`, `Finished`, `PodsReady`. See [[admission]] for the state machine.
 
@@ -36,6 +36,10 @@ The `PodSetAssignments` in `status.admission.podSetAssignments[]` mirrors the Po
 
 For TAS-enabled flavors, each assignment also includes a `topologyAssignment` listing domain→count tuples — see [[topology-aware-scheduling]].
 
+**Request arithmetic is exact.** The scheduler's `workload.Info.TotalRequests` (per PodSet `Requests`, plus `PerPodRequests` for pending PodSets) are `resources.Amount` values since pr-16479 (v0.20.1/v0.19.8), so `count x per-pod` totals past `int64` are no longer saturated to `MaxInt64`. Partial admission rebuilds a reduced PodSet as `PerPodRequests x newCount` (`PodSetResources.ScaledTo`, pr-14520) instead of dividing the total. The API record is still a `Quantity`: `podSetAssignments[].resourceUsage` caps a non-CPU total at `MaxInt64`, and the webhook's "`resourceUsage` divisible by `count`" rule can then reject the admission repeatedly (issue-16486, open). See [[scheduler-internals#Quota arithmetic and integer-overflow safety]].
+
+The "invalid PodSet info" error now reports the expected and actual PodSet counts in the right order (pr-13671).
+
 ## Priority
 
 A Workload's priority is derived once, at creation, from either a stock PriorityClass or a WorkloadPriorityClass. It's stored as an int32 in `spec.priority`. Priority is traditionally immutable after creation ([[issue-2593]] — why PriorityClassName is immutable while priority integer is mutable) though in-place mutation of priority class has been added and then expanded ([[issue-5004]], [[issue-7138]]). See [[workload-priority]].
@@ -50,6 +54,9 @@ When an admitted Workload is preempted, or when [[gang-scheduling]]'s WaitForPod
 - `kueue.x-k8s.io/workload-allowed-resource-flavors` marks a ConcurrentAdmission Variant's flavor ([[concurrent-admission]]).
 - `status.conditions[QuotaReserved]` reasons are tiered when `UnadmittedWorkloadsObservability` is on ([[unadmitted-workloads-observability]]); `PodsScheduled` exists with `WaitForPodsReadyUnscheduledTimeout`.
 - The `Info` used by the scheduler carries an *effective* PodSpec view (LimitRange, RuntimeClass, pod-level requests) that is never written back to the object ([[workload-resource-adjustment]]).
+- The `Info` also carries in-memory `FlavorScanState` (tried flavors per PodSet/resource, CQ generation, scheduling cycle, equivalence hash) that lets the flavor search resume across cycles; it is kept across Workload updates unless the scheduling shape changed ([[scheduler-internals#Flavor scan progress across cycles (`FlavorScanState`)]]).
+- A Workload whose preemption is blocked by a closed preemption gate carries `QuotaReserved=False` reason `PreemptionGated` plus `BlockedOnPreemptionGates=True` (pr-16627).
+- Kueue's internal labels (MultiKueue origin, ConcurrentAdmission parent, job UID) and internal annotations are never copied from the job onto the Workload, whatever `labelKeysToCopy` says; naming one there only logs a startup warning. See [[job-framework-interface#Internal labels and annotations are never inherited]] (source: pr-16779.md, pr-16881.md).
 
 ## Finalizer and GC
 

@@ -2,15 +2,15 @@
 
 **Summary**: The Visibility API is an aggregated-apiserver extension at `visibility.kueue.x-k8s.io` that exposes pending-workload information per [[local-queue]], [[cluster-queue]], and [[cohort]]. It lets tenants see their queue position and wait estimate without needing direct read access to the Workload CRD.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-14411.md, pr-16485.md, pr-16342.md, raw/kueue/apis/visibility/v1beta2/types.go, raw/kueue/pkg/visibility/storage/utils.go, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-10-21
 
 ---
 
 ## Why it's a separate API
 
-Reading all Workloads to answer "where am I in line" is expensive at scale. The Visibility API exposes derived, aggregated views (pending list, position, counts) on top of Kueue's in-memory queues — serving them from the kueue-controller-manager directly. Tenants query `kubectl get --raw /apis/visibility.kueue.x-k8s.io/v1beta1/namespaces/<ns>/localqueues/<lq>/pendingworkloads` (or similar) instead of listing all Workloads.
+Reading all Workloads to answer "where am I in line" is expensive at scale. The Visibility API exposes derived, aggregated views (pending list, position, counts) on top of Kueue's in-memory queues — serving them from the kueue-controller-manager directly. Tenants query `kubectl get --raw /apis/visibility.kueue.x-k8s.io/v1beta2/namespaces/<ns>/localqueues/<lq>/pendingworkloads` or `/apis/visibility.kueue.x-k8s.io/v1beta2/clusterqueues/<cq>/pendingworkloads` instead of listing all Workloads. **Correction (2026-10-21)**: this page previously showed a `v1beta1` path; `visibility.kueue.x-k8s.io/v1beta1` is unserved from v0.20 and its package was deleted on main by pr-16485, so only `v1beta2` exists (source: pr-16485.md, raw/kueue/apis/visibility/v1beta2/types.go). The serving gate is `VisibilityOnDemand` (Alpha 0.6, Beta/on since 0.9).
 
 ## Evolution
 
@@ -35,6 +35,18 @@ The visibility server's bind port and address are configured through the Kueue C
 - **`--visibility-server-port` flag removed (action-required).** [[pr-11309]] deletes the deprecated controller-manager flag. Installations that still pass `--visibility-server-port` must drop it and set `visibilityServer.bindPort` in the Configuration instead before upgrading.
 - **`bindAddress` regression fixed.** During the port-defaulting refactor in #11323 the `o.SecureServing.BindAddress = net.ParseIP(*cfg.VisibilityServer.BindAddress)` assignment was accidentally dropped, so a configured `visibilityServer.bindAddress` (e.g. `127.0.0.1`) was silently ignored and the server kept binding to the default `0.0.0.0`. [[pr-11341]] restores it. Gotcha: the bug only manifested when `visibilityServer.bindPort` was *also* set — with `bindPort` left default, the address was applied correctly.
 
+## Response shape (v1beta2)
+
+`GET .../pendingworkloads` returns a `PendingWorkloadsSummary` whose `items` are `PendingWorkload{metadata, priority, localQueueName, positionInClusterQueue, positionInLocalQueue}` (positions start at 0). Query parameters (`PendingWorkloadOptions`): `offset` (default 0) and `limit` (default 1000) (source: raw/kueue/apis/visibility/v1beta2/types.go).
+
+## Fixes in v0.20
+
+- **Nil priority panicked the endpoint (pr-14411, v0.20.0; cherry-picks requested for 0.19/0.18).** `newPendingWorkload` (`pkg/visibility/storage/utils.go`) dereferenced `*wlInfo.Obj.Spec.Priority`. `Workload.Spec.Priority` is a `*int32` that is legitimately nil for a Workload created with no global default priority class and no pod priority class — in practice a user-supplied prebuilt Workload ("BYOW"), since Kueue-created Workloads get a priority. The apiserver panic filter turned it into a `500`/`ServiceUnavailable`, so **one such pending Workload broke the CQ and LQ endpoints for every caller** until it was admitted or deleted. Now uses `priority.Priority(wl)`, which resolves nil to `constants.DefaultPriority`, like the rest of the codebase. Rule: never dereference `Spec.Priority` directly (source: pr-14411.md).
+- **`positionInLocalQueue` inflated across namespaces (#14431, v0.20.0).** On the ClusterQueue endpoint, two LocalQueues in different namespaces with the same name (for example the auto-created `default` LocalQueue) were counted as one queue, inflating positions. LocalQueue identity must be namespace+name (source: CHANGELOG-0.20.md).
+
+The cert-manager visibility e2e test no longer deletes the first Job's Workload by hand: since #11596 deleting a Job with orphan propagation releases quota on its own (pr-16342, test-only).
+
+
 ## Model revisit
 
 "Revisit the model for cache management and visibility server" ([[issue-10553]]) — an open thread about whether the cache needs reshaping to serve visibility cheaply at larger cluster scales.
@@ -45,3 +57,5 @@ The visibility server's bind port and address are configured through the Kueue C
 - [[cohort]] — cohort-scoped views.
 - [[local-queue]] — tenant-facing view.
 - [[metrics]] — complementary Prometheus surface.
+- [[api-versions]] — v1beta1 removal.
+- [[kueuectl]] — `kueuectl list workloads`/pending views built on this API.

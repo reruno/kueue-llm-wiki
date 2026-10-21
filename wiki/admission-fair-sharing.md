@@ -2,9 +2,9 @@
 
 **Summary**: Admission fair sharing orders workloads at admission time based on each LocalQueue's or ClusterQueue's historical resource consumption, ensuring teams that have used less get priority for new admissions — without requiring preemption.
 
-**Sources**: `raw/kueue/keps/4136-admission-fair-sharing/README.md`, `raw/kueue/keps/4136-admission-fair-sharing/kep.yaml`, pr-15000.md, pr-16034.md, pr-16241.md, issue-15221.md, issue-13602.md
+**Sources**: `raw/kueue/keps/4136-admission-fair-sharing/README.md`, `raw/kueue/keps/4136-admission-fair-sharing/kep.yaml`, pr-15000.md, pr-16034.md, pr-16241.md, issue-15221.md, issue-13602.md, pr-12786.md, pr-13844.md, pr-13621.md, pr-13481.md, pr-13433.md, pr-12946.md, raw/kueue/pkg/util/admissionfairsharing/admission_fair_sharing.go, raw/kueue/pkg/util/resource/resource.go
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -82,9 +82,23 @@ Penalty bookkeeping lives in `AfsUsageLedger` (`pkg/cache/queue/afs`), which sto
 
 Known accounting quirks called out in pr-15000.md: (1) every reservation can settle another entry penalty, including retries that are not tenant-driven, and `TryPreferredFlavors` / [[concurrent-admission]] can amplify this when more-preferred Variants obtain further reservations; deduplication per Workload and LocalQueue is not implemented (open: issue-15221.md). (2) A LocalQueue reserving faster than `usageSamplingInterval` can defer its next published usage sample and heap rebuild until the burst pauses.
 
+## Entry-penalty fixes that also apply to 0.18/0.19 (pre-ledger)
+
+These fixes predate or sit beside the `AfsUsageLedger` above and were backported to the older lines:
+
+- **Leak on the AdmissionCheck path (pr-12786, fixes #12539; backports pr-13795/0.19, pr-13805/0.18; v0.20.0).** After the consumed-resources cache refactor (#7780) settlement ran only in the `Pending -> Admitted` branch of the workload status-transition switch, so Workloads admitted through `Pending -> QuotaReserved -> Admitted` ([[admission-check]]s: ProvisioningRequest, MultiKueue, TAS) kept their penalty forever and their LocalQueue was deprioritized. The settle call is now centralized after the switch, covering every transition into `Admitted`, and `AfsEntryPenalties.Sub` clamps at zero so a settle without a matching in-memory penalty (e.g. after a manager restart) cannot become a permanent usage discount. Rollback paths (`QuotaReserved -> Pending`, deletion while reserved) were left to #12787 (source: pr-12786.md).
+- **Push only where it will be settled (pr-13844, fixes #13495; backports pr-13851/0.19, pr-13853/0.18).** The scheduler pushes an entry penalty at assume time only for ClusterQueues with `UsageBasedAdmissionFairSharing` and only for Workloads that do not already hold a reservation (no re-push on a TAS second pass); the same predicate gates the rollback on a failed admission write. See [[scheduler-internals#AFS entry penalties are pushed only where they will be settled (pr-13844)]].
+- **Tick race (pr-12946, cherry-pick of #12939 to 0.17).** A sampling tick running concurrently with settlement could persist a skewed `ConsumedResources` in LocalQueue status; the tick computation is clamped and a future `LastUpdate` is handled (source: pr-12946.md).
+
+## Sub-milli usage is no longer truncated (pr-13621)
+
+The decay multiplies usage by `1 - A` and the new sample by `A`, where `A` is tiny for a long half-life (about 0.00034 for 168h with a 5m interval). `resource.MulByFloat` used to round each product to whole milli-units before summing, so a 2 CPU contribution of 0.6875m became 0, the stored value never grew, and **CPU and GPU usage stayed at 0 forever** (memory was unaffected because its milli value is large). `CalculateEntryPenalty` shares the helper and was affected the same way. `MulByFloat` now multiplies in arbitrary-precision decimals (`inf.Dec`) at a fixed 9-decimal scale and panics on a non-finite factor; the code rounds **down** so repeated decay reaches zero instead of settling on a non-zero fixed point (the PR text says half-up; the code is authoritative). A finer scale was rejected because a `Quantity` is `int64`-backed and `16Gi` in nano-units overflows. Expected after upgrade: LocalQueues that silently scored 0 start accumulating real usage, which can change admission order. Fixes #13596; backports pr-13761/0.19, pr-13763/0.18; v0.20.0 (source: pr-13621.md, raw/kueue/pkg/util/resource/resource.go).
+
 ## Weight configuration on LocalQueue / ClusterQueue
 
 Both `LocalQueue` and `ClusterQueue` can set a `fairSharing.weight` field. A queue with higher weight gets a proportionally larger "fair share" of the shared resources (its usage is normalized by weight when comparing). (source: keps/4136-admission-fair-sharing/README.md)
+
+**A weight of 0 sorts last (pr-13481, fixes #13479; backports pr-13559/0.19, pr-13564/0.18; v0.20.0).** `CalculateUsage` divides the resource-weighted usage by the LocalQueue weight. Validation accepts `fairSharing.weight: 0`, and an idle zero-weight LocalQueue produced `0/0 = NaN`, which sorts **ahead** of every real value, so it was served first. `CalculateUsage` now returns `+Inf` for any weight `<= 0`, matching `DRS.PreciseWeightedShare` for ClusterQueues (source: pr-13481.md, raw/kueue/pkg/util/admissionfairsharing/admission_fair_sharing.go).
 
 ## Interaction with DRA
 
@@ -104,7 +118,7 @@ This is the "namespace confusion" class — see [[security-code-patterns]] and t
 
 ## Weight lookup
 
-The pending heap and the visibility snapshot both read LocalQueue weights from the same cached per-ClusterQueue map (`lqWeights`, default `1.0`); see [[fair-sharing#LocalQueue weight lookup: one cached path for heap and snapshot (AFS ordering)]] (pr-16241).
+The pending heap and the visibility snapshot both read LocalQueue weights from the same cached per-ClusterQueue map (`lqWeights`, default `1.0`); see [[fair-sharing#LocalQueue weight lookup: one cached path for heap and snapshot (AFS ordering)]] (pr-16241). Earlier, pr-13433 made the snapshot fall back to base ordering for the whole snapshot on any lookup error (to keep the comparator transitive); pr-16241 made that path obsolete.
 
 ## Known gap
 

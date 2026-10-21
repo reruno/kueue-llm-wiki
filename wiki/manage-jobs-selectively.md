@@ -2,9 +2,9 @@
 
 **Summary**: Kueue provides two configuration knobs — `manageJobsWithoutQueueName` and `managedJobsNamespaceSelector` — that together let cluster admins precisely control which jobs Kueue manages, scoped to namespaces rather than individual jobs.
 
-**Sources**: `raw/kueue/keps/3589-manage-jobs-selectively/README.md`, `raw/kueue/keps/3589-manage-jobs-selectively/kep.yaml`
+**Sources**: `raw/kueue/keps/3589-manage-jobs-selectively/README.md`, `raw/kueue/keps/3589-manage-jobs-selectively/kep.yaml`, pr-13375.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -66,6 +66,10 @@ As of v0.18 the integration **webhooks** themselves carry a `namespaceSelector` 
 ## kueue-populator inherits `managedJobsNamespaceSelector`
 
 The experimental `kueue-populator` component (`cmd/experimental/kueue-populator/`) used to take its own separate Helm value for the namespace selector. [[pr-11218]] (fixes [[issue-7852]]) makes its Helm chart read Kueue's manager config (`controllerManagerConfigYaml`) and copy `managedJobsNamespaceSelector` into the populator config, so the populator operates on the same namespaces as the controller by default. An explicit `kueuePopulator.config.managedJobsNamespaceSelector` override is still honored to restrict the populator independently.
+
+## Defaulting webhooks respect the selector (v0.20.0)
+
+Before [[pr-13375]], LocalQueue defaulting ignored `managedJobsNamespaceSelector` for every integration except Pod. In an excluded namespace that had a `default` LocalQueue, a Job got `queue-name: default`, was suspended, and then was never reconciled. Since v0.20.0 both defaulting paths check the selector: `ApplyDefaultLocalQueue` (#13375) and `ApplyDefaultWorkloadPriorityClass` (#15851, also v0.18.10). Jobs in excluded namespaces are left unchanged. See [[local-queue-defaulting]] and [[workload-priority#Defaulting respects the namespace selector]] (source: pr-13375.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md).
 
 ## Common pitfall
 

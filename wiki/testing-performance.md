@@ -2,9 +2,9 @@
 
 **Summary**: Kueue has scheduler-focused performance benchmarks under `test/performance/scheduler/`. They measure admission-loop throughput, not correctness, and are driven by a generator/runner that replays synthetic Workload traffic against a minimal Kueue controller. This page covers how to run them locally and which make targets wrap them.
 
-**Sources**: `raw/kueue/Makefile-test.mk`, `raw/kueue/test/performance/scheduler/`, `raw/kueue/hack/testing/performance-test.sh`, `raw/kueue/hack/testing/compare-performance.sh`.
+**Sources**: `raw/kueue/hack/make/test.mk` (formerly `Makefile-test.mk`), `raw/kueue/test/performance/scheduler/`, `raw/kueue/hack/testing/performance-test.sh`, `raw/kueue/hack/testing/compare-performance.sh`; pr-16652.md, pr-16923.md.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-10-21
 
 ---
 
@@ -18,13 +18,15 @@ test/performance/
 │   ├── checker/         # assertions over a run's summary/cmd-stats
 │   ├── configs/
 │   │   ├── baseline/    # default generator + range spec
-│   │   └── tas/         # TAS generator + range spec
+│   │   ├── large-scale/ # 10 cohorts x 100 CQs, 50,000 single-pod workloads
+│   │   ├── tas/         # TAS generator + range spec
+│   │   └── tas-dra/     # same topology/workloads as tas/, every pod also claims DRA devices
 │   ├── minimalkueue/    # a stripped-down controller binary used as the runner target
 │   └── runner/          # drives the scenario, collects metrics
 └── e2e/                 # (separate; exercises perf in a Kind cluster)
 ```
 
-Two binaries are built from this tree by `Makefile-test.mk`:
+Two binaries are built from this tree by `hack/make/test.mk` (the former `Makefile-test.mk`, split up in #14127):
 
 - `bin/performance-scheduler-runner` — the scenario driver (`make performance-scheduler-runner`).
 - `bin/minimalkueue` — a reduced Kueue that the runner targets (`make minimalkueue`).
@@ -67,9 +69,25 @@ Controls:
 
 TAS runs pass `--enableTAS=true` and a 20-min or 25-min timeout depending on mode.
 
+### Scheduler perf with TAS + DRA
+
+```shell
+make run-tas-dra-performance-scheduler
+make test-tas-dra-performance-scheduler-once
+make test-tas-dra-performance-scheduler
+```
+
+Controls: `SCALABILITY_TAS_DRA_GENERATOR_CONFIG`, `SCALABILITY_TAS_DRA_RANGE_FILE` (defaults under `configs/tas-dra/`). Runs pass `--enableTAS=true --enableDRA=true` with a 20-min timeout. The generator uses the same 640-node topology and 15,000 workloads as `configs/tas`, so the two runs compare directly. Each node publishes 8 devices; small and medium pods claim 1 and large pods 2. Device quota is twice the CPU quota, so CPU stays the binding quota. There is no kube-scheduler, so devices are never allocated: the run measures the cost of the per-node **device feasibility check** in each scheduling cycle, not device contention. Devices carry no attributes, so each is cheaper to evaluate than a real GPU with attribute selectors.
+
+The `rangespec.yaml` thresholds were set from **10 CI runs**: wall time and per-class average time-to-admission use mean + 20%, rounded up to 1000 ms (for example `maxWallMs: 436_000`; `small-required-rack` 288 s); ClusterQueue minimum usage uses mean − 7% (`cq: 49.7`%) (source: pr-16652.md, fixes #16352). The same method (mean ± a margin from repeated CI runs, with mean/stddev/CV recorded as comments) is the pattern to follow when adjusting any rangespec.
+
+### Large-scale config
+
+`run-large-scale-performance-scheduler` / `test-large-scale-performance-scheduler[-once]` (and an `-in-cluster` variant with `--qps=1000 --burst=2000`) use `configs/large-scale`: 10 cohorts × 100 ClusterQueues = 1,000 CQs, with 50 single-pod Workloads per queue (50,000 total) and a 30-min timeout (source: `hack/make/test.mk`, `configs/large-scale/generator.yaml`).
+
 ## CI
 
-CI job names for the scheduler perf benchmarks are not individually attested in the raw issue/PR corpus. The make targets above are what contributors invoke locally; corresponding Prow jobs wrap them.
+The unit tests of the performance tooling itself (for example the MultiKueue performance tool) now run in the regular unit-test shards, with race detection, JUnit and coverage. They no longer run as a separate race-test step in `make verify` (source: pr-16923.md). CI job names for the scheduler perf benchmarks are not individually attested in the raw issue/PR corpus. The make targets above are what contributors invoke locally; corresponding Prow jobs wrap them.
 
 ## Comparing runs
 

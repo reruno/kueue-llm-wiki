@@ -2,9 +2,9 @@
 
 **Summary**: A practical guide to diagnosing why Kueue workloads are stuck — covering quota exhaustion, flavor mismatches, admission check hangs, TAS failures, and preemption issues — with the specific commands and conditions to check.
 
-**Sources**: `raw/kueue/pkg/controller/core/workload_controller.go`, `raw/kueue/pkg/debugger/`, `raw/github/kubernetes-sigs__kueue/` (issues), `raw/kueue/pkg/controller/core/clusterqueue_controller.go`
+**Sources**: `raw/kueue/pkg/controller/core/workload_controller.go`, `raw/kueue/pkg/debugger/`, `raw/github/kubernetes-sigs__kueue/` (issues), `raw/kueue/pkg/controller/core/clusterqueue_controller.go`, pr-13271.md, pr-14348.md, pr-14411.md, pr-16670.md, pr-16833.md, pr-16890.md, pr-16581.md, pr-16743.md, pr-16379.md, pr-16984.md, pr-16609.md, pr-16667.md, pr-16531.md, pr-16981.md, pr-16510.md, pr-16739.md, pr-16392.md, pr-16793.md, issue-16789.md, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16343.md, pr-16438.md, pr-16627.md, issue-16486.md, pr-16421.md, pr-16514.md, pr-17052.md, pr-13775.md, pr-16470.md, pr-16870.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -215,6 +215,14 @@ Common useful log entries:
 
 For verbose quota details: increase log level to `V(3)` or `V(5)` in the manager deployment.
 
+Log facts worth knowing on v0.20+ (source: CHANGELOG-0.20.md unless noted):
+
+- **Logger names changed in v0.20.0 (#15259).** Event-handler and reconcile logs of one controller now share a name: core controllers use `<kind>-reconciler` (e.g. `clusterqueue-reconciler`); MultiKueue, provisioning and TAS controllers use `<subcomponent>-<kind>-reconciler` (e.g. `multikueue-workload-reconciler`, `tas-node-reconciler`). Update log filters that matched the old names.
+- **Which gates are on**: at startup the manager logs `Loaded feature gates` at `V(2)` with the effective map (`features.LogFeatureGates`) — check it before assuming a default (source: raw/kueue/pkg/features/kube_features.go).
+- **Node hot swap / evictions**: Workload update events carry an `unhealthyNodes` field listing `status.unhealthyNodes` names (pr-13271, cherry-picked to 0.18/0.17) (source: pr-13271.md).
+- **Fair-sharing preemption at `V(4)`**: one `Evaluating FairSharing strategy` entry per *candidate ClusterQueue* with a `strategyEvaluations` array (`targetWorkload`, `targetNewShare`, `strategyPassed`), instead of one entry per candidate Workload; DRS values are strings (`"+Inf"` included), because a raw `+Inf` float made zap drop the whole array (pr-14348) (source: pr-14348.md). See [[fair-sharing]].
+- Scheduling-hash recomputations are logged at `V(5)` (#15055); `V(6)` and below now emit valid JSON Lines (#13637); TAS assumption-violation logs are summarized, with leaf-domain IDs only at `V(6)` (#14242).
+
 ---
 
 ## Step 5: Check Prometheus metrics
@@ -286,6 +294,60 @@ Before v0.20 (pr-15026), a workload whose per-flavor total saturated to `math.Ma
 
 A quota-reserved Workload whose owner drops its `WorkloadPriorityClass` label used to be rewritten with a `priorityClassRef` the API server refuses, once per reconcile, for the life of the reservation ([[pr-14565]]). Since [[pr-14922]] the skip is logged at `V(4)`, so you will only see it with `-v=4`.
 
+## Metrics that lie (and the release that fixed them)
+
+Before trusting a dashboard during triage, check whether you run a version with these bugs (details in [[metrics]]):
+
+| Symptom | Cause | Fixed in |
+|---|---|---|
+| `kueue_pending_workloads` unchanged after `kueuectl stop clusterqueue` until some Workload changes | CQ updates did not refresh pending metrics | v0.20.1 / v0.19.8 (pr-16833) |
+| `sum(kueue_pending_workloads)` about double after a CQ stop/resume, with a Workload-sourced custom label | stale `active`/`inadmissible` series not deleted | v0.20.1 (pr-16670) |
+| Pending counts stale after a LocalQueue is created, stopped, resumed or deleted | LQ lifecycle events did not refresh metrics | v0.20.1 / v0.19.8 (#15576) |
+| All of a stopped CQ's pending Workloads appear as `status="inadmissible"` | by design: an inactive CQ merges active into inadmissible | — |
+| `kueue_cohort_weighted_share` = `+Inf` for a zero-weight borrowing Cohort | missing `+Inf → NaN` conversion | v0.20.1 / v0.19.8 (pr-16581) |
+| `kueue_replaced_workload_slices_total` absent | never registered | v0.20.1 / v0.19.8 (pr-16743) |
+| `kueue_cohort_subtree_admitted_active_workloads` zero or negative after re-parenting Cohorts | count not rebuilt on tree change | v0.20.0 / v0.19.7 / v0.18.11 (pr-16398) |
+| LocalQueue metrics for every queue despite `localQueueSelector` | invalid selector parsed as "no filter" | v0.20.0 — now a startup failure (pr-16379) |
+
+## Visibility endpoint returns 500 / ServiceUnavailable
+
+Before v0.20.0, a single pending Workload with nil `spec.priority` (typically a hand-made prebuilt Workload) made both `pendingworkloads` endpoints panic for every caller (pr-14411). Find it with `kubectl get workloads -A -o json | jq '.items[] | select(.spec.priority == null) | .metadata.name'` and set a priority or delete it; upgrading fixes it. See [[visibility-api]].
+
+## Upgrade to v0.20+ fails or objects cannot be read
+
+`v1beta1` is unserved from v0.20 and removed on main. Run `hack/migrate-to-v1beta2.sh` on the old version first; on recent versions it reports per-object failures instead of stopping, and objects whose current spec fails the validating webhook (for example a ClusterQueue with `lendingLimit > nominalQuota`) must be fixed by hand before they can be migrated (pr-16984). See [[api-versions]].
+
+
+## Scheduling, TAS and integration symptoms (2026-10 batch)
+
+| Symptom | Cause / fix |
+|---|---|
+| Preemptor stays pending; V(6) log `Discarding preemption targets: strategy verification failed` | `FairSharingVerifyFinalTargets` rejected a target set that would only be fair because of the preemptor's own preempted Workloads (the "own-only" limitation of pr-16343). Expected with the gate on; disabling it brings back the preemption loop. See [[fair-sharing]] |
+| ClusterQueue `Active=False`, reason `CohortCycleDetected` | the Cohort parent chain forms a cycle; fix the `spec.parentName` links. The queue manager is now updated when a Cohort update creates a cycle (pr-16438). See [[cohort]] |
+| Workload `QuotaReserved=False`, reason `PreemptionGated`, `BlockedOnPreemptionGates=True` | a MultiKueue preemption gate is closed; before pr-16627 the status update could be dropped on requeue, so the Workload showed `Pending`. See [[preemption]], [[multikueue-orchestrated-preemption]] |
+| Admission retried endlessly with no condition; a non-CPU `resourceUsage` reads `9223372036854775807` | the admitted total overflowed `int64` and the API `Quantity` capped it; the webhook rejects it when not a multiple of the count. Known gap, open as of this snapshot (issue-16486). See [[scheduler-internals]] |
+| Warning event `OutdatedScheduleCycle` ("Skipped admission write because the workload changed while it was being scheduled") | a TAS second pass (delayed topology assignment or failed-node replacement) was computed from a stale Workload; the write is rejected, the reservation kept, and the pass retried. Self-healing (v0.20.1 / v0.19.8). See [[topology-aware-scheduling]] |
+| Pending message ends with `; topology spreading excluded N topology domain(s) at level: <key>` | a Required topology-spreading rule banned domains (pr-16421); raise the manager to `-v=3` to log the banned domain IDs and rules |
+| `QuotaReserved` reason `AssignmentError`, log `Failed to compute the initial assignment` | `SchedulerLibraryDeepIntegration` (Alpha, main only) is on, and its planner is inert at this snapshot; turn the gate off. See [[topology-aware-scheduling]] |
+| Elastic Pod on GKE stuck Unschedulable with nodeSelector `autoscaling.gke.io/provisioning-request=<id>` while the ProvisioningRequest is `Provisioned` | before v0.20.1 the Pod got `consume-provisioning-request` without `provisioning-class-name` (pr-16514). The nodeSelector is immutable, so delete the Pod after upgrading. See [[provisioning-request]] |
+| JobSet whose TAS group members are not adjacent: Pods stuck `SchedulingGated` after admission, or carrying another ReplicatedJob's node selectors | admission info was applied by PodSet position; fixed by pr-17052 (matches by name). See [[topology-aware-scheduling]] |
+| Job stays suspended with no Workload; it carries a priority-class label | look for the Warning event `WorkloadPriorityClassNotFound` (v0.20.0, pr-13775). Creating the class is picked up only on the next backoff retry (no WorkloadPriorityClass watch). See [[workload-priority]] |
+| Pod-group member stuck `SchedulingGated` with event `PodExceedsRoleRequests` | the Pod requests more than the PodSet its `role-hash` names (`PodIntegrationVerifyRoleRequests`). See [[integration-plain-pod]] |
+| Manager fails at startup with `MultiKueueRayInTreeAutoscaling` enabled | since v0.20.1 the gate depends on `SkipChildJobSuspension`; enable both (pr-16470). See [[feature-gates]] |
+| Suspending a RayService creates a second, suspended RayCluster while the old one keeps running | `KubeRayServiceUsingTopLevelSuspend` is off (Alpha/off on release-0.20 from v0.20.1; Beta/on on main), so Kueue writes the template field `spec.rayClusterConfig.suspend`, which KubeRay treats as a zero-downtime upgrade. Turning the gate on needs KubeRay v1.7.0+ for the top-level `spec.suspend` (pr-16870, pr-16882). See [[integration-rayjob]] |
+| SparkApplication cannot be stopped; the API rejects `executor.instances: 0` | Kueue wrote back `instances: 0` for an unset field; fixed by #15610 (in v0.20.2 per CHANGELOG at kueue@3bbb8cce4, released after this snapshot). See [[integration-spark]] |
+
+## CLI, dashboard and test-suite symptoms
+
+| Symptom | Cause / fix |
+|---|---|
+| `kueuectl version` prints only the client version on a Helm install with a non-default release name | before v0.20.1 / v0.19.8 the controller was looked up by Deployment name `kueue-controller-manager`; now by labels `app.kubernetes.io/name=kueue,control-plane=controller-manager` (pr-16609). A Helm `nameOverride` is still unsupported |
+| `kueuectl list workload` fails with `resource name may not be empty` | a pending Workload has an empty `spec.queueName`; fixed by pr-16667 (backports pr-16986, pr-16978) |
+| `kueuectl create clusterqueue` fails with `must match the name in coveredResources` | flavors listed the same resources in different orders; fixed in v0.20.1 / v0.19.8 (pr-16531). `invalid resources specification` for names like `example.com/v100-gpu`: fixed by pr-16981 |
+| `kueuectl delete workload` leaves the Job's Pods running | owners were deleted with the server default propagation (Orphan for Jobs); now Background, in v0.20.1 / v0.19.8 (pr-16510) |
+| KueueViz list pages spin forever or keep stale rows on an empty cluster | the backend serialized nil slices as JSON `null`; fixed by pr-16739, pr-16392. See [[dashboard]] |
+| Integration suite fails in teardown | `verifyLogs` (`test/integration/framework/framework.go`) found an Error-level write-conflict log entry: log handled conflicts as diagnostics, not errors. Before pr-16793 (issue-16789) an Error entry whose `error` field was not a string (e.g. `zap.Bool("error", true)`) panicked `behavioral.IsLoggedEntryAConcurrentModification`; it now uses a checked type assertion. See [[testing-integration]] |
+
 ## Related pages
 
 - [[kueue-overview]]
@@ -298,6 +360,10 @@ A quota-reserved Workload whose owner drops its `WorkloadPriorityClass` label us
 - [[preemption]]
 - [[provisioning-request]]
 - [[admission-check]]
+- [[visibility-api]]
+- [[dashboard]]
+- [[testing-integration]]
+- [[api-versions]]
 - [[topology-aware-scheduling]]
 - [[metrics]]
 - [[manage-jobs-selectively]]

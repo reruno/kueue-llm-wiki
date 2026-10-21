@@ -2,9 +2,9 @@
 
 **Summary**: LeaderWorkerSet is a SIG-Apps API for running groups of Pods where each group has a designated leader and a number of followers. It targets inference serving (disaggregated prefill/decode) and training with tightly-coupled worker groups. Kueue integrates per-group, treating a leader+workers as one gang.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-14405.md, pr-16402.md, pr-16423.md, pr-13316.md, pr-16401.md, pr-13775.md, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_reconciler.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -90,6 +90,8 @@ Go binds `&&` tighter, so this is `A || (B && C)`; `(B && C)` requires `UpdateRe
 
 [[pr-14447]] (cherry-picks [[pr-14892]], [[pr-14893]]) extracts a named `revisionChanged` helper that is true only when both revisions are set and differ. The narrowing is safe because this controller watches Pods directly, so the reconcile that removes their scheduling gates does not depend on the StatefulSet event; `Create`, `Delete` and `Generic` on the handler are already no-ops.
 
+**Update (2026-10-21)**: on `main` (v0.20.0) the whole LWS StatefulSet watch, including `lwsStsHandler` and `revisionChanged`, is gone. #16329 removed it together with the rollout-ungating rule it served (see the rollout section below; source: raw/kueue/pkg/controller/jobs/leaderworkerset/). The release-0.19 backport keeps the watch (source: pr-16401.md).
+
 ## `WorkloadAnnotation` on LWS Pods
 
 LWS's `setDefault` in `leaderworkerset_reconciler.go` builds Pod annotations by hand for its pod-group mechanism and never set `kueue.WorkloadAnnotation`, which `wasSimulator.TrackPod` needs to map Pods to their Workload. It is now written in two places, gated like the shared write site (`TopologyAwareScheduling || SchedulerLibraryIntegration`): the main annotation path (after the leader/worker `RoleHashAnnotation` branch) and the "already managed" early-return branch (Pods labelled `ManagedByKueueLabelKey`), which backfills Pods handled by an earlier reconcile (source: pr-15142.md).
@@ -98,8 +100,29 @@ LWS's `setDefault` in `leaderworkerset_reconciler.go` builds Pod annotations by 
 
 An evicted LWS Workload with no Pods (e.g. scaled to zero) used to keep its quota reserved; fixed together with StatefulSet, see [[integration-plain-pod#Empty PodGroups of StatefulSet / LeaderWorkerSet]] (source: pr-14578.md). Open issues that reveal current limits: the LWS webhook can be blind to an object created before it is ready ([[issue-15835]]); pod-template shape immutability for non-quota fields ([[issue-15570]]); TAS support for LWS affinity/anti-affinity ([[issue-15057]]).
 
+## Rolling update with a percentage `maxSurge`
+
+`isRollingUpdateWithSurge` used to read `rolloutStrategy.rollingUpdateConfiguration.maxSurge` with `IntOrString.IntValue()`, which discards the `strconv.Atoi` error, so **every percentage read as 0**, `100%` included. `filterWorkloads` is meant to keep Workloads "for all groups including surge replicas" by raising `replicas` to `status.replicas` while a surge rollout is in progress. With the surge read as 0, that never happened, and the Workloads of surge groups that were still running went into `toDelete`. Example: spec 2 replicas, status 3. `maxSurge: 1` gives `toDelete=[]`, but `maxSurge: 50%` gave `toDelete=[group-2]` (source: pr-14405.md).
+
+The reconciler now uses `intstr.GetScaledValueFromIntOrPercent(maxSurge, replicas, true)`, which rounds up as the LWS API documents, and **returns** a parse error instead of folding it to 0. A string that is not a percentage, such as `"3"`, is an error; the LWS webhook rejects such values with the same helper (source: raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_reconciler.go). Shipped in **v0.20.0, v0.19.7 ([[pr-16402]]) and v0.18.11 ([[pr-16423]])** (source: raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md, CHANGELOG-0.18.md).
+
+## Rollouts: current-revision Pods stay gated until admission
+
+Shared with StatefulSet. During a rolling update, current-revision Pods were ungated before the Workload was admitted. Now they are ungated only after admission. On `main` the LWS StatefulSet watch is removed, and on release-0.19 current-revision LWS Pods also get their default labels, so a Pod recreated mid-rollout joins its pod group. Shipped in v0.20.0, v0.19.7 and v0.18.11. Details: [[integration-statefulset#Rollouts: current-revision Pods stay gated until admission]] (source: pr-16401.md).
+
+## Legacy finalizer cleanup removed (v0.20)
+
+The migration code that removed the legacy `kueue.x-k8s.io/managed` finalizer from parent-suspended Pods is gone from the LWS reconciler, together with the `SkipFinalizersForPodsSuspendedByParent` gate. See [[integration-statefulset#Legacy parent-suspended Pod finalizer cleanup removed (v0.20)]] ([[pr-13316]]).
+
+## Missing WorkloadPriorityClass
+
+LWS resolves `kueue.x-k8s.io/priority-class` **once per component** (`PrepareWorkloadPriority` per group Workload). A label naming a missing class therefore emits one `WorkloadPriorityClassNotFound` Warning per component. The events are identical on the same object, so they fold into one event with a count. #13820 tracks resolving the class once per reconcile (source: pr-13775.md). See [[workload-priority#Missing WorkloadPriorityClass: Warning event]].
+
 ## Related pages
 
 - [[integrations]] — integration mechanics.
 - [[workload]] — leader + workers PodSet shape.
 - [[topology-aware-scheduling]] — co-scheduling leaders and workers.
+- [[integration-statefulset]]
+- [[integration-plain-pod]]
+- [[workload-priority]]

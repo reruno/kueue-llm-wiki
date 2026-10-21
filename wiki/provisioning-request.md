@@ -2,9 +2,9 @@
 
 **Summary**: ProvisioningRequest is the canonical [[admission-check]] that gates admission on node availability. Kueue creates a `ProvisioningRequest` (Cluster Autoscaler API) per Workload; when the autoscaler reports `Provisioned=True`, the check passes and the Workload can be admitted. It is how Kueue interoperates with cluster autoscalers to acquire GPU-class (or otherwise scarce) capacity just-in-time instead of forcing those nodes to sit idle.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (cited inline; this update: pr-16514.md, pr-16543.md), `raw/kueue/pkg/controller/elasticjobs/elastic_job_ungater.go`.
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -39,7 +39,7 @@ A CQ that mixes pre-provisioned and autoscaled flavors should only gate admissio
 
 Tolerations and nodeSelectors declared on a [[resource-flavor]] must flow into the PR's `PodTemplate`. Otherwise the autoscaler provisions nodes that the resulting Pods cannot schedule onto, and the Job fails ([[issue-2572]]).
 
-More broadly, a check can populate `Workload.spec.podSetUpdates` with labels, annotations, tolerations, or node selectors that are merged into the Job's PodTemplate at unsuspend time; ProvisioningRequest uses this mechanism to inject node-affinity pointing at the specific provisioned capacity block.
+More broadly, a check can populate `status.admissionChecks[].podSetUpdates` (correction 2026-10-21: earlier text said `Workload.spec.podSetUpdates`; the field is on `AdmissionCheckState` in the status, source: apis/kueue/v1beta2/workload_types.go) with labels, annotations, tolerations, or node selectors that are merged into the Job's PodTemplate at unsuspend time; ProvisioningRequest uses this mechanism to inject node-affinity pointing at the specific provisioned capacity block.
 
 ## DWS (Dynamic Workload Scheduler) mode
 
@@ -71,6 +71,8 @@ The controller computes a deterministic PodTemplate name (`ppt-<workload>-<check
 
 Elastic Jobs with a ProvisioningRequest check rely on per-pod (not per-template) lifetime of the `consume-provisioning-request` / `provisioning-class-name` identity annotations, so GKE's node-selector injection for `queued-provisioning.gke.io` stays scoped to the current request across scale-ups; this is currently implicit in `podset.go` and `elastic_job_ungater.go` ([[issue-14615]], documentation request; source: issue-14615.md).
 
+**Both annotations travel together** (source: pr-16514.md; backport pr-16543, shipped v0.20.1; gate `ElasticJobsViaWorkloadSlicesForProvisioningRequests`, Alpha). Pods created before the job template was stamped, such as those of the first ProvisioningRequest-backed slice in a chain, used to be ungated with `consume-provisioning-request` but **without** `provisioning-class-name`. GKE's provisioning-request mutator warns (`"autoscaling.x-k8s.io/provisioning-class-name" annotation should be populated`) and then applies queued-provisioning semantics anyway. It injects the node selector `autoscaling.gke.io/provisioning-request=<id>`, which is immutable, plus the `cloud.google.com/gke-queued` toleration. With `best-effort-atomic-scale-up.autoscaling.x-k8s.io` and existing capacity (`Provisioned=True`, reason `CapacityIsFound`), no node carries that label. The cluster autoscaler also ignores consume-annotated Pods for normal scale-up, so the Pod stays Unschedulable forever while Kueue reports the Workload admitted. When the class annotation is present, the mutator is class-aware and leaves atomic and check-capacity Pods alone. The elastic ungater's `admissionUpdateForPodSet` now copies **all** `PodSetUpdates` annotations (and node selectors) for the PodSet onto each gated Pod. Only the consume annotation is checked as the Pod's immutable identity. See [[elastic-jobs]].
+
 ## Related pages
 
 - [[admission-check]] — the general admission-check framework this check plugs into.
@@ -78,4 +80,5 @@ Elastic Jobs with a ProvisioningRequest check rely on per-pod (not per-template)
 - [[resource-flavor]] — source of tolerations/nodeSelectors that must flow into the PR.
 - [[integration-plain-pod]] — DWS deletion edge case.
 - [[integration-kubeflow]] — MPIJob launcher/workers and ProvisioningRequestConfig.
+- [[elastic-jobs]] — ProvisioningRequest-backed workload slices.
 - [[feature-gates]] — `AdmissionCheckRetry` and related gates.

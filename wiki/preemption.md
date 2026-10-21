@@ -2,9 +2,9 @@
 
 **Summary**: When a pending [[workload]] can't fit with currently available quota, Kueue may evict one or more admitted workloads to free capacity. Preemption has three distinct triggers: within the same [[cluster-queue]] (priority-driven), reclaim within [[cohort]] (a CQ wants its own nominal quota back), and preemption-while-borrowing (an above-threshold borrower is displaced by a lower-priority reclaimer).
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16167.md, pr-16130.md, pr-16208.md, issue-16049.md, issue-14608.md.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16167.md, pr-16130.md, pr-16208.md, issue-16049.md, issue-14608.md, pr-17010.md, pr-16343.md, pr-16738.md, pr-16537.md, pr-16619.md, pr-16627.md, raw/kueue/pkg/scheduler/preemption/preemption.go, raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-21
 
 ---
 
@@ -50,11 +50,17 @@ A ClusterQueue records the Workload that most recently issued preemption as its 
 
 ## Fair-sharing preemption changes
 
-See [[fair-sharing]] for: the `AlmostLCA` correction to how the two strategies are described, the `+Inf` dominant-resource-share tournament skip, and the Alpha `FairSharingReevaluatePreemptionCandidates` re-run. A fair-sharing infinite preemption loop remains open ([[issue-14543]]).
+See [[fair-sharing]] for: the `AlmostLCA` correction to how the two strategies are described, the `+Inf` dominant-resource-share tournament skip, the Alpha `FairSharingReevaluatePreemptionCandidates` re-run, and two loop fixes:
+
+- **Correction (2026-10-21)**: this page said the fair-sharing infinite preemption loop [[issue-14543]] "remains open". It is fixed by pr-16343 (gate `FairSharingVerifyFinalTargets`, Beta/on; shipped v0.20.1 and v0.19.8): after fill-back, every cross-CQ target must still satisfy a fair-sharing strategy against the final simulated state, otherwise the target set is discarded ([[fair-sharing#Final-target verification stops the "own-workload" preemption loop (`FairSharingVerifyFinalTargets`)]]).
+- pr-16738 (fixes issue-16665 and issue-16666) prunes candidate ClusterQueues/Cohorts that do not borrow the **contested** flavor-resources, along the path to the LCA with the preemptor ([[fair-sharing#Candidate ClusterQueues are pruned by the *contested* flavor-resources (pr-16738)]]).
+- Still open: issue-17022, a loop caused by `FairSharingPreemptWithinNominal` and the admission tournament disagreeing on "within nominal".
 
 ## Target selection sizes the preemptor from the assignment (v0.20, cherry-picked to 0.19/0.18)
 
-`Preemptor.GetTargets` decides how many victims are needed by asking `workloadFits` (quota **and**, for TAS, topology) after removing candidates one by one, then `fillBackWorkloads` re-adds any victim that turned out unnecessary. The amount it must fit is `workloadUsage.Quota.Assigned = assignment.TotalRequestsFor(wl)`. pr-16167 (fixes issue-16142; backports pr-16200, pr-16201) changed that request to be built from the **assignment being admitted**, not the raw Workload spec: it uses the *assigned PodSet counts* (so partially admitted Workloads and workload-slice replacements are sized by what will actually be admitted) and **includes `pods`** when the ClusterQueue has quota for `pods`. A Workload that already holds a reservation may already carry `pods` in its requests, so it is not added twice. Symptom before the fix: too few (or the wrong) victims for pods-bound or partially-admitted elastic Workloads. `TotalRequestsFor` is used only by `GetTargets`. PodSets missing from the assignment or from the replaced slice are now logged at V(1) instead of silently skipped (pr-16290).
+Entry points: the scheduler calls `Preemptor.GetPreemptionStrategyIterator` and then `GetTargetsWithStrategy`, which runs the internal `getTargets` loop. The old public `Preemptor.GetTargets` (left only for tests after #16000) was removed by pr-16537 (backport pr-16594 to 0.20). Each `PreemptionStrategy` carries its candidate iterator, `allowBorrowing`, the shared `preemptionCtx`, and an optional `verify` callback that runs after fill-back (used by fair sharing) (source: pr-16537.md, raw/kueue/pkg/scheduler/preemption/preemption.go). The shared candidate-ordering helpers moved from package `pkg/scheduler/preemption/common` to `pkg/scheduler/preemption/policy` (pure rename for the revive `package-naming` lint, pr-16619; backports pr-16803/0.20, pr-16804/0.19).
+
+`getTargets` decides how many victims are needed by asking `workloadFits` (quota **and**, for TAS, topology) after removing candidates one by one, then `fillBackWorkloads` re-adds any victim that turned out unnecessary. The amount it must fit is `workloadUsage.Quota.Assigned = assignment.TotalRequestsFor(wl)`. pr-16167 (fixes issue-16142; backports pr-16200, pr-16201) changed that request to be built from the **assignment being admitted**, not the raw Workload spec: it uses the *assigned PodSet counts* (so partially admitted Workloads and workload-slice replacements are sized by what will actually be admitted) and **includes `pods`** when the ClusterQueue has quota for `pods`. A Workload that already holds a reservation may already carry `pods` in its requests, so it is not added twice. Symptom before the fix: too few (or the wrong) victims for pods-bound or partially-admitted elastic Workloads. `TotalRequestsFor` is used only by preemption target selection. PodSets missing from the assignment or from the replaced slice are now logged at V(1) instead of silently skipped (pr-16290).
 
 The `frsNeedPreemption` set (flavor/resources whose assignment mode is `Preempt`) restricts candidates to Workloads actually using those flavor-resources (`classical.WorkloadUsesResources`).
 
@@ -62,9 +68,17 @@ The `frsNeedPreemption` set (flavor/resources whose assignment mode is `Preempt`
 
 A ClusterQueue that references a cluster-scoped `PreemptionConfig` (annotation `kueue.x-k8s.io/preemption-config-name`, gate `ConfigurablePreemptions`) gets extra fallback candidates after the classical or fair-sharing candidates are exhausted, with new eviction reason `ConfigurablePreemption`. Details on [[configurable-preemptions]].
 
-## Known limitation: classical preemption within a borrowing ClusterQueue
+## Fixed: classical preemption within a borrowing ClusterQueue (#16060)
 
-Reported and still open (issue-16049.md): with `withinClusterQueue: LowerPriority`, `reclaimWithinCohort: Any` and `borrowWithinCohort.policy: Never`, a high-priority Workload in a CQ that is **already borrowing** does not preempt a lower-priority Workload of the *same* CQ, because the attempt that keeps the CQ within nominal quota finds no candidate and the borrowing attempt is forbidden by `borrowWithinCohort: Never`. Fair-sharing preemption does not have this problem. Treat it as expected behaviour of the current classical algorithm until the issue is resolved; a `PreemptionConfig` rule with scope `WithinClusterQueue` is a workaround in Alpha.
+**Correction (2026-10-21)**: this was listed as an open limitation. issue-16049 is now closed by #16060 (main, merged 2026-10-09; release-0.20 backport pr-17010.md; the release-0.19 backport pr-17016 is still open, and the first attempt pr-17009 was closed).
+
+The symptom: with `withinClusterQueue: LowerPriority`, `reclaimWithinCohort: Any` and `borrowWithinCohort.policy: Never`, a high-priority Workload in a CQ that would need to **borrow** never preempted a lower-priority Workload of its *own* CQ, because `fitsResourceQuota` only simulated preemption when the request fit nominal quota, the hierarchy allowed reclaim, or `canPreemptWhileBorrowing()` was true; otherwise it returned `NoFit` (source: issue-16049.md).
+
+Now `fitsResourceQuota` has a last branch: if `withinClusterQueue` is set and not `Never` (`canPreemptWithinClusterQueue()`), it runs `oracle.SimulatePreemption`; if that finds candidates the flavor gets `Preempt` mode, otherwise it stays `NoFit` "so the Workload doesn't hold capacity in the cohort". The user docs now list a third eligibility condition: "`withinClusterQueue` preemption is enabled and there are preemption candidates in the same ClusterQueue" (source: raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go, pr-17010.md). Release note: "Scheduling: Fixed a bug where a Workload that needed to borrow quota could not preempt Workloads in its own ClusterQueue, even when withinClusterQueue allowed preemption."
+
+## Preemption-gated Workloads report `PreemptionGated` (pr-16627)
+
+When a Workload is in `Preempt` mode but its preemption gate is closed (MultiKueue orchestrated preemption, [[multikueue-orchestrated-preemption]]), `requeueAndUpdate` used to overwrite its `updated` flag with the result of `SetBlockedOnPreemptionGatesCondition`; once `BlockedOnPreemptionGates` was already set, the `QuotaReserved` and `status.resourceRequests` changes in the same patch were dropped. Fixing that exposed a status loop, because the scheduler wrote reason `AdmissionGated`, which the workload controller rewrites to `PendingEvaluation`. Now the flag is only set when the gate condition changes, and the `QuotaReserved=False` reason is **`PreemptionGated`**, which the workload controller preserves. Shipped v0.20.1 (pr-16699) and v0.19.8 (pr-16761) (source: pr-16627.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md).
 
 ## A rejected AdmissionCheck during eviction now deactivates
 

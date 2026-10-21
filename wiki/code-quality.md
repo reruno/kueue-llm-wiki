@@ -3,9 +3,9 @@
 
 **Summary**: The shared technical quality bar that Kueue reviewers enforce, synthesized across [[reviewer-mimowo|mimowo]], [[reviewer-tenzen-y|tenzen-y]], [[reviewer-gabesaba|gabesaba]], [[reviewer-mbobrovskyi|mbobrovskyi]], and [[reviewer-pbundyra|PBundyra]]. Use this page to predict what will block a PR and what will earn quick approval.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` PR review comments; `raw/kueue/CONTRIBUTING.md`; `raw/kueue/.golangci*.yaml`; `raw/kueue/Makefile-verify.mk`; `raw/kueue/pkg/features/kube_features.go`; the individual reviewer pages.
+**Sources**: `raw/github/kubernetes-sigs__kueue/` PR review comments; `raw/kueue/CONTRIBUTING.md`; `raw/kueue/.golangci*.yaml`; `raw/kueue/Makefile-verify.mk`; `raw/kueue/pkg/features/kube_features.go`; the individual reviewer pages; pr-16725.md (logging policy), pr-10727.md (AI policy), pr-15264.md, pr-16633.md, issue-16866.md; `raw/kueue/site/content/en/community/contribution_guidelines/logging_policy.md`, `logging_reference.md`; `raw/kueue/AGENTS.md`.
 
-**Last updated**: 2026-05-12
+**Last updated**: 2026-10-21
 
 ---
 
@@ -170,6 +170,20 @@ From mimowo on pr-8341:
 
 Single clean commit → simpler cherry-picks.
 
+### AI-assisted contributions
+
+Kueue follows the [Kubernetes AI Tool Usage Policy](https://www.kubernetes.dev/docs/guide/pull-requests/#ai-guidance), linked from `CONTRIBUTING.md` and the contribution-guidelines index since pr-10727.md (merged 2026-04-23). Maintainers chose to link the upstream policy rather than copy it, expecting it to change. The points mimowo highlighted in that PR: large AI-generated PRs and AI-generated commit messages are not allowed; verify AI-generated changes yourself (code review, tests) before asking for review, and be able to explain every change; answer review comments yourself, not through an AI tool. `AGENTS.md` adds Kueue-specific rules (source: `raw/kueue/AGENTS.md`):
+
+- Disclose AI use in the PR description, and when commenting or filing issues. In practice authors add a line such as "AI assisted, but mostly human driven" (source: pr-16725.md, pr-16723.md, pr-16793.md).
+- No AI authorship markers: no AI co-author, `assisted-by` or `co-developed` commit trailers.
+- No auto-close keywords (`Fixes #123`) or `#` mentions in commit messages. Prow adds `do-not-merge/invalid-commit-message`. Put issue references in the PR description.
+
+A standard `ai-assisted` label or Prow prompt was discussed but left as a follow-up (source: pr-10727.md).
+
+### Respond to every review comment
+
+When updating a PR, reply to each review thread instead of only pushing. Otherwise the reviewer has to reverse-engineer what changed (mimowo on pr-17055.md).
+
 ---
 
 ## 6. Scheduler/cache performance and correctness
@@ -200,23 +214,34 @@ See [[scheduler-internals]], [[preemption]], [[cache-architecture]], [[multikueu
 
 ---
 
-## 7. Logging verbosity
+## 7. Logging policy and verbosity
 
-From mimowo on pr-8082:
+Kueue has a written **logging policy** (`site/content/en/community/contribution_guidelines/logging_policy.md`, pr-16725.md, merged 2026-10-08, fixes #9801). It applies to **new or modified** log records. Existing records are being migrated incrementally, starting with the scheduler, `workload_controller` and `cluster_queue_controller`. It builds on the Kubernetes logging conventions and Google's Go logging guidance. At verbosity `n`, records at levels `0..n` are enabled.
 
-> "This might be very verbose if V(2), I would say this is V(4)."
-
-| Level | Purpose |
+| Level | Intended use |
 |---|---|
-| V(0) – V(1) | Errors and very rare lifecycle events |
-| V(2) | Coarse lifecycle events (one per workload state transition, not per reconcile) |
-| V(3) | Significant events at moderate frequency |
-| V(4) | Per-reconciliation-cycle detail |
-| V(5)+ | Deep debug (per-pod, per-condition, per-iteration loops) |
+| `Error` | Operational failures that prevent or materially disrupt an operation and may need operator attention |
+| `V(0)` | Rare anomalies affecting Kueue as a whole (invariant violations); use `Error` if the operation is disrupted |
+| `V(1)` | Infrequent lifecycle and health transitions (startup, configuration, leadership, connection health); rare anomalies confined to one controller or the scheduler |
+| `V(2)` | Concise activity summaries: material changes in overall state, start and completion of top-level scheduler cycles |
+| `V(3)` | Main per-object diagnostics: `Reconcile` start/end/duration, key informer observations, main scheduling and controller decisions with reasons and outcomes, context for changes saved through the API, relevant cache-vs-API differences |
+| `V(4)` | Details that explain a decision: old/new values, aggregated decision context, brief plans for grouped writes, fan-out or enqueue |
+| `V(5)` | Implementation traces: individual scheduling calculations, heap/cache mechanics, individual API-write attempts and retries, extra informer/webhook metadata, repeated steps in searches |
+| `V(6+)` | Deep tracing and broad internal-state dumps |
 
-Per-reconcile logs at V(2) is the most common verbosity bug; fix the level before merge.
+Guidelines:
 
-`golangci.yaml` runs `loggercheck` to enforce structured-logging patterns.
+- **Errors:** no `V(n).Error(...)` and no `Enabled()` guard around error logging. Return errors from lower layers and log them **once** at a higher control layer. Preserve each cause when combining failures. `NotFound`/`Conflict` that normal control flow handles may be logged as diagnostics.
+- **API writes:** report a persisted transition **after** the write succeeds. Prefer an Event after a successful write; if controller-runtime already logs the Event (it does at `V(1)`), a separate log can be omitted. Logging before a write is optional and `V(4+)`.
+- **Performance:** check `Enabled()` on the emitting logger before costly computation, allocation, serialization or locking done only for a log. Small bounded fields (counters, enums) can go at low levels; large already-computed fields at higher levels; fields that need a dedicated state dump at `V(6+)`.
+- **Construction:** use the logger from the propagated context. Keys are stable lowerCamelCase: `workload`, `job`, `clusterQueue`, `resourceFlavor`.
+- **Security:** never log tokens, secrets or credentials at any level. client-go logs REST bodies at `V(8–10)` (about 1 KiB at V8, 10 KiB at V9, untruncated at V10), and they may contain confidential data.
+
+The companion `logging_reference.md` records dependency behaviour at controller-runtime v0.25.1 / client-go v0.37.1. controller-runtime logs errors returned from `Reconcile` at `Error`; manager Events at `V(1)`; API-server warning headers as plain `Info`; and `Reconcile` start/finish, webhook metadata and 10-second priority-queue snapshots at `V(5)`. client-go logs reflector diagnostics at `V(1–4)`, throttling at `V(3)` (rate-limited `V(2)`/`V(0)` for long waits) and Retry-After at `V(4)`. Kueue's `CustomLogProcessor` (`pkg/util/logging/logging.go`) matches concurrent-modification errors by message text, relabels them from `Error` to `V(3)` and drops the stack trace. The level check runs **before** relabeling, so these records appear whenever `Error` is enabled. The integration framework fails a suite if any Error-level record is a write conflict (see [[testing-integration]]).
+
+**Correction (2026-10-21)**: this section used to say per-reconcile logs belong at `V(4)` and coarse lifecycle at `V(2)`, based on mimowo's review on pr-8082 ("This might be very verbose if V(2), I would say this is V(4)"). The written policy (pr-16725.md) moves the main per-object reconcile diagnostics to **`V(3)`** and reserves `V(2)` for component-level summaries, not per-object transitions. Per-iteration detail inside a reconcile stays at `V(4)`/`V(5)`. Follow the policy for new code.
+
+`golangci.yaml` runs `loggercheck` to enforce structured-logging key/value pairs. The v0.20.0 logger-name alignment (`<kind>-reconciler`, `<subcomponent>-<kind>-reconciler`) is recorded in CHANGELOG-0.20.md.
 
 ---
 
@@ -246,7 +271,11 @@ From [[reviewer-tenzen-y|tenzen-y]] on pr-10282, rewriting a vague note:
 
 > "TAS: fix a bug that Pods which only contain the `kueue.x-k8s.io/podset-slice-required-topology` or `kueue.x-k8s.io/podset-slice-required-topology-constraints` are not ungated."
 
-Format: TAS / MultiKueue / Scheduler / etc. — the area prefix is preserved so operators can scan the changelog quickly.
+Format: TAS / MultiKueue / Scheduler / etc. — the area prefix is preserved so operators can scan the changelog quickly. Established prefixes include `CLI:` for kueuectl, `KueueViz:`, `Importer:`, `Helm:`, `Observability:`, `FairSharing:`, `AFS:`, `TAS:`, `MultiKueue:` and `Scheduling:` (source: CHANGELOG-0.20.md).
+
+Since pr-15264.md the PR template tells authors to describe the change from the user's point of view, never leave the block blank (use `NONE` when there is no user-facing change), add a feature prefix, and include an `ACTION REQUIRED:` section when upgrade steps are needed. It points to the optional `cmd/experimental/skills/kueue-release-notes/SKILL.md` skill. Maintainers still rewrite notes with `/release-note-edit` or `/set-release-note`, typically into "Fixed a bug where X. Kueue now Y." form (for example pr-15376.md, pr-16850.md).
+
+**Static-analysis false positives.** Snyk reports `crypto/sha1` uses (Workload-name hashing in `jobframework/workload_names.go`, the provisioning controller, WAS virtual Pods) as "password hash with insufficient computational effort". Maintainers closed this as not a bug: the hashes only avoid name collisions and are not security-sensitive. Downstream forks filter them, for example in the OpenShift kueue-operator `.snyk` (source: issue-16866.md).
 
 ---
 
@@ -317,9 +346,11 @@ A condensed pre-flight version of everything above:
 - [ ] API markers are linter-clean (`+required` ⇒ no `omitempty`).
 - [ ] No in-place removal of beta API fields. Deprecate now, remove on promotion.
 - [ ] Code kept for upgrade compatibility has a TODO with the target version and a tracking issue.
-- [ ] Per-reconcile logs at V(4)+; coarse lifecycle at V(2).
+- [ ] Log levels follow the logging policy: main per-object reconcile diagnostics at V(3), decision details at V(4), traces at V(5); errors logged once at the control layer; `Enabled()` guard before costly log-only work.
 - [ ] Comments match what the code does, not what it intends to do.
 - [ ] Release note for any production-impacting fix, written in scenario/risk/fix form.
+- [ ] AI use disclosed in the PR description; no AI trailers or `Fixes #` in commit messages.
+- [ ] Tests follow the [[testing#Community test-writing guidelines|writing-tests guide]] (lowest sufficient level, wrappers, one `ginkgo.It` per scenario).
 - [ ] `make verify` passes locally.
 
 ---

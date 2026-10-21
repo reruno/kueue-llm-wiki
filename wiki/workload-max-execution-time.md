@@ -2,9 +2,9 @@
 
 **Summary**: Kueue can enforce a maximum wall-clock execution time for any job type by automatically deactivating the workload once the cumulative admitted time exceeds `spec.maximumExecutionTimeSeconds`.
 
-**Sources**: `raw/kueue/keps/3125-maximum-execution-time/README.md`, `raw/kueue/keps/3125-maximum-execution-time/kep.yaml`
+**Sources**: `raw/kueue/keps/3125-maximum-execution-time/README.md`, `raw/kueue/keps/3125-maximum-execution-time/kep.yaml`, pr-14449.md, pr-13420.md, raw/kueue/apis/kueue/v1beta2/workload_types.go
 
-**Last updated**: 2026-04-28
+**Last updated**: 2026-10-21
 
 ---
 
@@ -55,7 +55,9 @@ When the time limit expires the workload is **deactivated**, meaning `spec.activ
 
 ## Webhook validation
 
-The webhook rejects workloads with `maximumExecutionTimeSeconds ≤ 0`. The field is immutable after creation. (source: keps/3125-maximum-execution-time/README.md)
+The webhook rejects workloads with `maximumExecutionTimeSeconds ≤ 0`. (source: keps/3125-maximum-execution-time/README.md)
+
+**Correction (2026-10-21)**: the field is not immutable after creation. A CRD CEL rule on the Workload makes `spec.maximumExecutionTimeSeconds` immutable **only while the Workload is `Admitted=True`** in both the old and new object (an absent field compares as 0); a Workload that has reserved quota but is not yet admitted, or one that was evicted, may still change it. This matches KEP-3125 ("immutable, while the workload is admitted") and `reconcileMaxExecutionTime`, which enforces the limit only once admitted. The rejection message was corrected by pr-14449 to `maximumExecutionTimeSeconds is immutable while the workload is admitted` (it used to say "while workload quota reserved") (source: pr-14449.md, raw/kueue/apis/kueue/v1beta2/workload_types.go).
 
 ## Interaction with preemption
 
@@ -63,7 +65,7 @@ If a workload is preempted before its budget expires, the elapsed time is accumu
 
 ## Debugging
 
-Check `status.accumulatedPastExecutionTimeSeconds` to see how much time has been consumed across cycles. The `WorkloadDeactivated` event indicates that the budget expired.
+Check `status.accumulatedPastExecutionTimeSeconds` to see how much time has been consumed across cycles. Fleet-wide, `kueue_execution_time_seconds` / `kueue_local_queue_execution_time_seconds` (v0.20) observe the same accumulator plus the final admitted segment when a Workload finishes, so they show how close finished jobs ran to their budget (source: pr-13420.md; see [[metrics]]). The `WorkloadDeactivated` event indicates that the budget expired.
 
 ## Related pages
 
@@ -72,3 +74,5 @@ Check `status.accumulatedPastExecutionTimeSeconds` to see how much time has been
 - [[preemption]]
 - [[feature-gates]]
 - [[gang-scheduling]]
+- [[metrics]] — execution-time histograms.
+- [[api-versions]] — the CEL message fix.

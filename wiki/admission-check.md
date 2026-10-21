@@ -2,9 +2,9 @@
 
 **Summary**: An AdmissionCheck is a pluggable gate that runs after QuotaReservation and before the Workload is `Admitted`. Checks can gate on capacity (ProvisioningRequest / cluster-autoscaler), dispatch ([[multikueue]]), or any custom condition. A [[cluster-queue]] lists the checks it requires; each must pass for the Workload to proceed.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (this update: pr-16514.md), `raw/kueue/pkg/controller/elasticjobs/elastic_job_ungater.go`.
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-10-21
 
 ---
 
@@ -34,6 +34,11 @@ Each check writes to `status.admissionChecks[].state` as one of:
 ## Check-applied updates
 
 A check can populate `Workload.spec.podSetUpdates` with extra labels, annotations, tolerations, or node selectors that must be merged into the job's PodTemplate at unsuspend time. This is how ProvisioningRequest injects node-affinity to the specific provisioned capacity block, and how MultiKueue labels worker-cluster workloads.
+
+**Correction (2026-10-21)**: the updates live in the Workload **status**, at `status.admissionChecks[].podSetUpdates[]` (each entry is keyed by PodSet `name`), not in `spec`. Code reads them from `wl.Status.AdmissionChecks[*].PodSetUpdates` (source: elastic_job_ungater.go; [[topology-aware-scheduling]] NodeHotSwap section). Other consumers besides the unsuspend-time template merge:
+
+- **Elastic Pods created before the template was stamped** get the updates directly from the elastic ungater. Since v0.20.1, *every* annotation and node-selector entry of the matching `PodSetUpdates` is copied, and conflicting values across checks are an error (source: pr-16514.md). See [[elastic-jobs]] and [[provisioning-request]].
+- TAS NodeHotSwap and the WAS simulator merge `PodSetUpdates` tolerations and node selectors into the effective PodSpec they evaluate (see [[topology-aware-scheduling]]).
 
 ## Per-flavor checks
 

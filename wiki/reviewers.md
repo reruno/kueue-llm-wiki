@@ -3,9 +3,9 @@
 
 **Summary**: Overview of Kueue's reviewer roster, OWNERS structure, Prow approval workflow, and how individual reviewers divide responsibility. Use this page as the entry point when navigating to a specific reviewer profile or to [[code-quality|the project's shared code quality bar]].
 
-**Sources**: `raw/kueue/OWNERS`, `raw/kueue/OWNERS_ALIASES`, `raw/kueue/CONTRIBUTING.md`, `raw/kueue/AGENTS.md`, and analysis of PR review comments across `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/kueue/OWNERS`, `raw/kueue/OWNERS_ALIASES`, `raw/kueue/CONTRIBUTING.md`, `raw/kueue/AGENTS.md`, and analysis of PR review comments across `raw/github/kubernetes-sigs__kueue/`; pr-16505.md, pr-16850.md, pr-16739.md, pr-17055.md, pr-14150.md.
 
-**Last updated**: 2026-05-12
+**Last updated**: 2026-10-21
 
 ---
 
@@ -63,6 +63,9 @@ Other active reviewers without dedicated profile pages:
 - **@olekzabl** — Workload lifecycle
 - **@kshalot** — Performance and test reliability
 - **@sohankunkerkar** — Integrations and documentation
+- **@henry3260** — frequent `/lgtm` on kueuectl and KueueViz fixes. Asks for tests that would fail on the old code, for example asserting a slice is non-nil, or putting a Workload on page 2 when testing pagination (source: pr-16739.md, pr-16850.md, pr-17055.md)
+
+**CI gotcha.** If Prow shows obsolete required jobs as blockers (for example after a test-infra job change that was reverted), maintainers ask the author to push a no-op commit to retrigger the current job set (source: pr-16850.md, pr-16739.md).
 
 ---
 
@@ -85,6 +88,8 @@ Kueue uses [Prow](https://prow.k8s.io/) for PR automation. The standard sequence
 | `/release-note-edit` | Approver | Tightens user-facing release-note text inline |
 | `/retest` | Author or reviewer | Re-runs failing CI jobs |
 | `/lifecycle frozen` | Approver | Prevents the bot from staling out a long-running PR |
+| `/set-release-note` | `release-team` or `kueue-approvers` (since pr-16505.md) | Replaces the release note. It takes **everything after the command** in that comment as the note, so put `/kind`, `/cherrypick` and other commands in a separate comment (source: pr-16850.md) |
+| `/hold cancel` or `/unhold` | Hold owner | Both release a hold; `/remove hold` does nothing (source: pr-14150.md) |
 
 ### Conditional approvals
 

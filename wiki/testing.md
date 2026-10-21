@@ -2,15 +2,15 @@
 
 **Summary**: How to run, focus, and debug Kueue's three test tiers (unit, integration, e2e) on a local dev machine, which make targets and env vars each tier honors, how CI exercises them, and where to look when a test goes flaky. Entry point for the developer-workflow section.
 
-**Sources**: `raw/kueue/Makefile-test.mk`, `raw/kueue/hack/testing/`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`, `raw/kueue/test/util/constants.go`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-2415]], [[pr-5414]], [[pr-6906]].
+**Sources**: `raw/kueue/Makefile-test.mk`, `raw/kueue/hack/testing/`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`, `raw/kueue/test/util/constants.go`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-2415]], [[pr-5414]], [[pr-6906]]; pr-16723.md, pr-16481.md, pr-16781.md, pr-16791.md, pr-16823.md, pr-16996.md, pr-16923.md; `raw/kueue/site/content/en/community/contribution_guidelines/writing_tests.md`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-10-21
 
 ---
 
 ## The test pyramid
 
-Kueue has three tiers. Each tier's make targets live in `Makefile-test.mk`.
+Kueue has three tiers. Each tier's make targets live in `Makefile-test.mk`. **Correction (2026-10-21)**: the Makefile system was refactored (#14127). The test targets now live in `hack/make/test.mk`, and verify targets in `hack/make/verify.mk`, both included from the top-level `Makefile`. References to `Makefile-test.mk` on this page mean `hack/make/test.mk` (verified against `raw/kueue` at kueue@8922c563e).
 
 | Tier | What it exercises | Runtime | Where |
 |---|---|---|---|
@@ -209,24 +209,33 @@ Normal `go test`. Table tests in the codebase-standard form use `testingutil.Mak
 
 ### Integration
 
-Ginkgo suites under `test/integration/`. Shared fixtures live in `test/util/` ([[pr-2415]]). Common patterns:
+Ginkgo suites under `test/integration/`. Shared fixtures live under `test/util/behavioral/` ([[pr-2415]] started the shared-helper pattern; see the layout note below). Common patterns:
 
 - `var _ = ginkgo.Describe("...", ginkgo.Ordered, ginkgo.ContinueOnFailure, func() { ... })`.
-- `ginkgo.DescribeTable("Should ...", func(args...) { ... }, ginkgo.Entry(...))`.
+- One `ginkgo.It` per independent scenario. `ginkgo.DescribeTable` still appears in older suites, but the writing-tests guide keeps table-driven style for unit tests only, and CodeRabbit no longer suggests converting `It` blocks to `DescribeTable` (source: pr-16481.md).
 - `ginkgo.DeferCleanup(...)` over manual teardown.
-- `gomega.Eventually(func(g gomega.Gomega) { ... }, util.Timeout, util.Interval).Should(gomega.Succeed())` rather than `time.Sleep`.
-- Builders from `pkg/util/testing` (e.g. `testing.MakeLocalQueue(name, ns).StopPolicy(p).Obj()`); delete-helpers from `test/util/util.go` (e.g. `util.ExpectLocalQueueToBeDeleted`, `util.ExpectAdmittedWorkloadsTotalMetric`).
+- `gomega.Eventually(func(g gomega.Gomega) { ... }, behavioral.Timeout, behavioral.Interval).Should(gomega.Succeed())` rather than `time.Sleep`.
+- Builders from `pkg/util/testing` and the versioned `pkg/util/testing/v1beta2` (imported as `utiltestingapi`, e.g. `utiltestingapi.MakeClusterQueue("cq").Obj()`), plus `pkg/util/testingjobs`; assertion helpers from `test/util/behavioral` (e.g. `behavioral.ExpectAdmittedWorkloadsTotalMetric`, `behavioral.ExpectWorkloadsToBePending`, `behavioral.ExpectObjectToBeDeleted`).
 
-Timeout constants (from `test/util/constants.go`):
+**Correction (2026-10-21)**: earlier text named `test/util/util.go`, `test/util/constants.go` and the `util.` prefix. Helpers were reorganized in October 2026 (source: pr-16626.md, pr-16781.md, fixes #15172; pr-16791.md; pr-16823.md):
+
+- `test/util/behavioral/`: helpers valid in **both** integration and e2e tests (constants, workloads, queues, metrics, events, objects, pods, jobs, namespaces, MultiKueue).
+- `test/util/behavioral/integration/`: helpers that **simulate** kubelet or controller behaviour, valid only against envtest (for example faking Pod readiness or eviction completion).
+- `test/util/behavioral/e2e/`: e2e-only helpers (clients, cluster components, images, kubelet/node control, restarts, KubeRay, metrics scraping).
+- Log verification moved into the integration framework (`test/integration/framework`).
+- Every Ginkgo helper calls `ginkgo.GinkgoHelper()`, so failures point at the caller. Explicit Gomega offsets were dropped (source: pr-16996.md, fixes #16896).
+
+Timeout constants (from `test/util/behavioral/constants.go`):
 
 | Name | Value |
 |---|---|
 | `TinyTimeout` | 10 ms |
 | `ShortTimeout` | 1 s |
 | `Timeout` | 10 s (default for `Eventually`) |
-| `MediumTimeout` | 45 s |
-| `LongTimeout` | 90 s |
-| `VeryLongTimeout` | 5 min |
+| `MediumTimeout` | 45 s (e2e: complex operations such as running Pods to completion) |
+| `LongTimeout` | 90 s (e2e: Pod lifecycle including container/sandbox teardown) |
+| `VeryLongTimeout` | 5 min (Kueue startup including cert propagation) |
+| `ShortConsistentDuration` / `ConsistentDuration` / `LongConsistentDuration` | 100 ms / 300 ms / 2 s (for `Consistently`) |
 | `ShortInterval` | 10 ms |
 | `Interval` | 250 ms (default poll) |
 | `LongInterval` | 1 s |
@@ -237,11 +246,43 @@ Reach for `LongTimeout` or higher when asserting on things that cross envtest bo
 
 Same Ginkgo + Gomega patterns, but every assertion crosses a real apiserver over the network and external operators. Timeouts used with `Eventually` are already more generous than integration defaults; bumping to `LongTimeout` is the standard flake fix ([[issue-6525]]). See [[testing-e2e]] for the e2e-specific cluster lifecycle and operator installation flow.
 
+## Community test-writing guidelines
+
+`site/content/en/community/contribution_guidelines/writing_tests.md` (pr-16723.md, merged 2026-10-07, cherry-picked to release-0.19/0.20) is the reference reviewers and the reviewer agent skills now cite. It builds on Go Test Comments, the Google Go Style Guide and the Kubernetes testing and e2e best-practice guides.
+
+**Common**
+
+- Choose the **lowest test level that can prove the behaviour**. Cover relevant branches, edge cases and errors. Test **both feature-gate states** when the gate changes the result. A bug fix needs a case that **fails without the fix**.
+- Build fixtures with the wrappers in `pkg/util/testing` and `pkg/util/testingjobs`, not ad-hoc helper functions or closures. Declare objects per test case, or clone a shared base per case. Extend the wrappers when needed, but keep them to constructing objects and setting fields, without complex fallback logic.
+- Integration and e2e tests use Ginkgo/Gomega with the shared suite setup. Keep independent scenarios in **separate `ginkgo.It` blocks**. Table-driven style is for unit tests only.
+
+**Unit**
+
+- Prefer testing complete operations (`Reconcile`, a scheduling cycle) or established logic layers. Test all exported functions; avoid testing unexported helpers directly.
+- Use Go's `testing` package with plain checks and `cmp`, not assertion libraries.
+- Extend an existing **map-based** table and reuse its runner. Add a runner setting rather than a separate setup, and start a new table only when setup really differs.
+- Assert on the error details that matter (type or structure), not just a boolean "error/no error".
+- Use the existing fake clocks for deadlines, and hooks or channels to coordinate concurrency. No fixed sleeps and no repeated attempts to win a race.
+
+**Integration (envtest)**
+
+- Let event handlers trigger the work. Do not call `Reconcile` directly.
+- Use `Eventually` to retry transient errors (update conflicts) and fail on anything else.
+- Use `Consistently` only for "stays unchanged over time". To check the outcome of an operation, prefer a single assertion (for example on a counter metric), and only after all relevant asynchronous processing has finished.
+- Clean up explicitly with the suite's helpers, so the test can run in a loop.
+
+**E2E**
+
+- Use e2e only when real components beyond envtest are needed (kubelet, kube-scheduler, kube-controller-manager, real operators such as KubeRay, JobSet or LWS). These tests catch regressions when Kubernetes or an operator changes behaviour. They are expensive and the hardest to debug, so add them only when necessary.
+- Tests that change shared Kueue configuration go in a **sequential** suite.
+
+Related maintainer hygiene seen in this window: many tests were converted to the wrappers and to declarative table cases (pr-16648, pr-16654, pr-16655, pr-16961). The performance-tool unit tests moved from `make verify` into the regular unit-test shards, and `verify-checks` now runs with `GOMAXPROCS=2` to reduce CPU contention (source: pr-16923.md).
+
 ## Debugging flakes
 
 Flakes are tracked with the `kind/flake` label ([[issue-9952]], [[issue-3044]], [[issue-6525]]). The recurring patterns:
 
-- **10-second `Eventually` too tight.** The default `util.Timeout` is 10 s; under Prow load the sequence "Delete Sticky → Sync Cache → Finish Eviction → Reclaim Resources → Admit Next" often does not fit in 10 s ([[issue-9952]]). Usual fix: bump to `MediumTimeout`/`LongTimeout`, or add an explicit synchronization step (e.g. wait for `NotFound` before starting the next timer).
+- **10-second `Eventually` too tight.** The default `behavioral.Timeout` (formerly `util.Timeout`) is 10 s; under Prow load the sequence "Delete Sticky → Sync Cache → Finish Eviction → Reclaim Resources → Admit Next" often does not fit in 10 s ([[issue-9952]]). Usual fix: bump to `MediumTimeout`/`LongTimeout`, or add an explicit synchronization step (e.g. wait for `NotFound` before starting the next timer).
 - **`Consistently` racing with deletion.** A `Consistently` that asserts a resource's state can fail with `NotFound` if the cleanup path races the assertion ([[issue-9954]]).
 - **State race across parallel specs.** MultiKueue e2e runs disruptive tests sequentially for a reason; adding new specs into a parallel suite can surface order-dependent failures ([[issue-10200]]).
 
