@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8848
 
-**Last updated**: 2026-05-02T14:36:56Z
+**Last updated**: 2026-10-17T12:23:09Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@kimminw00](https://github.com/kimminw00)
 - **Created**: 2026-01-28T07:04:25Z
-- **Updated**: 2026-05-02T14:36:56Z
+- **Updated**: 2026-10-17T12:23:09Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: [@yashnib](https://github.com/yashnib)
-- **Comments**: 15
+- **Comments**: 16
 
 ## Description
 
@@ -178,3 +178,23 @@ I understand the suggestion as making OpenTelemetry metrics the primary implemen
 That sounds like a good direction especially for Kueue-owned metrics, because it could avoid maintaining both Prometheus and OTel instrumentation.
 
 We could also make the exporter configurable, so users can choose either the [Prometheus exporter](https://opentelemetry.io/docs/specs/otel/metrics/sdk_exporters/prometheus/) or the [OTLP exporter](https://opentelemetry.io/docs/specs/otel/metrics/sdk_exporters/otlp/) depending on their observability setup.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-10-17T12:23:06Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

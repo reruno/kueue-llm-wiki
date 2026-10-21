@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8249
 
-**Last updated**: 2026-04-20T17:52:01Z
+**Last updated**: 2026-10-17T22:29:06Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@dominikgrewe](https://github.com/dominikgrewe)
 - **Created**: 2025-12-15T17:16:19Z
-- **Updated**: 2026-04-20T17:52:01Z
+- **Updated**: 2026-10-17T22:29:06Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `priority/important-soon`
+- **Labels**: `kind/feature`, `priority/important-soon`, `lifecycle/rotten`
 - **Assignees**: _none_
-- **Comments**: 13
+- **Comments**: 15
 
 ## Description
 
@@ -123,3 +123,43 @@ For admission_attempts_total or admission_attempt_duration_seconds, I'll have to
 Re as we hit the complication of adding the priority_class to some of the metrics, see https://github.com/kubernetes-sigs/kueue/issues/8249#issuecomment-3670904854, due to required re-org of the structures to support quick computation of the metrics.
 
 We recently hit similar performance issue for the pending_workloads_wait_seconds, see https://github.com/kubernetes-sigs/kueue/issues/10124, and I'm cosidering the use of async computation for some of the metrics in the thread https://github.com/kubernetes-sigs/kueue/pull/10323#discussion_r310887334, that would allow us to have routine running every 15s or so to update the metrics.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-07-19T18:27:46Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-10-17T22:29:03Z
+
+The Kubernetes project currently lacks enough active contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle rotten`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle rotten
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

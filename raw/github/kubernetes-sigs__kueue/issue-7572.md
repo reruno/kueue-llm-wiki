@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7572
 
-**Last updated**: 2026-06-12T22:44:17Z
+**Last updated**: 2026-10-20T07:49:14Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2025-11-07T01:41:15Z
-- **Updated**: 2026-06-12T22:44:17Z
+- **Updated**: 2026-10-20T07:49:14Z
 - **Closed**: —
-- **Labels**: `priority/important-longterm`, `kind/documentation`
+- **Labels**: `lifecycle/stale`, `priority/important-longterm`, `kind/documentation`
 - **Assignees**: [@iasolanki](https://github.com/iasolanki)
-- **Comments**: 4
+- **Comments**: 5
 
 ## Description
 
@@ -113,3 +113,23 @@ Finished, PodsReady, Evicted, Preempted, Requeued, DeactivationTarget. I'll docu
 plus their reason constants and transitions. Plan: enrich the godoc on the condition
 constants (which feeds the generated API reference) and add a lifecycle section to the
 Workload concepts page. Will share a draft PR for early feedback.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-10-20T07:49:12Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

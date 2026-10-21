@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5704
 
-**Last updated**: 2026-05-07T22:24:15Z
+**Last updated**: 2026-10-17T19:29:19Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2025-06-20T16:23:55Z
-- **Updated**: 2026-05-07T22:24:15Z
+- **Updated**: 2026-10-17T19:29:19Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `priority/important-longterm`, `area/multikueue`
+- **Labels**: `kind/feature`, `lifecycle/stale`, `priority/important-longterm`, `area/multikueue`
 - **Assignees**: [@mszadkow](https://github.com/mszadkow)
-- **Comments**: 22
+- **Comments**: 23
 
 ## Description
 
@@ -233,3 +233,23 @@ Another question (raised by @mimowo on the Apr 9 WG call but then apparently los
 By the current rules, it'd be the same CQ to which the original workload belonged, but this sounds like trouble (even if we use a copy with a different name). For example, such "naive approach" would mean *double accounting* of the workload's requests against CQ quota.
 
 For my intuition, it'd be cleanest to separate CQs and LQs per the manager/worker role. This would require introducing new kinds of dispatching rules, like "dispatch from manager LQ `lq1` to worker LQs named `lq2`". (So far, we assumed equality of those names).
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-10-17T19:29:19Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

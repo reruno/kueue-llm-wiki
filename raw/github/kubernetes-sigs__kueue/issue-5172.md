@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5172
 
-**Last updated**: 2025-06-18T17:59:57Z
+**Last updated**: 2026-10-15T08:22:53Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@PBundyra](https://github.com/PBundyra)
 - **Created**: 2025-05-06T13:24:33Z
-- **Updated**: 2025-06-18T17:59:57Z
+- **Updated**: 2026-10-15T08:22:53Z
 - **Closed**: —
 - **Labels**: `good first issue`, `help wanted`, `kind/documentation`
 - **Assignees**: [@JasminPradhan](https://github.com/JasminPradhan)
-- **Comments**: 10
+- **Comments**: 11
 
 ## Description
 
@@ -134,3 +134,18 @@ And yes, a tutorial with examples on setting up CQ with ProvReq sounds like a gr
 ### Comment by [@JasminPradhan](https://github.com/JasminPradhan) — 2025-06-18T17:59:57Z
 
 Hi @mimowo @tenzen-y @PBundyra ! Based on our earlier discussions, I’ve added the updates to the Admission section as suggested. I have also fixed a few broken links in the page as part of this PR. Feedback on correctness  is very welcome. Thank you for reviewing!
+
+### Comment by [@7xuanlu](https://github.com/7xuanlu) — 2026-10-15T08:22:53Z
+
+Hi, I'd like to pick up what's left here.
+
+From the thread: #5677 added `site/content/en/docs/concepts/admission.md` with the two-phase admission cycle, and #6553 restructured it. 
+
+What still looks open from me
+- a hands-on task page for a ClusterQueue with a ProvisioningRequest admission check under `docs/tasks/manage/` (@mimowo's suggestion)
+- updating `prov-req-states.svg` for RetryStrategy (@tenzen-y)
+- the admission cycle with TAS (@PBundyra)
+
+I'd like to start with the task page. Rough outline: prerequisites (cluster autoscaler with ProvisioningRequest support), create a ProvisioningRequestConfig, create the AdmissionCheck, reference it from the ClusterQueue, submit a Job, then what to look at in the Workload's admission check states and in the ProvisioningRequest object, plus a link to troubleshooting. The diagram update could be a second PR.
+
+Does that sound right, or is any of this already covered or in progress?

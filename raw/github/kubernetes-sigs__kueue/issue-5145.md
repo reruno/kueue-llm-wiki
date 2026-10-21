@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5145
 
-**Last updated**: 2026-10-09T11:52:58Z
+**Last updated**: 2026-10-15T23:20:14Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@kannon92](https://github.com/kannon92)
 - **Created**: 2025-04-30T15:29:16Z
-- **Updated**: 2026-10-09T11:52:58Z
+- **Updated**: 2026-10-15T23:20:14Z
 - **Closed**: —
 - **Labels**: `area/testing`
 - **Assignees**: _none_
-- **Comments**: 23
+- **Comments**: 24
 
 ## Description
 
@@ -228,3 +228,48 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@mimowo](https://github.com/mimowo) — 2026-10-09T11:52:55Z
 
 /area testing
+
+### Comment by [@HsiuChuanHsu](https://github.com/HsiuChuanHsu) — 2026-10-15T23:20:14Z
+
+Hi @mimowo @tenzen-y, here is an update on Helm e2e coverage.
+
+I found two types of missing that support we might need a regular run of *-helm target. Chart bugs and drift.
+
+**Chart bugs:**  Users have encountered Helm chart problems that show why checking rendered manifests alone is insufficient:
+- With a release name other than kueue, the controller-manager entered CrashLoopBackOff ([#6797](https://github.com/kubernetes-sigs/kueue/issues/6797)).
+- After a Helm upgrade, querying Topology resources failed with a conversion webhook TLS error ([#4850](https://github.com/kubernetes-sigs/kueue/issues/4850), fixed in [#4866](https://github.com/kubernetes-sigs/kueue/pull/4866)).
+- Metrics were unavailable because of the [metrics service configuration](https://github.com/kubernetes-sigs/kueue/pull/4903) or because the [ServiceMonitor selected the wrong Service](https://github.com/kubernetes-sigs/kueue/issues/5265) (fixed in #5074).
+- With cert-manager integration enabled, installation could leave the manager in CrashLoopBackOff ([#12859](https://github.com/kubernetes-sigs/kueue/pull/12859)).
+
+**Drift**:  Drift in the Helm e2e setup went unnoticed:
+- After fairSharing.preemptionStrategies became required, the Helm e2e values still used fairSharing: {}, so Kueue could not start. Fixed in [#16348](https://github.com/kubernetes-sigs/kueue/pull/16348).
+- The Helm path did not install the alpha CRDs, causing four PreemptionConfig RBAC specs to fail. Fixed in [#17050](https://github.com/kubernetes-sigs/kueue/pull/17050).
+- make test-multikueue-e2e-helm still depends on the removed test-multikueue-e2e target, so it cannot start. This remains to be fixed.
+
+
+**Local results**
+The first six results below are from main at 4f8aa9cc7. The MultiKueue results are from the open [PR #17229](https://github.com/kubernetes-sigs/kueue/pull/17229).
+
+
+| Target | Result |
+| --- | --- |
+| `test-e2e-baseline-helm` | 65/65 passed |
+| `test-e2e-extended-helm` | 42/42 passed |
+| `test-e2e-sequential-baseline-helm` | 41/41 passed |
+| `test-e2e-sequential-extended-helm` | 13/13 passed |
+| `test-tas-e2e-baseline-helm` | 19/19 passed |
+| `test-tas-e2e-extended-helm` | `BeforeSuite` failed when JobSet lost leader election |
+| `test-multikueue-e2e-helm` | Cannot start on `main`; PR #17229 removes this broken target |
+| `test-multikueue-e2e-baseline-helm` | PR #17229: full suite, 18 passed |
+| `test-multikueue-e2e-extended-helm` | PR #17229: KubeRay scope only, 5 passed; full suite not run locally |
+| `test-multikueue-e2e-sequential-helm` | PR #17229: full suite, 6 passed |
+| `test-multikueue-e2e-extended-ray-autoscaling-helm` | Added in PR #17229; no e2e result reported yet |
+| `test-e2e-multikueue-dra-helm` | Added in PR #17229; no e2e result reported yet |
+
+The kustomize `test-tas-e2e-extended` target fails the same way on my machine, so the JobSet failure appears to be a local resource limit rather than a Helm-specific failure.
+
+
+I thnk we should consider add one test-infra periodic job. It does not run on PRs, so it does not add CI time for developers, as @mimowo noted above.
+
+
+AI-assisted  finding out the Chart bugs issue.
