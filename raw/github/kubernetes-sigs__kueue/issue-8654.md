@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8654
 
-**Last updated**: 2026-06-19T13:42:20Z
+**Last updated**: 2026-10-22T05:10:31Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@saza-ku](https://github.com/saza-ku)
 - **Created**: 2026-01-19T10:01:13Z
-- **Updated**: 2026-06-19T13:42:20Z
+- **Updated**: 2026-10-22T05:10:31Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `priority/important-longterm`
+- **Labels**: `kind/feature`, `lifecycle/stale`, `priority/important-longterm`
 - **Assignees**: _none_
-- **Comments**: 18
+- **Comments**: 25
 
 ## Description
 
@@ -270,3 +270,57 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-19T13:42:20Z
 
 This touches the more generic problem of an API which will work across multiple use cases. I opened the umbrella issue to come up with a consistent API: https://github.com/kubernetes-sigs/kueue/issues/12382
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-07-02T15:55:32Z
+
+Hi folks, ptal and provide feedback to the doc https://docs.google.com/document/d/1hNLLHU3vssn1RlxX-iWCusZESiC5UmjiwgTONTpZqh0. Specifically I'm wondering that if we add the LocalCapacitySlice, then the priority of time-based quota adjustments is decreased, wdyt?
+
+### Comment by [@wafrelka](https://github.com/wafrelka) — 2026-07-07T09:00:33Z
+
+@mimowo The doc seems to be inaccessible. Could you give me access to it?
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-07-07T09:04:43Z
+
+The doc access is shared with the [wg-batch](https://github.com/kubernetes/community/tree/main/wg-batch), so please sign up to the group there - or request the access - I will approve such cases one by one.
+
+### Comment by [@wafrelka](https://github.com/wafrelka) — 2026-07-07T09:08:12Z
+
+My apologies, I wasn't aware of that. Thank you for the information.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-07-08T07:27:39Z
+
+Hi folks, @saza-ku, @wafrelka, @utam0k in particular, qq:
+
+> In our cluster, there are frequent requirements to temporarily increase a team's quota. Currently, these operations often require manual updates to the ClusterQueue. To automate this task, we need a native or structured way to handle temporary overrides.
+
+if we implement the Node-based capacity provider as currently planned in DQO: https://github.com/kubernetes-sigs/kueue/issues/12382, do you then still have use cases for "temporary quota overrides" based on fixed datetimes? I expect one use case about reservation which creates nodes may go away because it will be covered by the node capacity scraper.
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-07-08T07:31:38Z
+
+> Hi folks, [@saza-ku](https://github.com/saza-ku), [@wafrelka](https://github.com/wafrelka), [@utam0k](https://github.com/utam0k) in particular, qq:
+> 
+> > In our cluster, there are frequent requirements to temporarily increase a team's quota. Currently, these operations often require manual updates to the ClusterQueue. To automate this task, we need a native or structured way to handle temporary overrides.
+> 
+> if we implement the Node-based capacity provider as currently planned in DQO: [#12382](https://github.com/kubernetes-sigs/kueue/issues/12382), do you then still have use cases for "temporary quota overrides" based on fixed datetimes? I expect one use case about reservation which creates nodes may go away because it will be covered by the node capacity scraper.
+
+Our cluster is almost fixed-size (no autoscaling), which means temporary quotas are not tied to the number of Nodes. So, we still have the fixed-datetimes scenarios.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-10-22T05:10:29Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

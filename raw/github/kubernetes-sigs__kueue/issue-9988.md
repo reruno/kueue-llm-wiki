@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9988
 
-**Last updated**: 2026-06-19T13:41:17Z
+**Last updated**: 2026-10-23T04:21:31Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open (reopened)
 - **Author**: [@olekzabl](https://github.com/olekzabl)
 - **Created**: 2026-03-18T18:41:54Z
-- **Updated**: 2026-06-19T13:41:17Z
+- **Updated**: 2026-10-23T04:21:31Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `area/multikueue`
+- **Labels**: `kind/feature`, `lifecycle/stale`, `area/multikueue`
 - **Assignees**: [@olekzabl](https://github.com/olekzabl), [@Singularity23x0](https://github.com/Singularity23x0)
-- **Comments**: 5
+- **Comments**: 7
 
 ## Description
 
@@ -79,3 +79,27 @@ Instructions for interacting with me using PR comments are available [here](http
 ### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-19T13:41:16Z
 
 This touches the more generic problem of an API which will work across multiple use cases. I opened the umbrella issue to come up with a consistent API: https://github.com/kubernetes-sigs/kueue/issues/12382
+
+### Comment by [@amy](https://github.com/amy) — 2026-07-19T02:09:12Z
+
+👀 tracking
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-10-23T04:21:29Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

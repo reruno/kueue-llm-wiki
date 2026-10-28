@@ -1,10 +1,10 @@
-# Issue #1466: Generate SLSA Attestations with new releases
+# Issue #1466: ☂️ Generate SLSA Attestations with new releases
 
-**Summary**: Generate SLSA Attestations with new releases
+**Summary**: ☂️ Generate SLSA Attestations with new releases
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/1466
 
-**Last updated**: 2025-02-18T03:41:38Z
+**Last updated**: 2026-10-27T05:52:37Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@sec-jeff](https://github.com/sec-jeff)
 - **Created**: 2023-12-15T18:25:30Z
-- **Updated**: 2025-02-18T03:41:38Z
+- **Updated**: 2026-10-27T05:52:37Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `good first issue`, `help wanted`, `sig/release`
-- **Assignees**: [@OMNARAYANYU](https://github.com/OMNARAYANYU)
-- **Comments**: 11
+- **Labels**: `kind/feature`, `good first issue`, `help wanted`, `sig/release`, `kind/umbrella`
+- **Assignees**: [@lmilbaum](https://github.com/lmilbaum), [@OMNARAYANYU](https://github.com/OMNARAYANYU)
+- **Comments**: 18
 
 ## Description
 
@@ -34,13 +34,10 @@ SLSA's are resources that show evidence that the release consumers receive has n
 
 Implementation of a tool such as https://github.com/kubernetes-sigs/tejolote into the CI process for builds. This will generate the SLSA and attach it to the release.
 
-This enhancement requires the following artifacts:
-
-- [ ] Design doc
-- [ ] API change
-- [ ] Docs update
-
-The artifacts should be linked in subsequent comments.
+Sub-tasks:
+- [ ] https://github.com/kubernetes-sigs/kueue/issues/17749
+- [ ] https://github.com/kubernetes-sigs/kueue/issues/17748
+- [ ] https://github.com/kubernetes-sigs/kueue/issues/17750
 
 ## Discussion
 
@@ -149,3 +146,36 @@ Sure, feel free to take this issue with `/assign` comment.
 ### Comment by [@OMNARAYANYU](https://github.com/OMNARAYANYU) — 2025-02-18T03:41:37Z
 
 /assign
+
+### Comment by [@lmilbaum](https://github.com/lmilbaum) — 2026-10-26T13:43:08Z
+
+/assign
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-10-26T14:06:15Z
+
+/retitle Generate SLSA Attestations with new releases
+
+WIth sub-tasks identified so far:
+- https://github.com/kubernetes-sigs/kueue/issues/17749
+- https://github.com/kubernetes-sigs/kueue/issues/17748
+- https://github.com/kubernetes-sigs/kueue/issues/17750
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-10-26T14:07:07Z
+
+/retitle ☂️ Generate SLSA Attestations with new releases
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-10-26T14:07:19Z
+
+/kind umbrella
+
+### Comment by [@lmilbaum](https://github.com/lmilbaum) — 2026-10-26T14:12:57Z
+
+@mimowo Is it possible to enable the sub-issues feature for this project?
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-10-26T14:23:02Z
+
+I linked your tasks as sub-issues, does it work well?
+
+### Comment by [@lmilbaum](https://github.com/lmilbaum) — 2026-10-27T05:52:37Z
+
+@mimowo Thank you. It works well.

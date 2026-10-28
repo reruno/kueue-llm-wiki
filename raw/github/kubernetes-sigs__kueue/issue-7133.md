@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7133
 
-**Last updated**: 2026-06-17T17:22:43Z
+**Last updated**: 2026-10-22T04:09:32Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-10-02T07:54:50Z
-- **Updated**: 2026-06-17T17:22:43Z
+- **Updated**: 2026-10-22T04:09:32Z
 - **Closed**: —
-- **Labels**: `kind/cleanup`, `priority/important-longterm`
+- **Labels**: `lifecycle/stale`, `kind/cleanup`, `priority/important-longterm`
 - **Assignees**: _none_
-- **Comments**: 7
+- **Comments**: 9
 
 ## Description
 
@@ -100,3 +100,27 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@amy](https://github.com/amy) — 2026-06-17T17:22:43Z
 
 As followup I would probably ask @varunsyal
+
+### Comment by [@varunsyal](https://github.com/varunsyal) — 2026-07-08T00:38:02Z
+
+In a no fair-sharing world, we would still need this to disable sorting based on priority across multiple cluster-queues, since each cluster-queue can be assigned to different teams in an organizations, that submit workloads to their own clusterqueue independent of each other. In this case, priorities of workloads on different clusterqueues may not have any co-relation, and thus should not decide ordering.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-10-22T04:09:29Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

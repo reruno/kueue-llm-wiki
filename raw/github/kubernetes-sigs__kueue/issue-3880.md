@@ -4,17 +4,17 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/3880
 
-**Last updated**: 2026-04-06T02:41:08Z
+**Last updated**: 2026-10-23T12:23:52Z
 
 ---
 
 ## Metadata
 
-- **State**: open (reopened)
+- **State**: closed (completed)
 - **Author**: [@akram](https://github.com/akram)
 - **Created**: 2024-12-18T12:26:30Z
-- **Updated**: 2026-04-06T02:41:08Z
-- **Closed**: —
+- **Updated**: 2026-10-23T12:23:52Z
+- **Closed**: 2026-10-23T12:23:52Z
 - **Labels**: `kind/feature`, `good first issue`, `help wanted`, `area/dashboard`
 - **Assignees**: [@manidharanupoju24](https://github.com/manidharanupoju24)
 - **Comments**: 15

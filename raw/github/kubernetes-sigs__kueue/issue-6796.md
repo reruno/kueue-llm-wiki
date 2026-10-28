@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/6796
 
-**Last updated**: 2026-10-19T13:31:49Z
+**Last updated**: 2026-10-25T02:39:26Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open (reopened)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-09-11T14:20:39Z
-- **Updated**: 2026-10-19T13:31:49Z
+- **Updated**: 2026-10-25T02:39:26Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `priority/important-longterm`, `lifecycle/rotten`
 - **Assignees**: _none_
-- **Comments**: 17
+- **Comments**: 18
 
 ## Description
 
@@ -214,3 +214,13 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@MaysaMacedo](https://github.com/MaysaMacedo) — 2026-10-19T13:31:47Z
 
 /unassign
+
+### Comment by [@dundysm](https://github.com/dundysm) — 2026-10-25T02:39:26Z
+
+@mimowo i'd like to take this one. cc @MaysaMacedo, thanks for the earlier work on #7889 and the kep in #8354, i'd build directly on both.
+
+plan:
+- start with an updated kep based on #8354 that closes the hole from the #7889 revert (if job a consumes the whole timeout, the workload is never evicted). the idea is a staged pods-ready timeout per dependsOn stage, bounded by an overall limit so the workload is always evicted eventually.
+- once the design is agreed, follow up with the implementation plus integration and e2e tests.
+
+@mimowo are you ok with me picking this up? @MaysaMacedo hope you don't mind, happy to loop you in on the kep review.

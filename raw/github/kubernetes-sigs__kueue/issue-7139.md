@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7139
 
-**Last updated**: 2026-04-18T13:17:56Z
+**Last updated**: 2026-10-23T17:27:31Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-10-02T12:31:51Z
-- **Updated**: 2026-04-18T13:17:56Z
+- **Updated**: 2026-10-23T17:27:31Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `priority/important-longterm`, `lifecycle/rotten`
-- **Assignees**: _none_
-- **Comments**: 6
+- **Labels**: `kind/feature`, `lifecycle/stale`, `priority/important-longterm`
+- **Assignees**: [@piyushbag](https://github.com/piyushbag)
+- **Comments**: 8
 
 ## Description
 
@@ -96,5 +96,42 @@ You can:
 Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
 
 /lifecycle rotten
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@piyushbag](https://github.com/piyushbag) — 2026-07-24T18:19:16Z
+
+Hi, I would like to take this on. I traced the current event path and propose putting the safety mechanism in the `InadmissibleWorkloadRequeuer`, rather than adding another wake-up path to the scheduler loop:
+
+- On a fixed five-minute interval, enumerate ClusterQueues and enqueue the existing retry requests.
+- Reuse the current delaying workqueue so root Cohorts are naturally deduplicated and requeue batching remains intact.
+- Keep this as an internal safety invariant initially—no API or configuration change.
+- Add fake-clock unit coverage for interval behavior, root-Cohort deduplication, and context cancellation.
+- Add an integration scenario proving an inadmissible workload is reconsidered without a resource/configuration event.
+
+I favor a fixed wall-clock interval over “five minutes since the last scheduling cycle”: unrelated active workloads could otherwise keep resetting the timer while a workload affected by a missing event remains stuck indefinitely. The periodic scan is bounded and only pushes existing deduplicated requeue requests.
+
+I will include before/after test evidence and check the hot-path cost. Please let me know if you prefer the last-cycle-based interpretation.
+
+/assign
+/remove-lifecycle rotten
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-10-23T17:27:28Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/

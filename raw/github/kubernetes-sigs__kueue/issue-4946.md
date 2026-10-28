@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/4946
 
-**Last updated**: 2025-11-23T00:12:23Z
+**Last updated**: 2026-10-25T15:24:54Z
 
 ---
 
 ## Metadata
 
-- **State**: closed (not_planned)
+- **State**: closed (completed)
 - **Author**: [@kannon92](https://github.com/kannon92)
 - **Created**: 2025-04-13T16:23:17Z
-- **Updated**: 2025-11-23T00:12:23Z
-- **Closed**: 2025-11-23T00:12:22Z
+- **Updated**: 2026-10-25T15:24:54Z
+- **Closed**: 2026-10-25T15:24:53Z
 - **Labels**: `lifecycle/rotten`
 - **Assignees**: _none_
-- **Comments**: 14
+- **Comments**: 18
 
 ## Description
 
@@ -238,6 +238,46 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/4946#issue
 >/close not-planned
 >
 >[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-10-25T15:06:40Z
+
+/reopen
+
+### Comment by [@kubernetes-prow[bot]](https://github.com/apps/kubernetes-prow) — 2026-10-25T15:06:48Z
+
+@kannon92: Reopened this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/4946#issuecomment-6399286407):
+
+>/reopen
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-10-25T15:24:47Z
+
+Hmm. I actually can't reproduce this with snyk anymore. Doesn't look like much changed here but maybe snyk filtered this out as a false positive.
+
+/close
+
+### Comment by [@kubernetes-prow[bot]](https://github.com/apps/kubernetes-prow) — 2026-10-25T15:24:54Z
+
+@kannon92: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/4946#issuecomment-6399482863):
+
+>Hmm. I actually can't reproduce this with snyk anymore. Doesn't look like much changed here but maybe snyk filtered this out as a false positive.
+>
+>/close
 
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
