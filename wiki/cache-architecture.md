@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/cache/scheduler/`, `raw/kueue/pkg/cache/hierarchy/`, `raw/kueue/pkg/cache/queue/`, pr-16375.md, pr-16438.md, pr-16360.md, pr-16479.md, pr-16492.md, pr-16527.md, pr-16738.md, pr-15040.md, pr-15107.md, pr-16382.md, pr-16630.md, pr-17455.md, issue-16624.md, pr-17346.md, pr-17404.md, pr-17407.md, pr-17041.md, issue-17040.md, pr-17461.md, pr-17414.md, pr-17416.md, pr-17417.md, pr-17448.md, pr-17452.md, issue-17412.md, pr-16728.md, pr-16340.md, raw/kueue/pkg/cache/scheduler/initial_sync.go, raw/kueue/pkg/cache/scheduler/candidate_order_cache.go, raw/kueue/pkg/controller/core/cohort_controller.go, raw/kueue/pkg/cache/queue/manager.go, raw/kueue/pkg/cache/queue/pending_workloads.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -54,7 +54,7 @@ Edge case: under [[multikueue]] the `Topology` object is created on the *managem
 
 ### Hierarchy manager
 
-The `pkg/cache/hierarchy` package provides a generic `Manager[CQ, C]` type that models the ClusterQueue ↔ Cohort tree. It is used by both the scheduler cache and the admission check logic. Key types:
+The `pkg/cache/hierarchy` package provides a generic `Manager[CQ, C]` type that models the ClusterQueue ↔ Cohort tree. It is used by both the scheduler cache and the queue manager. Key types:
 
 - `ClusterQueue[C]`: a ClusterQueue node; knows its parent Cohort (if any).
 - `Cohort[CQ, C]`: a Cohort node; references its member ClusterQueues and parent Cohort (for hierarchical cohorts).
@@ -84,7 +84,7 @@ The queue manager (`pkg/cache/queue`) is the pending queue:
 - Holds all workloads that are not yet admitted.
 - Provides `Heads()` — one workload per ClusterQueue, the highest-priority pending workload.
 - Tracks inadmissible workloads separately (workloads that failed nomination); they are re-evaluated when a relevant change occurs (quota freed, flavor added).
-- Implements the requeueing reasons (`PendingPreemption`, `Inadmissible`, `PreemptionGated`) that determine whether a workload re-enters the active queue immediately or after a delay.
+- Implements the requeueing reasons (`PendingPreemption`, `NoFit`, `PreemptionNoCandidates`, `PreemptionGated`) that determine whether a workload re-enters the active queue immediately or after a delay.
 
 (source: pkg/cache/queue/)
 
@@ -105,7 +105,7 @@ There is a brief window where the in-memory cache lags behind etcd. For quota ac
 
 ## Snapshot vs. live cache divergence
 
-The scheduler only reads the snapshot. After a workload is admitted (`s.admit()` call), the admission is written to the live cache via `cq.AddUsage(usage)` on the snapshot — but this is a local mutation. The live cache is updated when the Workload controller processes the newly admitted workload and reconciles it back. (source: pkg/scheduler/scheduler.go)
+During the cycle the scheduler books usage on the snapshot (`cq.AddUsage`). `s.admit()` then **assumes** the Workload into the live cache synchronously, before the asynchronous admission patch. If the patch fails, the assumed entry is rolled back conditionally (see *Conditional cache mutations* above). The Workload's update event later replaces the assumed entry (source: pkg/scheduler/scheduler.go).
 
 ## Quota amounts are exact past int64 (pr-15026)
 
@@ -124,7 +124,7 @@ Behaviour changes operators can observe ([[borrowing-and-lending]], [[metrics]])
 
 - **Oversized limits.** `1E` nominal with a `10P` `lendingLimit` used to turn both into `Unlimited` (nothing stayed local); now `990P` stays local. A `borrowingLimit` past `int64` used to equal everything the Cohort had spare; now it bounds what the ClusterQueue can reach. An *unset* limit is still unset.
 - **Metrics** report `+Inf` for an amount at or past `MaxInt64`, as before; for CPU the threshold moved from `MaxInt64/1000` cores to `MaxInt64` milli (0.807 cores apart).
-- **Fair sharing** is otherwise unchanged: a share that underflows to zero still reads as within quota, and `weightedShare` still goes through `int64(math.Ceil(...))`. (Saturating share conversion and the underflow floor were split into a separate follow-up.)
+- **Fair sharing** was otherwise unchanged by pr-15026: a share that underflowed to zero still read as within quota, and `weightedShare` still went through `int64(math.Ceil(...))`. The saturating conversion and the underflow floor came later (pr-16487, pr-16528; see [[fair-sharing#Weighted share edge cases (v0.20.1 / v0.19.8)]]).
 
 **Correction (2026-10-21)**: the workload-request side is no longer saturating. Since pr-16479 (v0.20.1/v0.19.8) `MapRequests` and `SliceRequests` store `Amount`, so totals stay exact past `int64` and quota fit checks see the real total; `AmountFromQuantity` keeps in-range non-negative values on an allocation-free `int64` path (pr-16492) and routes far-exponent values to the decimal path without building 10^n (pr-16527). The remaining cap is the API boundary: a non-CPU `resourceUsage` past `MaxInt64` is still written as `MaxInt64` (issue-16486, open). See [[scheduler-internals#Quota arithmetic and integer-overflow safety]] and [[workload-resource-adjustment]].
 

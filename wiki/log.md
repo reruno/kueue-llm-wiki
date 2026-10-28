@@ -794,3 +794,114 @@ Of these, 255 are merged PRs; 169 of those target release branches or `website`.
   - issue-17356 / issue-17524 (pr-17260, pr-17457): LocalQueue counter bugs.
   - issue-17432 / pr-17459: client-certificate metrics authentication.
 - **Releases:** issue-17279 / issue-17280 (v0.20.3 / v0.19.10) will ship the many branch fixes merged after 2026-10-15; update the "pending next patch" rows then.
+
+---
+
+## 2026-10-28 — Lint pass: cross-page consistency against kueue@3bbb8cce4
+
+**Based on**: data-collection commit f1a75637 (kueue@3bbb8cce4). No new sources ingested.
+
+**Method**: mechanical checks (links, orphans, index coverage, page format), then eight topic slices reviewed for contradictions between pages and against `raw/kueue` code, CHANGELOGs and raw PR/issue state. Only findings verified against the code or CHANGELOG were applied.
+
+**Mechanical**:
+- Dangling links to never-scraped issues (#14216, #13968, #10746, #14457, #13700, #15373, #5333) turned into plain `#N` references in `dra`, `integration-leaderworkerset`, `metrics`, `topology-aware-scheduling`.
+- Removed the stray leading blank line before the H1 on `code-quality`, `reviewers` and four `reviewer-*` pages.
+
+**Feature gates** (`feature-gates`, `index` tags and topic pages, checked against `kube_features.go`):
+- `KubeRayAccountForRedisCleanup` and `MaxExecTime` never existed as gates. Max execution time is GA (v0.19) with no gate, and its tag is now [Stable].
+- `AdmissionCheckRetry` is an API type, not a gate.
+- `LocalQueueDefaulting` is removed (GA v0.17), so defaulting is unconditional and the "enable the gate" steps are gone.
+- Gate names fixed: `FailureRecovery` → `FailureRecoveryPolicy`, `WorkloadPriorityBoost` → `PriorityBoost`.
+- Stage fixes:
+  - `KueueDRAIntegration` is Beta/on since v0.18, and DRA is tagged [Beta].
+  - `MultiKueueOrchestratedPreemption` is tagged [Beta].
+  - `AdmissionGatedBy` is Beta since v0.19.
+  - `FairSharingReevaluatePreemptionCandidates` is Beta/on at 0.21 on main.
+  - `TASHandleOverlappingFlavors` was registered Beta/on from the start.
+  - `MultiKueueBatchJobClearingTTLSecondsAfterFinishedOnWorkerCluster` is Alpha/off in v0.20 too (#15126).
+- `LowerPriorityBorrowersOnly` was never merged (PR #10211).
+
+**API / behaviour**:
+- v1beta2 names replace v1beta1 ones:
+  - `cohortName`
+  - `admissionChecksStrategy`
+  - `priorityClassRef`, frozen only while quota is reserved
+  - `topologyName`
+  - `apiVersion: v1beta2` in the YAML examples
+- Conditions and reasons:
+  - There is no `Deactivated` condition. The workload is `Evicted` with reason `DeactivatedDueTo<Cause>`.
+  - `Requeued` is the condition type; `WorkloadRequeued` is only the Go constant.
+  - `PodsReady=False` uses the reasons `WaitForStart`/`WaitForScheduling`/`WaitForRecovery`.
+  - A Rejected admission check deactivates the workload.
+- Preemption:
+  - `withinClusterQueue` accepts `LowerOrNewerEqualPriority`, not `Any`.
+  - The pr-16695 candidate filter is `UsesTASNodesOf` for every trigger. The PR-description design (`UsesOverlappingTASCapacity`) never merged.
+  - The configurable-preemption constructors are renamed.
+- Scheduler and cache:
+  - `Fit` may borrow, and `DeferredFit` was added.
+  - "Additional heads" are second-pass Workloads.
+  - `admit()` assumes the Workload into the live cache.
+  - The requeue reasons are corrected.
+  - `weightedShare` now saturates.
+  - The Cohort-on-every-replica change is attributed to pr-17346.
+- ConcurrentAdmission: `concurrentAdmissionPolicy`, one Variant per flavor, and the `workload-allowed-resource-flavors` annotation. The AFS config is the top-level `admissionFairSharing` block with `usageHalfLifeTime`, and `admissionScope` is ClusterQueue only.
+- TAS:
+  - Snapshot-time usage aggregation.
+  - The ungater sets `nodeSelector`.
+  - The `topologyAssignment` slice shape.
+  - The `domainState` field names.
+  - The log text and the `VirtualPodsForWorkload` name.
+- MultiKueue: dispatchers nominate clusters and there is no capacity query. The current names appear next to the historical reconnect identifiers.
+- Other fixes:
+  - The PodSet cap is 18 (#12819).
+  - MXJob was removed (v0.11).
+  - The Visibility API has no Cohort endpoint and no wait estimate. KueueViz doesn't use it.
+  - There is no `priority_class_source` metric label.
+  - `kueue_admitted_until_ready_wait_time_seconds` gained its `_seconds` suffix.
+  - The `kueue_pending_workloads` status values are listed.
+  - The batch Job count is `min(parallelism, completions)`.
+  - LWS size includes the leader.
+  - JobSet has one PodSet per replicatedJob.
+  - Argo goes through the pod integration.
+  - StatefulSet is Stable.
+  - The importer is pod-only and relabels Pods.
+  - The job-framework registration API, `JobReconciler` and the webhook validation are corrected.
+  - The webhook inventory, the scheduling-gate name and the ClusterQueue finalizer name are fixed.
+  - `queueingStrategy` is mutable since v0.7.
+  - The namespace selector always applies.
+  - WaitForPodsReady is global and on by default, with `backoffLimitCount`.
+  - GC deletes the owning job.
+  - Failure recovery uses a fixed 1-minute threshold.
+  - Elastic scale-down happens in place.
+  - DRA quantities are not written into the spec.
+  - The `kueuectl list workload` command is fixed.
+
+**Releases / roster**:
+- `FinishOrphanedWorkloads` downgrade and Helm/KueueViz fixes shipped in v0.16.8 / v0.17.3. The Cohort CPU-unit metric fix was never in 0.16. The v0.18.6/v0.19.2 headline list is scoped.
+- Approvers are mimowo, sohankunkerkar and tenzen-y; gabesaba is emeritus (`reviewer-tenzen-y`, `reviewer-mimowo`).
+
+**Developer workflow / security**:
+- E2E make targets, folders, labels and NPROCS are rebuilt from `hack/make/test.mk`, and the k8s/envtest versions are bumped.
+- Real CI job names were added.
+- Test builders now point at `pkg/util/testing/v1beta2`, using `behavioral.*` timeouts.
+- `E2E_RUN_ONLY_ENV` is marked historical.
+- Logging levels: scheduler-cycle logs are V(3).
+- Security pages:
+  - CVE category and severity counts are recomputed over the 795-file corpus.
+  - RBAC aggregation labels exist.
+  - SLSA attestations and artifact signing are still open.
+  - SBOM and OpenVEX already ship.
+  - Repo paths are corrected (`config/components/...`, `go.mod`, `hack/tools/go.mod`).
+  - Kueue reads files only from admin-controlled paths.
+
+**Left open (could not verify)**:
+- `job-framework-interface` items 4–5: condition propagation to the job, and deactivation on job backoff.
+- `workload-priority`: the "priority-sorting within cohort" claim in the index blurb.
+- `topology-aware-scheduling`: whether flavor overlap across *different* Topologies is unsupported. The aggregation code does not check the Topology name.
+- `unadmitted-workloads-observability`: tier-1 precedence of `NoMatchingFlavor`/`WaitingForPodsReady`.
+- `security-supply-chain`: whether registry.k8s.io images are signed.
+- `visibility-api`: the wording of issue-1657 (positions exist; the per-Workload endpoint does not).
+- `debugging-guide`: the log strings `Workload is inadmissible` and `Failed to admit workload`.
+- `fair-sharing`: the cited `fair_sharing_iterator.go` line range.
+- `concurrent-admission`: the KEP's Story 3 timeout.
+- `failure-recovery`: whether the controller acts only on Kueue-managed Pods.

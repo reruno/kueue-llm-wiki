@@ -1,16 +1,16 @@
 # Security — Injection, Input Validation, Path Traversal, and Code Execution
 
-**Summary**: Combined coverage for Injection (27), Path Traversal (12), and Code Execution (218) CVE categories — they share the same root cause (untrusted input crossing a parse/exec boundary) and the same mitigations (validate at boundary, allowlist, type-safe builders).
+**Summary**: Combined coverage for Injection (27), Path Traversal (13), and Code Execution (236) CVE categories — they share the same root cause (untrusted input crossing a parse/exec boundary) and the same mitigations (validate at boundary, allowlist, type-safe builders).
 
 **Sources**: `raw/cve/` — representative entries `CVE-2018-17450.md` (Jenkins SSRF), `CVE-2019-10165.md` (OpenShift command injection), `CVE-2019-11246.md` (kubectl cp tar extraction path traversal), `CVE-2019-1002101.md` (related path traversal), `CVE-2021-25741.md` (subpath symlink), `CVE-2022-23524-26.md` (Helm SSRF), `CVE-2025-15613.md` (Kyverno Service Call SSRF), 2026-09 additions `CVE-2026-80352.md` (Camel K YAML injection), `CVE-2026-77180.md`, `CVE-2026-52831.md`, `CVE-2026-53713.md`, `CVE-2026-84721.md`, `CVE-2026-59341.md`, and CWE-20/22/74/77/78/89/94/502/918/601 entries; 2026-10 additions `CVE-2026-55797.md`, `CVE-2026-18529.md`, `CVE-2026-108546.md`, `CVE-2026-86671.md`, `CVE-2026-7767.md`, `CVE-2026-55252.md`, `CVE-2026-105985.md`, `CVE-2026-108570.md`. 2026-10-21 additions `CVE-2026-113708.md`, `CVE-2026-113672.md`, `CVE-2026-113709.md`, `CVE-2026-92982.md`, `CVE-2026-47218.md`, `CVE-2026-77934.md`.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
 ## Why this matters for Kueue
 
-Kueue does *not* execute user-supplied code, shell out to commands, or parse files from disk. That removes the highest-impact classes (CWE-78 command injection, CWE-22 path traversal via file open). But four lower-impact attack surfaces remain:
+Kueue's controller does not execute user-supplied code or shell out (the only `os/exec` is `kueuectl` passthrough, `cmd/kueuectl/app/passthrough/passthrough.go`). It reads files only from admin-controlled paths: the Configuration file (`pkg/config/config.go`) and MultiKueue `locationType: Path` kubeconfigs, which are prefix-confined to `/etc/multikueue/kubeconfigs/` by `MultiKueueKubeConfigPathValidation` (`pkg/controller/admissionchecks/multikueue/multikueuecluster.go`). That keeps CWE-78 command injection and CWE-22 path traversal low, not absent. Four lower-impact attack surfaces remain:
 
 1. **Constructed API requests.** Building label selectors, field paths, or URLs from `workload.Name` or annotation values.
 2. **Template rendering.** Anywhere Kueue formats an output by interpolating a user-supplied string — webhook responses, events, log messages, or future Helm-style template fields.

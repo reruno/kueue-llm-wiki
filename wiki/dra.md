@@ -1,10 +1,10 @@
 # Dynamic Resource Allocation (DRA)
 
-**Summary**: Kueue's alpha integration with Kubernetes Dynamic Resource Allocation (DRA) enables quota management, borrowing, and preemption for workloads that request devices via ResourceClaimTemplates or extended resources backed by DRA DeviceClasses.
+**Summary**: Kueue's beta integration (`KueueDRAIntegration`, on by default since v0.18) with Kubernetes Dynamic Resource Allocation (DRA) enables quota management, borrowing, and preemption for workloads that request devices via ResourceClaimTemplates or extended resources backed by DRA DeviceClasses.
 
 **Sources**: `raw/kueue/keps/2941-DRA/README.md`, `raw/kueue/keps/2941-DRA/kep.yaml`, `raw/kueue/pkg/dra/claims.go`, `raw/kueue/pkg/dra/extended_resources.go`, `raw/github/kubernetes-sigs__kueue/pr-14951.md`, `issue-14964.md`, pr-14200, pr-14367, pr-15577, pr-15888, pr-15961, pr-15983, pr-16081, pr-16098, pr-16169, pr-16317, issue-14393, issue-15769, pr-13642, pr-16469, issue-13599, issue-14035, pr-16625, pr-16652, pr-17141, pr-17434, pr-14562, pr-17208, pr-17211, issue-14535, pr-17093, pr-17294, pr-17445, pr-17447, pr-17314, pr-17368, pr-17424, pr-17443, pr-17444, issue-17422, issue-14372; `raw/kueue/pkg/cache/queue/manager.go`, `raw/kueue/pkg/controller/core/workload_controller.go`, `raw/kueue/pkg/features/kube_features.go`, `raw/kueue/pkg/cache/scheduler/dra/`, `raw/kueue/pkg/cache/scheduler/tas_dra.go`
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -18,7 +18,7 @@ Dynamic Resource Allocation (DRA) is Kubernetes' evolution of the extended-resou
 
 ## Two integration paths
 
-Kueue's DRA support (KEP-2941, alpha) handles two distinct request styles:
+Kueue's DRA support (KEP-2941, beta since v0.18) handles two distinct request styles:
 
 ### Path 1 — ResourceClaimTemplates
 
@@ -46,7 +46,7 @@ Two Kueue feature gates control DRA support (shown with their post-v0.18 names):
 | `KueueDRAIntegration` (was `DynamicResourceAllocation`) | Enables ResourceClaimTemplate-based quota accounting; uses `deviceClassMappings` |
 | `KueueDRAIntegrationExtendedResource` (was `DRAExtendedResources`) | Enables extended-resource path; requires `KueueDRAIntegration` also enabled |
 
-Both are alpha. (source: keps/2941-DRA/kep.yaml)
+Both are Beta/on on main (`KueueDRAIntegration` since v0.18, `KueueDRAIntegrationExtendedResource` since v0.19). (source: keps/2941-DRA/kep.yaml, raw/kueue/pkg/features/kube_features.go)
 
 ## Startup safety: DeviceClass index is conditional
 
@@ -83,9 +83,9 @@ Note the ratcheting argument that made failing fast acceptable here: this field 
 ## Workload processing flow
 
 1. Job is submitted with a `ResourceClaimTemplate` reference.
-2. Kueue's webhook creates a [[workload]] from the job.
+2. Kueue's job reconciler creates a [[workload]] from the job.
 3. The `pkg/dra` package reads the `ResourceClaimSpec`, counts devices per DeviceClass, and maps them to logical resource names.
-4. The logical resource quantities appear in `workload.spec.podSets[*].template.spec` as if they were ordinary requests.
+4. The workload controller passes the logical resource quantities to the queue as preprocessed DRA resources; they are merged into the Workload's in-memory `TotalRequests` (the spec is not changed) (source: raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/workload/workload.go).
 5. [[admission]] proceeds against ClusterQueue quota as normal.
 6. After admission, the unsuspend toggle lets kube-scheduler create the actual `ResourceClaim` objects.
 
@@ -212,7 +212,7 @@ User docs (source: pr-16469.md, docs only; website cherry-pick pr-16523). The Wo
 `ResolveExtendedResourceQuota` (`pkg/dra/extended_resources.go`) charges DRA-backed extended resources to a logical `deviceClassMappings` quota key.
 
 - **Aggregate before mapping** ([[pr-14200]]; backports [[pr-14396]], [[pr-14397]]): Pod-level aggregation (max over init containers, sum over regular containers, then max of the two) is non-linear, and it used to run *after* mapping each name to its quota key, so two names mapped to one key collapsed: init `vendor.example/a: 5` plus regular `vendor.example/b: 5` charged `gpu-claims: 5` instead of 10. Now aggregation runs per original name and `charge[key] = sum(PodAggregation(R) for R mapped to key)`. Each name's mapping is resolved once per PodSet (not once per container occurrence), closing a window where a DeviceClass created/deleted between reads gave inconsistent results. The integer-quantity check on extended resources now applies only once a matching DeviceClass is found (a fractional request such as `other.example/d: 1500m` with no DeviceClass is fine on the normal quota path), and still runs per container so two fractional requests cannot sum to a whole one.
-- **Negative requests dropped** ([[pr-14367]], fixes [[issue-14216]]): `extendedResourceRequests` skipped only zero quantities; it now skips `Sign() <= 0`, so a negative request cannot cancel a legitimate charge on the same key. Defence in depth: `WorkloadValidateResourcesAreNonNegative` (default since v0.20) already rejects negatives at write time, but the webhook is not run on reconcile, so pre-existing or gate-off objects could reach this path. `NeedsDRAReconcile` still uses `!IsZero()`, so a negative-only request triggers a reconcile that resolves to nothing.
+- **Negative requests dropped** ([[pr-14367]], fixes #14216): `extendedResourceRequests` skipped only zero quantities; it now skips `Sign() <= 0`, so a negative request cannot cancel a legitimate charge on the same key. Defence in depth: `WorkloadValidateResourcesAreNonNegative` (default since v0.20) already rejects negatives at write time, but the webhook is not run on reconcile, so pre-existing or gate-off objects could reach this path. `NeedsDRAReconcile` still uses `!IsZero()`, so a negative-only request triggers a reconcile that resolves to nothing.
 - **Init containers** ([[pr-15983]], fixes [[issue-15937]]): collection/charge helpers were extracted and accounting corrected: restartable (sidecar) init containers *add* to regular-container requests; non-restartable ones use max-based accounting. Backports [[pr-16102]], [[pr-16103]].
 - **Preprocessing trigger**: `NeedsDRAReconcile` reads raw container `requests` before `AdjustResources` runs, so an extended resource that appears only via a limit or a LimitRange default skipped DRA preprocessing and reached quota under its raw name ([[issue-14393]], closed; see also [[workload-resource-adjustment]]).
 - **Per-event cost of the check** (source: pr-17424.md, fixes issue-17422.md; backports pr-17444/0.20, pr-17443/0.19; not in the v0.20.2 / v0.19.9 CHANGELOG at kueue@3bbb8cce4). Since #15284 the workload controller's `needsDRAReconcile` built a full `workload.Info` (LimitRange and RuntimeClass reads, effective specs, total requests, scheduling hash) on every Workload event when the DRA extended-resource gates were on. It now builds it only when a DeviceClass backs an extended resource, because otherwise `NeedsDRAReconcile` returns false anyway. `effectivePodSpecs` also compares only the fields the adjustments change (`Overhead`, container and Pod `Resources`) instead of deep-comparing whole PodSpecs. No behaviour change; in `make run-performance-scheduler`, `needsDRAReconcile` went from 3.03s to 0.05s of CPU and `Info.Update` from 8.49s to 4.98s.

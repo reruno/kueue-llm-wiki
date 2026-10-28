@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-04-23
+**Last updated**: 2026-10-28
 
 ---
 
@@ -28,7 +28,7 @@ The queue heap is ordered by (priority descending, creation-time ascending). See
 
 ## Immutability
 
-`spec.queueingStrategy` has been restricted from changing on a CQ with admitted workloads because it would re-sort the queue mid-flight ([[issue-434]], [[issue-1877]]). The user confusion in issue-1877 is the canonical "why can't I switch" explanation.
+`spec.queueingStrategy` was made immutable early on ([[issue-434]]); after user confusion ([[issue-1877]]) it became mutable again in v0.7 (#1934). The only remaining restriction is that `StrictFIFO` is rejected when `concurrentAdmissionPolicy` is set.
 
 ## Flaky-test heritage
 

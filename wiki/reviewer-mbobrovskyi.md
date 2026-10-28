@@ -1,11 +1,10 @@
-
 # Reviewer: mbobrovskyi
 
 **Summary**: Profile of Kueue reviewer @mbobrovskyi — review philosophy, domain focus, and approval patterns. Specializes in test infrastructure, API consolidation, controller-runtime patterns, and code-reuse hygiene.
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/` — analysis of PRs where @mbobrovskyi left substantive feedback. Representative examples: pr-10244, pr-10294, pr-10323, pr-10388, pr-10595.
 
-**Last updated**: 2026-05-12
+**Last updated**: 2026-10-28
 
 ---
 

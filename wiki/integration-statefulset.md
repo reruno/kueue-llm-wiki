@@ -4,11 +4,11 @@
 
 **Sources**: `raw/kueue/pkg/controller/jobs/statefulset/statefulset_controller.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_webhook.go`, pr-13316.md, pr-16399.md, pr-16401.md, issue-14013.md, pr-16705.md, pr-16710.md, pr-16751.md, pr-16770.md, pr-13775.md, pr-12948.md, pr-16044.md, pr-17540.md, pr-17541.md, issue-16043.md, issue-14266.md, pr-17255.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, pr-15142.md, pr-15412.md, raw/kueue/pkg/controller/jobs/statefulset/statefulset_reconciler.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
-> **Stage: Beta** — The StatefulSet integration is stable for cluster operator use but may have rough edges in edge cases. Enable via `integrations.frameworks` in the Kueue Configuration.
+> **Stage: Stable** (docs integrations table, `site/content/en/docs/overview/_index.md`) — Enable via `integrations.frameworks` in the Kueue Configuration.
 
 ## What is StatefulSet?
 

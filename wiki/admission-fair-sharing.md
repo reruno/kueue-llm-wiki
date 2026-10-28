@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/4136-admission-fair-sharing/README.md`, `raw/kueue/keps/4136-admission-fair-sharing/kep.yaml`, pr-15000.md, pr-16034.md, pr-16241.md, issue-15221.md, issue-13602.md, pr-12786.md, pr-13844.md, pr-13621.md, pr-13481.md, pr-13433.md, pr-12946.md, raw/kueue/pkg/util/admissionfairsharing/admission_fair_sharing.go, raw/kueue/pkg/util/resource/resource.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -23,25 +23,22 @@ Admission fair sharing works only at admission time: it reorders the candidates 
 
 ## Configuration
 
-Admission fair sharing is configured in the Kueue `Configuration` under the `fairSharing` section and enabled per-ClusterQueue or per-Cohort via an `AdmissionScope`:
+Admission fair sharing is configured in the Kueue `Configuration` in the top-level `admissionFairSharing` section (a sibling of `fairSharing`) and enabled per ClusterQueue via `spec.admissionScope`:
 
 ```yaml
-fairSharing:
-  enable: true
-  # Admission fair sharing config (AdmissionFairSharing)
-  admissionFairSharing:
-    usageHalfLifeDecayTime: 24h    # how fast usage decays
-    usageSamplingInterval: 5m      # how often usage is recalculated
-    resourceWeights:
-      "nvidia.com/gpu": "10"       # GPUs count 10× more than CPU
-      "cpu": "1"
+admissionFairSharing:
+  usageHalfLifeTime: 24h         # time after which usage decays by half
+  usageSamplingInterval: 5m      # how often consumedResources is updated (default 5m)
+  resourceWeights:
+    nvidia.com/gpu: 10           # GPUs count 10x more than CPU (default weight 1)
+    cpu: 1
 ```
 
-(source: keps/4136-admission-fair-sharing/README.md)
+(source: raw/kueue/apis/config/v1beta2/configuration_types.go, raw/kueue/apis/config/v1beta2/defaults.go; the KEP's draft nested this under `fairSharing` with `usageHalfLifeDecayTime`, keps/4136-admission-fair-sharing/README.md)
 
 ## AdmissionScope
 
-A ClusterQueue or Cohort that is designated as an `AdmissionScope` collects all workloads under it and sorts them by:
+A ClusterQueue with `spec.admissionScope` (`admissionMode: UsageBasedAdmissionFairSharing`) collects all workloads under it and sorts them by:
 1. `ConsumedResources` usage (weighted by `resourceWeights`) — queues using less come first.
 2. Priority — higher priority within the same usage tier.
 3. Timestamp — FIFO within same priority.

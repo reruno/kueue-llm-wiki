@@ -4,11 +4,11 @@
 
 **Sources**: `raw/kueue/keps/6757-failure-recovery/README.md`, `raw/kueue/keps/6757-failure-recovery/kep.yaml`, `raw/kueue/pkg/controller/failurerecovery/failurerecovery.go`, `raw/kueue/pkg/controller/failurerecovery/pod_termination_controller.go`, pr-16033.md, pr-17087.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
-> **Stage: Alpha** — Feature gate `FailureRecovery`, disabled by default. (source: keps/6757-failure-recovery/kep.yaml)
+> **Stage: Alpha** — Feature gate `FailureRecoveryPolicy`, disabled by default. (source: keps/6757-failure-recovery/kep.yaml)
 
 ## The zombie pod problem
 
@@ -26,12 +26,12 @@ For `batch/v1` Jobs with `podReplacementPolicy: Failed`, Kubernetes will not sta
 
 ## Solution: force-delete after a grace period
 
-Kueue's failure recovery controller watches pods belonging to Kueue-managed workloads. When a pod has had a `deletionTimestamp` set for longer than a configurable grace period **and** the pod has the opt-in annotation, Kueue:
+Kueue's failure recovery controller watches pods belonging to Kueue-managed workloads. When a pod's `deletionTimestamp` passed more than a fixed 1-minute threshold ago, the pod is on a node with the `node.kubernetes.io/unreachable` taint, **and** the pod has the opt-in annotation, Kueue:
 
 1. Moves the pod to the `Failed` phase (writes status update).
 2. Force-deletes the pod (removes it from etcd).
 
-This unblocks the Job controller, which then starts replacement pods. (source: keps/6757-failure-recovery/README.md)
+This unblocks the Job controller, which then starts replacement pods. (source: keps/6757-failure-recovery/README.md, raw/kueue/pkg/controller/failurerecovery/pod_termination_controller.go)
 
 ### Pods already in a terminal phase
 
@@ -57,7 +57,7 @@ Only pods carrying this annotation are affected. Without it, Kueue leaves the po
 
 ## Grace period
 
-The controller waits for `deletionGracePeriodSeconds` on the pod to pass before force-deleting. A configurable additional grace period is planned for Beta. (source: keps/6757-failure-recovery/README.md)
+The controller force-deletes a pod 1 minute after its `deletionTimestamp` (the end of `deletionGracePeriodSeconds`). The threshold is hard-coded (`forcefulTerminationGracePeriod`); making it configurable is planned for Beta. (source: keps/6757-failure-recovery/README.md, raw/kueue/pkg/controller/failurerecovery/pod_termination_controller.go)
 
 ## Interaction with gang scheduling
 
@@ -69,7 +69,7 @@ Force-deleting a pod does not guarantee the original pod actually stopped. On a 
 
 ## Duplicate condition and event on retried force-deletes (pr-16033)
 
-With `FailureRecovery` enabled, every reconcile of a Pod still stuck in termination re-ran the forceful delete and added another `KueueFailureRecovery` Pod condition plus another `KueueForcefullyDeleted` warning event. Pod deletion is still retried normally, but the condition is now set **once** and the event is emitted only when the condition actually changes (source: pr-16033.md). Expect one condition and one event per zombie Pod, not a growing list. See also [[wait-for-pods-ready]] for the `WaitForRecovery` timer that runs alongside.
+With `FailureRecoveryPolicy` enabled, every reconcile of a Pod still stuck in termination re-ran the forceful delete and added another `KueueFailureRecovery` Pod condition plus another `KueueForcefullyDeleted` warning event. Pod deletion is still retried normally, but the condition is now set **once** and the event is emitted only when the condition actually changes (source: pr-16033.md). Expect one condition and one event per zombie Pod, not a growing list. See also [[wait-for-pods-ready]] for the `WaitForRecovery` timer that runs alongside.
 
 ## Related: quota held by stuck-terminating pod-group Pods
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-16312.md, issue-16232.md, `raw/kueue/charts/kueue/values.yaml`, `raw/kueue/charts/kueue/templates/manager/_config.tpl`; pr-17227.md; pr-16630.md.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -49,7 +49,7 @@ These structures are kept consistent with API state via the reconcilers. Bugs he
 
 ## Startup: the scheduler waits for the initial cache
 
-On main (pr-16630, fixes issue-16624; backport pr-17455 to release-0.20 after v0.20.2) `Scheduler.Start` calls `Cache.WaitForInitialSync` before the first cycle. The cache wraps the controller-runtime sources whose handlers fill it (`Cache.TrackInitialSync`: ClusterQueue, Cohort, ResourceFlavor, Workload, LocalQueue, and Topology plus the TAS ResourceFlavor source when TAS runs). A source counts as synced only after its handler has returned for every object in the informer's initial list; there is no extra timeout (a source that never syncs already stops the manager through `CacheSyncTimeout`). Before, a cold leader could schedule while ClusterQueue create handlers were still running, and TAS double-booked nodes held by ClusterQueues not yet in the cache. Cohort handlers now also update the cache on **every replica**, as ClusterQueue, ResourceFlavor and Topology handlers do, so a follower that takes the lease can admit from Cohort quota at once instead of after up to one lease duration (source: pr-16630.md). See [[cache-architecture]].
+On main (pr-16630, fixes issue-16624; backport pr-17455 to release-0.20 after v0.20.2) `Scheduler.Start` calls `Cache.WaitForInitialSync` before the first cycle. The cache wraps the controller-runtime sources whose handlers fill it (`Cache.TrackInitialSync`: ClusterQueue, Cohort, ResourceFlavor, Workload, LocalQueue, and Topology plus the TAS ResourceFlavor source when TAS runs). A source counts as synced only after its handler has returned for every object in the informer's initial list; there is no extra timeout (a source that never syncs already stops the manager through `CacheSyncTimeout`). Before, a cold leader could schedule while ClusterQueue create handlers were still running, and TAS double-booked nodes held by ClusterQueues not yet in the cache. Since pr-17346 (on which pr-16630 builds), Cohort handlers also update the cache on **every replica**, as ClusterQueue, ResourceFlavor and Topology handlers do, so a follower that takes the lease can admit from Cohort quota at once instead of after up to one lease duration (source: pr-16630.md, pr-17346.md). See [[cache-architecture]].
 
 ## Configuring the manager through Helm
 

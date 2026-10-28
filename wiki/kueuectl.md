@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-15376.md, pr-16040.md, pr-16510.md, pr-16531.md, pr-16609.md, pr-16633.md, pr-16667.md, pr-16850.md, pr-16981.md, pr-17055.md, issue-17054.md; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -17,7 +17,7 @@ Ships as a standalone binary and a `kubectl` plugin (`kubectl kueue ...`). The p
 The CLI grew incrementally during v0.6–v0.7. Representative tracking issues:
 
 - **Create**: `kueuectl create clusterqueue`, `kueuectl create localqueue` ([[issue-2113]] — Allow create ClusterQueue).
-- **List**: `kueuectl list workloads`, `kueuectl list clusterqueue` ([[issue-2135]], [[issue-2114]]).
+- **List**: `kueuectl list workload`, `kueuectl list clusterqueue` ([[issue-2135]], [[issue-2114]]).
 - **Stop / Resume**: `kueuectl stop workload`, `kueuectl stop clusterqueue`, `kueuectl stop localqueue`, and matching `resume` ([[issue-2132]], [[issue-2133]], [[issue-2137]], [[issue-2138]], [[issue-2139]]). Stop on a CQ can either drain (evict admitted) or just hold (let admitted finish); there's separate flaky-test coverage for both ([[issue-2247]], [[issue-2245]]).
 - **Pass-through**: "Add Pass-through commands" ([[issue-2180]]) — `kueuectl` can proxy operations on the underlying job.
 - **List pods for a job**: a convenience over `kubectl get pods -l` ([[issue-2204]]).

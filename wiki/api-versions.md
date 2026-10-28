@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/pr-14558.md`, `raw/github/kubernetes-sigs__kueue/pr-14720.md`, `raw/github/kubernetes-sigs__kueue/pr-13224.md`, pr-15913.md, pr-16300.md, pr-16168.md, raw/kueue/config/components/crd/alpha/kustomization.yaml, pr-16485.md, issue-13957.md, pr-16489.md, pr-16984.md, issue-16983.md, pr-15371.md, pr-14445.md, pr-14449.md, raw/kueue/hack/migrate-to-v1beta2.sh, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-17159.md, pr-17528.md, issue-17498.md, pr-17121.md, issue-17120.md, pr-16035.md, raw/kueue/apis/config/v1beta2/configuration_types.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -83,7 +83,7 @@ New RBAC need: `get` on `customresourcedefinitions`; without it every kind is sk
 
 ## Validation messages that name the wrong thing
 
-Two small fixes that matter when you read webhook/CEL errors (backported to 0.20/0.19 as pr-16943/pr-16942):
+Two small fixes that matter when you read webhook/CEL errors (backported to 0.20/0.19 as pr-16943/pr-16942 for the AFS messages and pr-16946/pr-16944 for the `maximumExecutionTimeSeconds` message):
 
 - `admissionFairSharing.usageSamplingInterval` errors carried the value of `usageHalfLifeTime`, and a negative `resourceWeights` entry reported the whole map; both now report the value at the field path they name (`pkg/config/validation.go`) (source: pr-14445.md).
 - The Workload CEL rule on `spec.maximumExecutionTimeSeconds` keys on `Admitted=True` but its message said "while workload quota reserved"; the message is now "maximumExecutionTimeSeconds is immutable while the workload is admitted" — a `QuotaReserved` but not yet `Admitted` Workload may still change it (source: pr-14449.md). See [[workload-max-execution-time]].

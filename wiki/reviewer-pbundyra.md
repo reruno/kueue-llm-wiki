@@ -1,11 +1,10 @@
-
 # Reviewer: pbundyra
 
 **Summary**: Profile of Kueue reviewer @PBundyra — review philosophy, architectural focus, and approval patterns. Specializes in API design, Kubernetes-versioning practices, [[concurrent-admission]], and KEP-driven design discussion.
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/` — analysis of PRs where @PBundyra participated. Representative examples: pr-8861, pr-10244, pr-10388.
 
-**Last updated**: 2026-05-12
+**Last updated**: 2026-10-28
 
 ---
 

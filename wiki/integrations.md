@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16773.md, pr-16779.md, pr-16370.md, pr-13375.md, issue-16517.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16937.md, pr-17035.md, pr-16474.md, issue-16333.md, pr-15412.md, pr-16994.md, pr-17053.md, pr-17454.md, pr-16044.md, pr-17255.md, pr-16884.md, pr-16259.md, pr-17464.md, pr-17147.md, raw/kueue/pkg/features/kube_features.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -26,14 +26,14 @@ See dedicated pages:
 
 - [[integration-batchjob]] — batch/v1 Job (the baseline).
 - [[integration-jobset]] — JobSet (the recommended multi-template primitive).
-- [[integration-kubeflow]] — PyTorchJob, TFJob, MPIJob, MXJob, PaddleJob, XGBoostJob, JAXJob.
+- [[integration-kubeflow]] — PyTorchJob, TFJob, MPIJob, PaddleJob, XGBoostJob, JAXJob.
 - [[integration-trainjob]] — **[Alpha]** TrainJob (Training Operator v2; successor to the Kubeflow v1 jobs).
 - [[integration-rayjob]] — RayJob and RayCluster.
 - [[integration-leaderworkerset]] — LeaderWorkerSet (LWS).
 - [[integration-appwrapper]] — AppWrapper (Project CodeFlare), used to wrap unsupported types.
-- [[integration-argo-workflow]] — Argo Workflows (template-level gating).
+- [[integration-argo-workflow]] — Argo Workflows (via the `pod` integration; Pod-level gating, no `integrations.frameworks` entry of its own).
 - [[integration-plain-pod]] — plain Pods and PodGroups.
-- [[integration-statefulset]] — **[Beta]** StatefulSet (uses pod scheduling gates instead of `spec.suspend`).
+- [[integration-statefulset]] — **[Stable]** StatefulSet (uses pod scheduling gates instead of `spec.suspend`).
 - [[integration-spark]] — **[Alpha]** SparkApplication (Kubeflow Spark Operator v2).
 
 ## `manageJobsWithoutQueueName`
@@ -45,7 +45,7 @@ A global config toggle: if true, Kueue manages every job of supported types even
 One of the hardest parts of adding an integration is getting PodSet decomposition right:
 
 - **batch/v1 Job** — one PodSet.
-- **JobSet** — one PodSet per replicated job × replica. Empty replicated jobs (`replicas: 0`) were a surprising bug ([[issue-2227]]).
+- **JobSet** — one PodSet per replicated job, with `count = replicas × pods per replica`. Empty replicated jobs (`replicas: 0`) were a surprising bug ([[issue-2227]]).
 - **RayJob** — head + worker groups, plus a "submitter Job Pod" that also counts against quota ([[issue-1434]] — PodSets for RayJobs should account for submitter Job Pod).
 - **Kubeflow jobs** — one PodSet per replica type (master, worker, ps, chief, etc.). MPIJob specifically has launcher + workers.
 - **LeaderWorkerSet** — leader + worker PodSets per group; TAS-ranked co-scheduling matters ([[issue-4531]]).
@@ -65,7 +65,7 @@ Not all integrations work with [[multikueue]] out-of-the-box. Each needs a Multi
 - **Pod-level `WorkloadAnnotation`.** `kueue.x-k8s.io/workload` is written into each PodSet's template info by the shared jobframework path when the job starts. Since [[pr-15412]] (`main` only) it is written regardless of feature gates, so every integration's Pods carry it. See [[job-framework-interface#`kueue.x-k8s.io/workload` is always set on the PodTemplate]] (source: pr-15412.md). **Correction (2026-10-21)**: this bullet said StatefulSet and LWS each set it themselves. They rely on the shared path (pr-15142 merged as tests only).
 - **Quota accounting per integration:** batch Job reclaimable pods ([[integration-batchjob#Reclaimable pods when `parallelism > completions`]]); Spark requests mirror Spark's computation ([[integration-spark]]); PodRequests helper ([[integration-plain-pod#Pod-level requests and quota]]).
 - **RBAC:** AppWrapper was the only CRD integration without editor and viewer ClusterRoles; they were added modelled on SparkApplication's, and `rbac.md` now lists what batch-admin and batch-user cover (source: pr-16096.md). JAXJob/TrainJob delete permission: [[integration-trainjob]].
-- **Ray:** head-container validation is shared across RayCluster/RayJob/RayService ([[integration-rayjob#Head-container validation]]). An absent worker `replicas` now counts as 0. RayService suspends through the top-level `spec.suspend` (KubeRay ≥ 1.7, gate `KubeRayServiceUsingTopLevelSuspend`) ([[integration-rayjob]]).
+- **Ray:** head-container validation is shared across RayCluster/RayJob/RayService ([[integration-rayjob#Head-container validation]]). An absent worker `replicas` now counts as `minReplicas` (0 if unset). RayService suspends through the top-level `spec.suspend` (KubeRay ≥ 1.7, gate `KubeRayServiceUsingTopLevelSuspend`) ([[integration-rayjob]]).
 - **Child jobs:** with `SkipChildJobSuspension` (Alpha, off) the generic reconciler no longer suspends Kueue-managed child jobs. The parent controller handles that ([[job-framework-interface#Child jobs: `SkipChildJobSuspension`]]).
 - **Defaulting:** the default `queue-name` is no longer injected in namespaces excluded by `managedJobsNamespaceSelector` (v0.20.0, [[local-queue-defaulting]]). A changed queue name is validated on update for every integration ([[job-framework-interface#Queue-name format is validated on update]]).
 - **Serving rollouts:** StatefulSet/LWS current-revision Pods stay gated until admission, and the legacy finalizer cleanup is removed ([[integration-statefulset]]). An LWS percentage `maxSurge` is honoured ([[integration-leaderworkerset]]).

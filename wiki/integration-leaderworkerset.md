@@ -4,13 +4,13 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-14405.md, pr-16402.md, pr-16423.md, pr-13316.md, pr-16401.md, pr-13775.md, pr-17255.md, pr-17307.md, pr-17310.md, issue-17251.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, pr-17504.md, pr-15142.md, pr-15412.md, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_reconciler.go, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_webhook.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
 ## Shape
 
-An LWS defines `spec.leaderWorkerTemplate` (leader + workers) and `spec.replicas` groups. Total Pods = `replicas × (1 + workers.size)`.
+An LWS defines `spec.leaderWorkerTemplate` (leader + workers) and `spec.replicas` groups. Total Pods = `replicas × leaderWorkerTemplate.size` (`size` includes the leader; Kueue builds a leader PodSet of 1 and a worker PodSet of `size − 1`).
 
 Kueue's integration represents this as two PodSets per group or a combined PodSet, depending on the shape — the MVP support ([[issue-3232]] — MVP support for serving workloads running as LeaderWorkerSet) landed with leader-and-workers counted together. Rank-based placement of leaders and followers across topology domains became a TAS-specific feature ([[issue-4531]] — TAS: support co-scheduling (and rank-based ordering) of leaders and workers for LWS groups).
 
@@ -68,7 +68,7 @@ Labels/annotations on the LWS PodTemplate now propagate into the Workload's PodS
 
 When the `queue-name` write moved from the LWS **pod reconciler** into the LWS **webhook** (#4932), the webhook began stamping the leader and worker pod *templates* instead of the Pods. Webhooks only run on create/update, so a LeaderWorkerSet admitted **before** that change keeps templates without the label and nothing backfills it.
 
-The failure mode is silent and self-reinforcing ([[issue-13968]], fixed by [[pr-14138]]; follow-ups [[pr-14602]], [[pr-14603]]):
+The failure mode is silent and self-reinforcing (#13968, fixed by [[pr-14138]]; follow-ups [[pr-14602]], [[pr-14603]]):
 
 1. a Pod recreated from such a template starts with no queue name;
 2. the Pod integration skips it (`"queue-name label is not set, ignoring the job"`), so no workload annotation is written and the Pod is missing from the `WorkloadSliceNameKey` index;

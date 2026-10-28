@@ -4,11 +4,11 @@
 
 **Sources**: `raw/kueue/keps/7990-preemption-cost/README.md`, `raw/kueue/keps/7990-preemption-cost/kep.yaml`
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-28
 
 ---
 
-> **Stage: Alpha** — the KEP names the gate `WorkloadPriorityBoost`; the gate registered in `pkg/features` and the generated list is **`PriorityBoost`** (Alpha, off, since 0.17). (source: keps/7990-preemption-cost/kep.yaml, raw/kueue/site/data/featuregates/versioned_feature_list.yaml)
+> **Stage: Alpha** — Feature gate **`PriorityBoost`** (Alpha, off, since 0.17). (source: keps/7990-priority-boost/kep.yaml, raw/kueue/pkg/features/kube_features.go)
 
 ## Motivation
 

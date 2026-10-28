@@ -4,7 +4,7 @@
 
 **Sources**: `raw/cve/CVE-*.md` (795 entries spanning 2018–2026, vendors include `kubernetes`, `kubernetes-sigs`, `fluxcd`, `argoproj`, `jenkins`, `redhat`, `fedoraproject`); 2026-10 batch: CVE-2026-101919.md, CVE-2026-103413.md, CVE-2026-103546.md, CVE-2026-105216.md, CVE-2026-105223.md, CVE-2026-105985.md, CVE-2026-106487.md, CVE-2026-106561.md, CVE-2026-106563.md, CVE-2026-107446.md, CVE-2026-108546.md, CVE-2026-108570.md, CVE-2026-109358.md, CVE-2026-18517.md, CVE-2026-18529.md, CVE-2026-18533.md, CVE-2026-18537.md, CVE-2026-26287.md, CVE-2026-55252.md, CVE-2026-55797.md, CVE-2026-71895.md, CVE-2026-7767.md, CVE-2026-86671.md, CVE-2026-92393.md, CVE-2026-95837.md, CVE-2026-95838.md; Kueue code `pkg/controller/admissionchecks/multikueue/multikueuecluster.go`, `pkg/controller/jobframework/validation.go`; 2026-10-21 batch: CVE-2026-103314.md, CVE-2026-105311.md, CVE-2026-105312.md, CVE-2026-110248.md, CVE-2026-112778.md, CVE-2026-113672.md, CVE-2026-113708.md, CVE-2026-113709.md, CVE-2026-113727.md, CVE-2026-47218.md, CVE-2026-53999.md, CVE-2026-65162.md, CVE-2026-65172.md, CVE-2026-77459.md, CVE-2026-77524.md, CVE-2026-77564.md, CVE-2026-77934.md, CVE-2026-87354.md, CVE-2026-92982.md, CVE-2026-94197.md; raw/kueue/go.mod; KueueViz fixes pr-17088.md, pr-17143.md, pr-17246.md, pr-17249.md; pr-16035.md; raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -33,21 +33,21 @@ External attackers without cluster credentials are *not* a direct Kueue threat: 
 
 | Category | Count | Primary CWEs |
 | --- | --- | --- |
-| Code Execution | 218 | CWE-94, CWE-78, CWE-502 |
-| Information Disclosure | 148 | CWE-200, CWE-532, CWE-522, CWE-552 |
-| Denial of Service | 100 | CWE-400, CWE-770, CWE-476 |
-| Privilege Escalation | 70 | CWE-269, CWE-266, CWE-276 |
-| Other | 74 | mixed |
-| Unauthorized Write Access | 38 | CWE-863, CWE-285 |
-| Authentication Bypass | 40 | CWE-287, CWE-306, CWE-352 |
+| Code Execution | 236 | CWE-94, CWE-78, CWE-502 |
+| Information Disclosure | 162 | CWE-200, CWE-532, CWE-522, CWE-552 |
+| Denial of Service | 101 | CWE-400, CWE-770, CWE-476 |
+| Privilege Escalation | 73 | CWE-269, CWE-266, CWE-276 |
+| Other | 78 | mixed |
+| Unauthorized Write Access | 40 | CWE-863, CWE-285 |
+| Authentication Bypass | 42 | CWE-287, CWE-306, CWE-352 |
 | Injection | 27 | CWE-74, CWE-77, CWE-89, CWE-918 |
 | RBAC Misconfiguration | 15 | CWE-284, CWE-862, CWE-863 |
-| Path Traversal | 12 | CWE-22, CWE-61, CWE-363 |
-| Supply Chain | 7 | CWE-295, CWE-494 |
+| Path Traversal | 13 | CWE-22, CWE-61, CWE-363 |
+| Supply Chain | 8 | CWE-295, CWE-494 |
 
-Recomputed 2026-09-29 from `raw/cve/` (749 files; 67 added by the 2026-09-29 data-collection). Later additions are not folded into the table. The 2026-10 data-collection added 26 more (775 total): 11 Code Execution, 9 Information Disclosure, 2 Other, and one each of Authentication Bypass, Privilege Escalation, Supply Chain and Unauthorized Write Access; 14 High, 7 Medium, 1 Low, 4 Unknown. The 2026-10-21 data-collection added 20 (795 total): 7 Code Execution, 5 Information Disclosure, 2 Other, 2 Privilege Escalation, and one each of Authentication Bypass, Denial of Service, Path Traversal and Unauthorized Write Access; 7 Critical, 8 High, 2 Medium, 1 Low, 2 Unknown. Publication years skew recent (counts as of 2026-09-29): 320 entries published in 2026, 103 in 2025, and 326 across 2018–2024. The `Category` label is assigned by the data collector and is often wrong for the real bug class (for example Traefik authz bypasses and Envoy Gateway DoS bugs are tagged `Code Execution`); read the CWE and description, not the category.
+Recomputed 2026-10-28 from the `**Category**` field of `raw/cve/` (795 files). The previous recount (2026-09-29) covered 749 files, 67 of them added by the 2026-09-29 data-collection. The 2026-10 data-collection added 26 more (775 total): 11 Code Execution, 9 Information Disclosure, 2 Other, and one each of Authentication Bypass, Privilege Escalation, Supply Chain and Unauthorized Write Access; 14 High, 7 Medium, 1 Low, 4 Unknown. The 2026-10-21 data-collection added 20 (795 total): 7 Code Execution, 5 Information Disclosure, 2 Other, 2 Privilege Escalation, and one each of Authentication Bypass, Denial of Service, Path Traversal and Unauthorized Write Access; 7 Critical, 8 High, 2 Medium, 1 Low, 2 Unknown. Publication years skew recent (counts as of 2026-09-29): 320 entries published in 2026, 103 in 2025, and 326 across 2018–2024. The `Category` label is assigned by the data collector and is often wrong for the real bug class (for example Traefik authz bypasses and Envoy Gateway DoS bugs are tagged `Code Execution`); read the CWE and description, not the category.
 
-Severity skews Medium (289) and High (271); Critical (109); Low (28); plus 49 Unknown and 3 None. Kueue's direct exposure is concentrated in **DoS**, **info disclosure**, and **unauthorized write access** — categories where the controller-pattern code patterns map almost one-for-one onto Kueue's reconciler, scheduler, and webhook code.
+Severity skews Medium (297) and High (293); Critical (117); Low (30); plus 55 Unknown and 3 None (795 files; the 749-file baseline before the two October waves was Medium 288, High 271, Critical 110, Low 28, Unknown 49, None 3). Kueue's direct exposure is concentrated in **DoS**, **info disclosure**, and **unauthorized write access** — categories where the controller-pattern code patterns map almost one-for-one onto Kueue's reconciler, scheduler, and webhook code.
 
 ## Where each topic lives
 

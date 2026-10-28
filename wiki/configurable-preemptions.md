@@ -4,7 +4,7 @@
 
 **Sources**: pr-15889.md, pr-15913.md, pr-15992.md, pr-16062.md, pr-16124.md, pr-16130.md, pr-16139.md, pr-16202.md, pr-16208.md, pr-16269.md, pr-16324.md, issue-15892.md, issue-15893.md, issue-16295.md, raw/kueue/apis/kueue/v1alpha1/preemptionconfig_types.go, raw/kueue/pkg/scheduler/preemption/config/, raw/kueue/keps/13396-configurable-preemptions/README.md, pr-16374.md, pr-16390.md, pr-16598.md, pr-17091.md, pr-16695.md, pr-16343.md, pr-17216.md, pr-17128.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -18,7 +18,7 @@
 
 In Alpha the link is an **annotation on the ClusterQueue**: `kueue.x-k8s.io/preemption-config-name: <PreemptionConfig name>` (`PreemptionConfigNameAnnotation`, to be removed when it becomes a field in Beta) (source: pr-15913.md). The cache reads it only when the gate is on and stores it as `ClusterQueueSnapshot.PreemptionConfigName`; ClusterQueue labels are also copied into the snapshot only when the gate is on, to avoid clone overhead otherwise (source: pr-16139.md, raw/kueue/pkg/cache/scheduler/clusterqueue.go).
 
-The `PreemptionConfig` is read with a client `Get` **once per preemption attempt** (`NewEvaluatorForClusterQueue`); if the gate is off, the annotation is absent, or the object cannot be read, the evaluator is `nil` and the classical/fair-sharing behaviour is untouched (source: raw/kueue/pkg/scheduler/preemption/config/preemption.go).
+The `PreemptionConfig` is read with a client `Get` **once per preemption attempt** (`Preemptor.newConfigurableEvaluator` → `NewEvaluatorForPreemptionConfig`); if the gate is off, the annotation is absent, or the object cannot be read, the evaluator is `nil` and the classical/fair-sharing behaviour is untouched (source: raw/kueue/pkg/scheduler/preemption/config/evaluator.go, raw/kueue/pkg/scheduler/preemption/preemption.go).
 
 ## API shape (v1alpha1)
 
@@ -50,13 +50,13 @@ Numeric-label semantics worth remembering (source: raw/kueue/pkg/scheduler/preem
 
 ## Triggers and the evaluation order
 
-`PreemptionEvaluator.FindCandidates` yields candidates lazily in this order (source: raw/kueue/pkg/scheduler/preemption/config/preemption.go):
+`PreemptionEvaluator.FindCandidates` yields candidates lazily in this order (source: raw/kueue/pkg/scheduler/preemption/config/evaluator.go):
 
 1. **`Always`** rules: contribute unconditionally. Together with the CQ's own `spec.preemption` policy they form the *baseline*.
 2. **`InsufficientQuota`** rules: only if `workloadQuotaFits()` is still false after the baseline candidates were removed from the snapshot.
 3. **`QuotaFeasibleAndInsufficientTopology`** rules: only if quota now fits but the workload still does not fit, i.e. topology is what blocks it (see [[topology-aware-scheduling]]).
 
-Candidates are deduplicated by Workload UID across rules and selectors of a trigger; the candidate remembers every `rule -> selector indexes` that selected it (used in the message). Each candidate must be **still admitted in the snapshot** and must **use a flavor/resource that needs preemption** (`classical.WorkloadUsesResources`). Ordering within a trigger uses the same `CandidatesOrdering` as classical preemption (priority, admission time, AFS usage). `HasRules()`/`HasConditionalRules()` inspect only the config so the expensive fit checks are skipped when no conditional rule exists.
+Candidates are deduplicated by Workload UID across rules and selectors of a trigger; the candidate remembers every `rule -> selector indexes` that selected it (used in the message). Each candidate must be **still admitted in the snapshot** and must **use a flavor/resource that needs preemption** (`classical.WorkloadUsesResources`). Ordering within a trigger uses the same `CandidatesOrdering` as classical preemption (priority, admission time, AFS usage). `HasRules()`/`hasConditionalRules()` inspect only the config so the expensive fit checks are skipped when no conditional rule exists.
 
 ## Integration with classical and fair-sharing preemption (pr-16130)
 
@@ -90,12 +90,12 @@ Candidate-filter compilation used to return a `rejectAll` boolean and silently s
 
 ## Topology trigger also selects Workloads of overlapping TAS flavors (pr-16695)
 
-With `TASHandleOverlappingFlavors`, TAS flavors whose lowest level is `kubernetes.io/hostname` count each other's usage on shared nodes, but candidate selection required the exact `{flavor, resource}` pair needing preemption, so a `QuotaFeasibleAndInsufficientTopology` rule could never evict a Workload of *another* flavor sitting on the nodes the preemptor needs. Now, **for that trigger only**, a candidate also qualifies if it uses a resource needing preemption from an overlapping flavor and `Snapshot.UsesOverlappingTASCapacity` confirms its topology assignment is on nodes the preemptor's flavor selects (same condition the snapshot uses to propagate overlapping usage, shared via `propagatesTASUsage`). `Always` and `InsufficientQuota` keep the exact match, since only those Workloads free the quota. The removal simulation and minimality pass are unchanged. Fixes issue-16141; backport pr-16919 (0.20) (source: pr-16695.md). TAS side: [[topology-aware-scheduling]].
+With `TASHandleOverlappingFlavors`, TAS flavors whose lowest level is `kubernetes.io/hostname` count each other's usage on shared nodes, but candidate selection required the exact `{flavor, resource}` pair needing preemption, so a `QuotaFeasibleAndInsufficientTopology` rule could never evict a Workload of *another* flavor sitting on the nodes the preemptor needs. Now, for every trigger, a candidate also qualifies if `Snapshot.UsesTASNodesOf` reports that it holds TAS capacity, on a hostname-leaf flavor, on nodes of a flavor needing preemption (no resource-name match) (source: raw/kueue/pkg/scheduler/preemption/config/evaluator.go, raw/kueue/pkg/cache/scheduler/snapshot.go). The PR description's topology-trigger-only `UsesOverlappingTASCapacity` design was changed in review. The removal simulation and minimality pass are unchanged. Fixes issue-16141; backport pr-16919 (0.20) (source: pr-16695.md). TAS side: [[topology-aware-scheduling]].
 
 ## Internal API cleanups
 
 - `PreemptionConfigReference` and `PreemptionConfigRuleReference` named types for config and rule identifiers; candidate metadata and `strings.JoinMap` (now generic over string-like keys) use them; eviction messages are unchanged. Fixes issue-16210 (pr-16598; backport pr-16605).
-- `PreemptionEvaluator` binds the preemptor at construction (`NewEvaluatorForClusterQueue` and friends); `FindCandidates`, `orderedCandidates`, `candidatesFor` no longer take it, and the unused `clock` field was removed (pr-17091, no behaviour change; release-0.20 backport pr-17216, merged 2026-10-14).
+- `PreemptionEvaluator` binds the preemptor at construction (`NewPreemptionEvaluator` / `NewEvaluatorForPreemptionConfig`); `FindCandidates`, `orderedCandidates`, `candidatesFor` no longer take it, and the unused `clock` field was removed (pr-17091, no behaviour change; release-0.20 backport pr-17216, merged 2026-10-14).
 
 ## Interaction with fair-sharing final-target verification
 

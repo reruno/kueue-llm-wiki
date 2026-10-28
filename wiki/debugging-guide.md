@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/controller/core/workload_controller.go`, `raw/kueue/pkg/debugger/`, `raw/github/kubernetes-sigs__kueue/` (issues), `raw/kueue/pkg/controller/core/clusterqueue_controller.go`, pr-13271.md, pr-14348.md, pr-14411.md, pr-16670.md, pr-16833.md, pr-16890.md, pr-16581.md, pr-16743.md, pr-16379.md, pr-16984.md, pr-16609.md, pr-16667.md, pr-16531.md, pr-16981.md, pr-16510.md, pr-16739.md, pr-16392.md, pr-16793.md, issue-16789.md, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16343.md, pr-16438.md, pr-16627.md, issue-16486.md, pr-16421.md, pr-16514.md, pr-17052.md, pr-13775.md, pr-16470.md, pr-16870.md; 2026-10-21 batch: raw/kueue/CHANGELOG/CHANGELOG-0.19.md (v0.19.9), CHANGELOG-0.20.md (v0.20.2), pr-17227.md, pr-17093.md, pr-16483.md, pr-16630.md, pr-17041.md, pr-17336.md, pr-17088.md, pr-17143.md, pr-17105.md, pr-17272.md, pr-17273.md, raw/kueue/pkg/scheduler/scheduler.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -27,12 +27,12 @@ The `status.conditions` tell you exactly where the workload is stuck:
 | `QuotaReserved` | `False` | `AdmissionGated` | Blocked by [[admission-gated-by-annotation]] |
 | `QuotaReserved` | `True` | — | Quota reserved; waiting for admission checks |
 | `Admitted` | `True` | — | Fully admitted; job should be running |
-| `PodsReady` | `False` | `PodsNotReady` | Pods not all Ready yet (waitForPodsReady configured) |
+| `PodsReady` | `False` | `WaitForStart` / `WaitForScheduling` / `WaitForRecovery` | Pods not all Ready yet (waitForPodsReady configured); see [[wait-for-pods-ready]] |
 | `Evicted` | `True` | `Preempted` | Preempted by a higher-priority workload |
 | `Evicted` | `True` | `PodsReadyTimeout` | Pods never became ready within the timeout |
 | `Evicted` | `True` | `AdmissionCheck` | An admission check failed |
-| `Deactivated` | `True` | `ExceededMaximumExecutionTime` | Maximum execution time exceeded |
-| `Deactivated` | `True` | `ExceededBackoffLimit` | Failed too many times |
+| `Evicted` | `True` | `DeactivatedDueToMaximumExecutionTimeExceeded` | Maximum execution time exceeded; workload deactivated |
+| `Evicted` | `True` | `DeactivatedDueToRequeuingLimitExceeded` | Re-queued too many times (`waitForPodsReady.requeuingStrategy.backoffLimitCount`); workload deactivated |
 
 The `message` field on the `QuotaReserved: False` condition usually tells you exactly which resource was insufficient and in which flavor.
 
@@ -89,7 +89,7 @@ The `status.admissionCheckStates` list shows each check and its current state:
 - `Pending` — check controller hasn't responded yet.
 - `Ready` — check passed.
 - `Retry` — check failed transiently; will retry.
-- `Rejected` — check failed permanently; workload will be evicted.
+- `Rejected` — check failed permanently; the Workload is deactivated (`Evicted` reason `DeactivatedDueToAdmissionCheck`).
 
 **Common cause**: [[provisioning-request]] — cluster autoscaler hasn't provisioned nodes yet. Check:
 ```bash
@@ -113,7 +113,7 @@ The workload was admitted, pods were created, but not all pods became `Ready` wi
 
 **Diagnose**:
 ```bash
-kubectl get pods -n <namespace> -l kueue.x-k8s.io/workload=<workload-name>
+kubectl get pods -n <namespace> -o json | jq -r '.items[] | select(.metadata.annotations["kueue.x-k8s.io/workload"]=="<workload-name>") | .metadata.name'
 kubectl describe pod <stuck-pod>
 ```
 
@@ -137,7 +137,7 @@ The workload requires all pods to fit within a single topology domain (rack, blo
 kubectl get nodes -o custom-columns=NAME:.metadata.name,RACK:.metadata.labels.rack,ALLOCATED:.status.allocatable.cpu
 ```
 
-If [[failure-recovery]] is alpha-enabled and a node went offline, pods from a previous run might be stuck in `Terminating`, consuming TAS slots. Check:
+If a node went offline, pods from a previous run might be stuck in `Terminating`, consuming TAS slots, unless [[failure-recovery]] (Alpha, off by default) is enabled and the Pods carry its opt-in annotation. Check:
 ```bash
 kubectl get pods --all-namespaces | grep Terminating
 ```
@@ -146,10 +146,10 @@ kubectl get pods --all-namespaces | grep Terminating
 
 ## Root cause 6: Workload is deactivated
 
-**Symptom**: `Deactivated: True`. The workload has `spec.active: false`.
+**Symptom**: `Evicted: True` with a `Deactivated…` reason (`Deactivated`, or `DeactivatedDueTo<Cause>`). The workload has `spec.active: false`.
 
 Possible causes:
-- **Exceeded backoff limit** — the job failed too many times.
+- **Requeuing limit exceeded** — the Workload was evicted and re-queued (e.g. PodsReady timeout) `backoffLimitCount` times.
 - **Exceeded maximum execution time** — `spec.maximumExecutionTimeSeconds` was reached (see [[workload-max-execution-time]]).
 - **Manual deactivation** — an admin set `spec.active: false`.
 
@@ -186,7 +186,7 @@ If `status.conditions[type=Active]=False`, the parent ClusterQueue is inactive o
 kubectl kueue list workloads --all-namespaces
 
 # Show pending workloads in a specific queue (visibility API)
-kubectl kueue list localqueue <name> --namespace <ns>
+kubectl kueue list workload --localqueue <name> --status pending --namespace <ns>
 
 # Pause/resume a ClusterQueue
 kubectl kueue stop clusterqueue <name>
@@ -269,7 +269,7 @@ Both come from the `kueue.x-k8s.io/managed` finalizer not being removed on a **n
 
 ## A Workload that stays inactive after you re-activate it
 
-If the Workload's `WorkloadRequeued=False` condition carries a derived reason such as `DeactivatedDueToRequeuingLimitExceeded`, versions before [[pr-14874]] never transitioned it, so flipping `spec.active` back to `true` had no effect. Check `.status.conditions[?(@.type=="WorkloadRequeued")].reason`.
+If the Workload's `Requeued=False` condition carries a derived reason such as `DeactivatedDueToRequeuingLimitExceeded`, versions before [[pr-14874]] never transitioned it, so flipping `spec.active` back to `true` had no effect. Check `.status.conditions[?(@.type=="Requeued")].reason`.
 
 ## Reading the reason on a pending Workload (v0.20)
 
@@ -337,7 +337,7 @@ One row per user-visible fix in those changelogs that is not already covered abo
 | Changing `maximumExecutionTimeSeconds` is rejected with "while workload quota reserved" though only `Admitted` blocks it | message now says "immutable while the workload is admitted" | both (#16946 / #16944) |
 | AFS config errors for `usageSamplingInterval` / `resourceWeights` show the wrong value | value taken from another field | both (#16943 / #16942). See [[api-versions]] |
 | A Workload with negative Pod overhead is accepted | `WorkloadValidateResourcesAreNonNegative` did not reach `spec.overhead` | both (#17201 / #17202) |
-| A forged `role-hash` runs an oversized Pod under another role's quota | see the `PodExceedsRoleRequests` row above; on these releases the check needs the **Alpha/off** `PodIntegrationVerifyRoleRequests` gate enabled | both (#17123 / #17124) |
+| A forged `role-hash` runs an oversized Pod under another role's quota | see the `PodExceedsRoleRequests` row below (Scheduling, TAS and integration symptoms); on these releases the check needs the **Alpha/off** `PodIntegrationVerifyRoleRequests` gate enabled | both (#17123 / #17124) |
 
 ## Fixed on main, pending the next patch release
 

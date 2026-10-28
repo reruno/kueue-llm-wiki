@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-13481.md, pr-13433.md, pr-13621.md, pr-12786.md, pr-16728.md, pr-17414.md, pr-17448.md, issue-17412.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -18,7 +18,7 @@ This also means a single CQ can be reached from many namespaces (one LQ per name
 
 Jobs opt into Kueue by carrying `kueue.x-k8s.io/queue-name: <local-queue-name>`. If the label is absent, integration controllers ignore the job — it runs normally, outside any Kueue gating. This opt-in design is intentional: non-participating jobs on the cluster keep working.
 
-KEP-2936 ([[feature-gates]] `LocalQueueDefaulting`) added a per-namespace default LocalQueue so that jobs without the label can still be gated ([[pr-3652]], [[issue-9633]]). When enabled and a LocalQueue named `default` exists in the namespace, jobs without the label get admitted through it.
+KEP-2936 ([[feature-gates]] `LocalQueueDefaulting`) added a per-namespace default LocalQueue so that jobs without the label can still be gated ([[pr-3652]], [[issue-9633]]). When a LocalQueue named `default` exists in the namespace, jobs without the label get admitted through it.
 
 ## Status: summary of the CQ
 
@@ -26,12 +26,12 @@ Recent versions added per-LQ status fields that mirror the CQ (pending/admitted 
 
 ## Visibility
 
-Pending-workload visibility is per-LQ (and per-[[cohort]]) and served by the [[visibility-api]] aggregated-API extension.
+Pending-workload visibility is per-LQ (and per-CQ) and served by the [[visibility-api]] aggregated-API extension.
 
 ## Typical use pattern
 
 ```yaml
-apiVersion: kueue.x-k8s.io/v1beta1
+apiVersion: kueue.x-k8s.io/v1beta2
 kind: LocalQueue
 metadata:
   namespace: team-ml

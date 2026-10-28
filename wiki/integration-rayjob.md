@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16870.md, pr-16882.md, pr-16897.md, pr-16908.md, pr-16915.md, pr-17060.md, pr-17097.md, pr-13244.md, pr-13996.md, pr-14036.md, pr-16853.md, pr-16854.md, pr-16884.md, pr-17366.md, pr-17367.md, pr-17205.md, pr-16259.md, pr-17466.md, pr-17464.md, pr-17513.md, raw/kueue/pkg/controller/jobs/raycluster/common.go, raw/kueue/pkg/controller/jobs/rayservice/rayservice_multikueue_adapter.go, raw/kueue/pkg/controller/jobs/ray/ray_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/controller/jobs/rayservice/rayservice_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -19,7 +19,7 @@ Kueue's RayCluster integration produces:
 
 The RayJob integration further accounts for the **submitter Pod** — a transient Pod that drives the job via the Ray client. "PodSets for RayJobs should account for submitter Job Pod" ([[issue-1434]]) tracked making that accounting explicit so the cluster's quota picture doesn't omit it.
 
-**Worker-group cap.** Because each worker group becomes its own PodSet and the head reserves one PodSet, the number of worker groups is bounded by the [[workload]] `spec.podSets` length limit. [[pr-11388]] raised that limit from 8 to **10**, so a RayCluster/RayJob/RayService can now declare up to **9 worker groups** (was 7).
+**Worker-group cap.** Because each worker group becomes its own PodSet and the head reserves one PodSet, the number of worker groups is bounded by the [[workload]] `spec.podSets` length limit. [[pr-11388]] raised that limit from 8 to **10**, so a RayCluster/RayJob/RayService can now declare up to **9 worker groups** (was 7). #12819 (v0.19.0) raised it again to **18**, so up to **17 worker groups** on main.
 
 ## Adding RayCluster support
 
@@ -44,10 +44,10 @@ Kueue's e2e fixtures and the RayJob submitter image were bumped from **Ray 2.41.
 
 When KubeRay **GCS fault tolerance** is enabled, KubeRay spawns a short-lived **Redis cleanup Job** during RayCluster teardown (to clear the cluster's data from the external Redis). Kueue built PodSets only from the head + worker groups, so the cleanup Job's requests were never reserved → quota **under**-accounting ([[pr-11260]], fixes [[issue-10946]]).
 
-The fix **folds** the cleanup Job's requests into the **Ray head PodSet** using max-accounting, rather than adding a separate PodSet (which would have eaten one of the 8 `MaxPodSets` slots). Details:
+The fix **folds** the cleanup Job's requests into the **Ray head PodSet** using max-accounting, rather than adding a separate PodSet (which would have eaten one of the limited `MaxPodSets` slots (18 on main)). Details:
 
 - The cleanup Job's requests are **hardcoded in KubeRay** at **200m CPU / 256Mi memory**; `accountForRedisCleanupInHeadPodSet` merges them into the head container via `MergeResourceListKeepMax` (so the head's reservation is `max(head, cleanup)`, not a sum).
-- Gated by the **`KubeRayAccountForRedisCleanup`** feature gate (Beta, default on; introduced v0.19, GA targeted v0.21) — a bailout for clusters running the KubeRay operator with `ENABLE_GCS_FT_REDIS_CLEANUP=false`. The accounting only applies when GCS fault tolerance is actually detected (`GcsFaultToleranceOptions != nil` or the annotation).
+- Not feature-gated. A Beta `KubeRayAccountForRedisCleanup` bailout gate was proposed in review but dropped before merge once the requests were folded into the head PodSet (source: pr-11260.md, raw/kueue/pkg/controller/jobs/raycluster/common.go). The accounting only applies when GCS fault tolerance is actually detected (`GcsFaultToleranceOptions != nil` or the annotation).
 - `ExpectedPodSetsCount = len(workerGroupSpecs) + 1`; the PodSet count is **unchanged** because the cleanup is folded into the head. Applies to all three controllers — **RayCluster, RayJob, and RayService**.
 
 ## MultiKueue

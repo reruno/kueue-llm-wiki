@@ -4,13 +4,13 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
 ## Why it exists
 
-If you install Kueue on a cluster that already has batch jobs running, the integration controllers will not retroactively create Workloads for jobs that pre-existed. Without a Workload, Kueue can't account for their quota use — so subsequent admissions may over-commit. The importer solves this by reading existing jobs, inferring which LocalQueue they should have belonged to (usually by namespace), and creating matching Workloads in the right state.
+If you install Kueue on a cluster that already has batch jobs running, the integration controllers will not retroactively create Workloads for jobs that pre-existed. Without a Workload, Kueue can't account for their quota use — so subsequent admissions may over-commit. The importer solves this by reading existing Pods in the given namespaces, mapping each to a LocalQueue by label rules (`--queuelabel`/`--queuemapping` or `--queuemapping-file`), and creating matching Workloads in the right state.
 
 ## When to use
 
@@ -20,13 +20,13 @@ If you install Kueue on a cluster that already has batch jobs running, the integ
 
 ## Scope
 
-The importer is intentionally non-destructive. It doesn't re-create jobs, doesn't change `.spec.suspend`, doesn't toggle admitted state. It only writes Workload objects that mirror existing jobs. The running jobs appear to Kueue as "admitted" from that point on, contributing to quota usage.
+The importer does not re-create Pods. With `--dry-run=false` it adds Kueue's queue-name and `kueue.x-k8s.io/managed` labels (plus `--add-labels`) to each Pod, creates a Workload for it and marks the Workload admitted (source: `raw/kueue/cmd/importer/README.md`, `cmd/importer/pod/import.go`). The running jobs appear to Kueue as "admitted" from that point on, contributing to quota usage.
 
 ## Caveats
 
-- **Priority inference.** If jobs use stock `PriorityClass`, that carries over. If they use Kueue-specific `WorkloadPriorityClass` labels, the importer picks those up; otherwise priority defaults to 0.
+- **Priority inference.** A Pod's `priorityClassName` is resolved to its PriorityClass (which must exist); otherwise priority is 0. WorkloadPriorityClass is not read.
 - **Missing LocalQueue.** If a namespace has no LocalQueue, the importer can't decide which CQ owns the workload. Operators need to create LocalQueues first.
-- **Integration coverage.** The importer covers batch/v1 Job and a subset of CRDs; uncommon integrations may need manual Workload creation.
+- **Integration coverage.** The importer handles plain Pods only (`cmd/importer/pod`).
 
 ## Mapping rules can match on resource requests
 

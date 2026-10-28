@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16167.md, pr-16130.md, pr-16208.md, issue-16049.md, issue-14608.md, pr-17010.md, pr-16343.md, pr-16738.md, pr-16537.md, pr-16619.md, pr-16627.md, pr-17016.md, pr-17034.md, pr-17285.md, pr-16340.md, pr-17295.md, pr-17296.md, issue-16338.md, pr-17081.md, pr-17394.md, pr-17403.md, issue-10824.md, pr-16766.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/cache/scheduler/candidate_order_cache.go, raw/kueue/pkg/scheduler/preemption/classical/cache_candidate_generator.go, raw/kueue/pkg/scheduler/preemption/preemption.go, raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -12,9 +12,9 @@
 
 Before they were distinguished in condition messages and metrics, all preemptions said the same generic thing — which made diagnosis painful ([[issue-1874]]). They are now separate reasons:
 
-1. **Within ClusterQueue.** A higher-priority workload arrives; a lower-priority admitted workload in the same CQ is evicted to make room. Policy: `spec.preemption.withinClusterQueue` (`LowerPriority` | `Any` | `Never`).
-2. **Reclaim within Cohort.** CQ-A lent quota to CQ-B. CQ-A has a new workload that needs that nominal quota back. A workload in CQ-B is preempted, regardless of priority. Policy: `spec.preemption.reclaimWithinCohort` (`LowerPriority` | `Any` | `Never`).
-3. **Preemption while borrowing (`borrowWithinCohort`).** A borrower in CQ-A wants to displace a borrower in CQ-B that is below a priority threshold. Policy: `spec.preemption.borrowWithinCohort.policy` (`Never` | `LowerPriority`), with `maxPriorityThreshold` setting the cap. `LowerPriorityBorrowersOnly` was added to protect nominal-quota workloads from this path ([[issue-10171]]).
+1. **Within ClusterQueue.** A higher-priority workload arrives; a lower-priority admitted workload in the same CQ is evicted to make room. Policy: `spec.preemption.withinClusterQueue` (`LowerPriority` | `LowerOrNewerEqualPriority` | `Never`; default `Never`).
+2. **Reclaim within Cohort.** CQ-A lent quota to CQ-B. CQ-A has a new workload that needs that nominal quota back. A workload in CQ-B is preempted (with `Any` regardless of priority, with `LowerPriority` only if lower priority). Policy: `spec.preemption.reclaimWithinCohort` (`LowerPriority` | `Any` | `Never`).
+3. **Preemption while borrowing (`borrowWithinCohort`).** A borrower in CQ-A wants to displace a borrower in CQ-B that is below a priority threshold. Policy: `spec.preemption.borrowWithinCohort.policy` (`Never` | `LowerPriority`), with `maxPriorityThreshold` setting the cap. A `LowerPriorityBorrowersOnly` policy was proposed to protect nominal-quota workloads ([[issue-10171]]); its PR #10211 is not merged, so only `Never` and `LowerPriority` exist.
 
 ## How candidates are chosen
 
@@ -114,4 +114,4 @@ An AdmissionCheck flipping to `Rejected` while an eviction is in flight used to 
 - [[borrowing-and-lending]] — borrowing is the precondition for reclaim.
 - [[configurable-preemptions]] — **[Alpha, v0.20]** cluster-scoped `PreemptionConfig` rules add fallback candidates.
 - [[preemption-cost]] — **[Alpha]** external controllers can boost a workload's effective priority via annotation.
-- [[multikueue-orchestrated-preemption]] — **[Alpha]** serializes preemption across MultiKueue worker clusters.
+- [[multikueue-orchestrated-preemption]] — **[Beta]** serializes preemption across MultiKueue worker clusters.

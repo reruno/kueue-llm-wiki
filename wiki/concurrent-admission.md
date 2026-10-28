@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/8691-concurrent-admission/README.md`, `raw/kueue/keps/8691-concurrent-admission/kep.yaml`, pr-15553.md, pr-15781.md, pr-15949.md, pr-16282.md, issue-15500.md, issue-15547.md, issue-15838.md, pr-15000.md, pr-17144.md, pr-17337.md, pr-17338.md, issue-16872.md, pr-17157.md, raw/kueue/pkg/controller/concurrentadmission/controller.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -32,8 +32,8 @@ A Parent has a 1:N relationship with its Variants. Each Variant is a distinct Ku
 
 ### Variant controller
 
-A new `VariantController` manages the lifecycle of Variants:
-- **Creation**: creates Variant Workloads from the Parent according to the ClusterQueue's `concurrentAdmission` spec.
+The ConcurrentAdmission controller (`variantReconciler`) manages the lifecycle of Variants:
+- **Creation**: creates Variant Workloads from the Parent, one per flavor of the ClusterQueue's single ResourceGroup, when `spec.concurrentAdmissionPolicy` is set (source: raw/kueue/pkg/controller/concurrentadmission/controller.go).
 - **Aggregation**: collects Variant statuses and rolls them up to the Parent.
 - **Policy enforcement**: ensures only one Variant is admitted at a time. If a preferred Variant becomes available (higher flavor), the currently admitted Variant is evicted.
 - **Eviction**: when the admitted Variant needs to be evicted (to migrate), the controller triggers eviction and re-queues the parent flow.
@@ -42,29 +42,11 @@ A new `VariantController` manages the lifecycle of Variants:
 
 ## ClusterQueue API extension
 
-The [[cluster-queue]] spec gains a `concurrentAdmission` field that describes which flavor subsets Variants should target:
-
-```yaml
-spec:
-  concurrentAdmission:
-    variants:
-    - flavors: [reservation]          # most preferred
-    - flavors: [on-demand]            # fallback
-    - flavors: [spot]                 # least preferred
-```
-
-(source: keps/8691-concurrent-admission/README.md)
+The [[cluster-queue]] spec gains `concurrentAdmissionPolicy` (`migration.mode`, `migration.constraints.lastAcceptableFlavorName`; see below). Variants are not listed explicitly: Kueue creates one per flavor, in `resourceGroups[0].flavors` order, and that order is the flavor preference (source: raw/kueue/apis/kueue/v1beta2/clusterqueue_types.go, raw/kueue/pkg/controller/concurrentadmission/controller.go).
 
 ## Workload API extension
 
-Variants carry `spec.admissionConstraints` that restrict which flavors they may use. The constraints also define upgrade/migration policies:
-
-```yaml
-spec:
-  admissionConstraints:
-    allowedFlavors: [on-demand]
-    # upgrade policies (when to migrate to a more preferred variant)
-```
+Each Variant carries the annotation `kueue.x-k8s.io/workload-allowed-resource-flavors` naming its flavor (source: raw/kueue/pkg/controller/concurrentadmission/controller.go). A `spec.admissionConstraints` field exists only as a KEP alternative for Beta (source: keps/8691-concurrent-admission/README.md).
 
 Only one Variant per Parent may be admitted at a time. The Variant controller enforces this. (source: keps/8691-concurrent-admission/README.md)
 
@@ -82,7 +64,7 @@ Only one Variant per Parent may be admitted at a time. The Variant controller en
 
 - Only works with job types that can tolerate pod recreation (migration involves pod deletion and restart).
 - **`StrictFIFO` queueing strategy is rejected at the webhook layer** when ConcurrentAdmission is enabled on a CQ — the [[cluster-queue]] validation webhook now returns an error if both are configured ([[pr-11022]]; per the KEP, ConcurrentAdmission cannot be combined with StrictFIFO because Variants migrating in and out of admission would violate strict ordering).
-- Increases API object count in etcd (one Variant per flavor subset per pending workload).
+- Increases API object count in etcd (one Variant per flavor per pending workload).
 
 (source: keps/8691-concurrent-admission/README.md)
 

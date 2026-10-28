@@ -2,9 +2,9 @@
 
 **Summary**: E2E tests run Kueue against a real (Kind-based) Kubernetes cluster, with any external operators (JobSet, KubeRay, Kubeflow Training, LeaderWorkerSet, AppWrapper, cert-manager, Prometheus Operator) installed alongside. This page covers the per-suite matrix, the dev-mode Kind lifecycle (`E2E_MODE=dev`), the full MultiKueue invocation recipe, and flake patterns specific to e2e.
 
-**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/hack/testing/e2e-common.sh`, `raw/kueue/hack/testing/e2e-test.sh`, `raw/kueue/hack/testing/e2e-multikueue-test.sh`, `raw/kueue/test/e2e/`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-5414]]; pr-16348.md, pr-17050.md, pr-16753.md, pr-16723.md.
+**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/hack/testing/e2e-common.sh`, `raw/kueue/hack/testing/e2e-test.sh`, `raw/kueue/hack/testing/e2e-multikueue-test.sh`, `raw/kueue/test/e2e/`, `raw/kueue/site/content/en/community/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-5414]]; pr-16348.md, pr-17050.md, pr-16753.md, pr-16723.md.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -13,7 +13,7 @@
 - Real `kubelet` + real `kube-scheduler`. Pod placement actually happens.
 - External operator reconciliation — JobSet, KubeRay, Kubeflow Training, LeaderWorkerSet, AppWrapper, cert-manager, Prometheus Operator are installed and run.
 - Image loading, RBAC, CRD apply paths — things that are bypassed by envtest.
-- Upgrade / downgrade behavior (the `upgrade` suite installs a prior release, then upgrades to the current build).
+- Upgrade / downgrade behavior (historical: an `upgrade` suite installed a prior release, then upgraded to the current build; there is no upgrade make target or `test/e2e/upgrade/` folder at kueue@3bbb8cce4, although `pull-kueue-test-e2e-upgrade-main` and `pull-kueue-test-e2e-certmanager-upgrade-main` appear in the CI corpus, e.g. issue-12444.md, issue-11792.md).
 
 Because each e2e suite spins up its own Kind cluster(s), each suite is expensive. The MultiKueue suite was ~19 min sequential / ~22 min parallel when it was last benchmarked ([[issue-10200]]).
 
@@ -23,22 +23,24 @@ Every target below is in `hack/make/test.mk` (formerly `Makefile-test.mk`). All 
 
 | Make target | E2E folder | What it covers |
 |---|---|---|
-| `test-e2e` | `test/e2e/singlecluster/` | Baseline singlecluster e2e. |
-| `test-multikueue-e2e-main` | `test/e2e/multikueue/` | Manager + worker Kind clusters; [[multikueue]] dispatch flow. The site-docs form `test-multikueue-e2e` is not defined in the current `hack/make/test.mk`; use `-main` explicitly. |
-| `test-multikueue-e2e-sequential` | `test/e2e/multikueuesequential/` | Disruptive MultiKueue specs that cannot run in parallel ([[issue-10200]]). |
-| `test-e2e-multikueue-dra` | `test/e2e/multikueuedra/` | MultiKueue + DynamicResourceAllocation. |
-| `test-tas-e2e` | `test/e2e/tas/` | Topology-aware scheduling end-to-end; uses `kind-cluster-tas.yaml`. |
-| `test-e2e-dra` | `test/e2e/dra/` | DRA support path. |
+| `test-e2e-baseline` | `test/e2e/singlecluster/baseline/` | Core singlecluster e2e: certs, batch Job, Pod, Deployment, StatefulSet, fair sharing, kueuectl, metrics, visibility, HA. |
+| `test-e2e-extended` (+ `-shard-0/1/2`) | `test/e2e/singlecluster/extended/` | Job-framework integrations against real operators: AppWrapper, JAX, JobSet, KubeRay, LeaderWorkerSet, PyTorch, TrainJob, MPI. The shards split KubeRay (shards 0 and 2) from the other operators (shard 1). |
+| `test-multikueue-e2e-baseline` | `test/e2e/multikueue/baseline/` | Manager + worker Kind clusters; [[multikueue]] dispatch flow. |
+| `test-multikueue-e2e-extended` (+ `-shard-0/1`, `-ray-autoscaling`) | `test/e2e/multikueue/extended/` | MultiKueue with external job integrations; shard 1 is KubeRay, `-ray-autoscaling` is KubeRay autoscaling. |
+| `test-multikueue-e2e-sequential` (+ `-shard-0/1`) | `test/e2e/multikueue/sequential/` | Disruptive MultiKueue specs that cannot run in parallel ([[issue-10200]]). |
+| `test-e2e-multikueue-dra` | `test/e2e/multikueue/dra/` | MultiKueue + DynamicResourceAllocation. |
+| `test-tas-e2e-baseline` / `test-tas-e2e-extended` (+ `-shard-0/1`) | `test/e2e/singlecluster/tasapi/{baseline,extended}/` | Topology-aware scheduling end-to-end; uses `kind-cluster-tas.yaml`. `test-e2e-tas-*` are aliases; `test-e2e-was-tas-*` run the same suites with `WAS_ENABLED=true`. |
+| `test-tas-e2e-deepintegration` | `test/e2e/singlecluster/tasapi/deepintegration/` | TAS deep-integration specs (used by `test-e2e-was-deep-tas-baseline-basic-fit`). |
+| `test-e2e-dra-baseline` / `test-e2e-dra-counter` / `test-e2e-dra-capacity` | `test/e2e/dra/{whole-device,counter,capacity}/` | DRA support path. |
 | `test-e2e-certmanager` | `test/e2e/certmanager/` | cert-manager-backed webhooks. |
-| `test-e2e-certmanager-upgrade` | `test/e2e/upgrade/` | cert-manager + upgrade. |
-| `test-e2e-sequential-baseline` | `test/e2e/sequential/baseline/` | Non-default `configuration.kueue.x-k8s.io` Kueue configurations (baseline set). |
-| `test-e2e-sequential-extended` | `test/e2e/sequential/extended/` | The same, extended set (includes Spark). |
-| `test-e2e-customconfigs` | — | Aggregate target; runs the two `sequential-*` targets above. |
-| `test-e2e-upgrade` | `test/e2e/upgrade/` | Install `KUEUE_UPGRADE_FROM_VERSION` (default `v0.14.8`) first, then upgrade to the current build. |
+| `test-e2e-sequential-baseline` (+ `-shard-0/1`) | `test/e2e/sequential/baseline/` | Non-default `configuration.kueue.x-k8s.io` Kueue configurations (baseline set). |
+| `test-e2e-sequential-extended` (+ `-shard-0/1`) | `test/e2e/sequential/extended/` | The same, extended set (includes Spark). |
 | `test-e2e-kueueviz` / `test-e2e-kueueviz-local` | `test/e2e/kueueviz/` | KueueViz UI end-to-end; runs Cypress against a real browser. See [[dashboard]]. |
-| `test-e2e-k8s-main-was` | `test/e2e/singlecluster/` | Same as `test-e2e` but against a kind node image built from k/k `main` with `WAS_ENABLED=true`. |
+| `test-e2e-k8s-main-was` | `test/e2e/singlecluster/wasapi/` | WAS API suite against a kind node image built from k/k `main` with `WAS_ENABLED=true`. `test-e2e-was-api` (alias `test-e2e-was`) runs the same folder on a released Kubernetes version. |
 
-Add `-helm` to any supported target (`test-e2e-helm`, `test-tas-e2e-helm`, `test-multikueue-e2e-helm`, `test-e2e-sequential-baseline-helm`, `test-e2e-sequential-extended-helm`) to install via Helm instead of kustomize. Or set `E2E_USE_HELM=true`.
+There is no `test-e2e`, `test-multikueue-e2e-main`, `test-tas-e2e`, `test-e2e-dra`, `test-e2e-upgrade`, `test-e2e-certmanager-upgrade` or `test-e2e-customconfigs` target at kueue@3bbb8cce4; use the baseline/extended targets above.
+
+Add `-helm` to any supported target (`test-e2e-baseline-helm`, `test-e2e-extended-helm`, `test-tas-e2e-baseline-helm`, `test-tas-e2e-extended-helm`, `test-e2e-sequential-baseline-helm`, `test-e2e-sequential-extended-helm`) to install via Helm instead of kustomize. Or set `E2E_USE_HELM=true`. `test-multikueue-e2e-helm` is still defined but depends on the undefined `test-multikueue-e2e`, so it does not run (`hack/make/test.mk`).
 
 **Helm and kustomize e2e now test the same configuration.** The Helm path used to carry its own copy of the manager configuration in `test/e2e/config/{default,certmanager}/values.yaml`. Nobody kept it in sync, so Helm e2e ran with **no feature gates enabled** and some settings missing. `helm_install` in `hack/testing/e2e-common.sh` now takes the kustomization directory as a third argument (`test/e2e/config/${E2E_CONFIG_FOLDER:-default}` or `test/e2e/config/certmanager`), runs `kustomize build`, and derives the manager configuration and replica count from it. Edit only the kustomize config (source: pr-16348.md). It also sets the chart's `enableAlphaAPIs` to `true` exactly when the kustomize build contains a CRD from `config/components/crd/alpha`. Without this, the 4 PreemptionConfig RBAC specs failed under Helm because the chart skipped the alpha CRDs (source: pr-17050.md).
 
@@ -52,21 +54,21 @@ Typical first-time singlecluster run:
 
 ```shell
 make kind-image-build   # build the controller image with the current source
-make test-e2e           # creates cluster, runs tests, deletes cluster
+make test-e2e-baseline  # creates cluster, runs tests, deletes cluster
 ```
 
-Pick a k8s version (from `E2E_K8S_VERSIONS` — currently `1.33.7 1.34.3 1.35.0`):
+Pick a k8s version (from `E2E_K8S_VERSIONS` — currently `1.34.11 1.35.8 1.36.4 1.37.0`; default `E2E_K8S_VERSION=1.36`):
 
 ```shell
-E2E_K8S_FULL_VERSION=1.34.3 make test-e2e
+E2E_K8S_FULL_VERSION=1.35.8 make test-e2e-baseline
 ```
 
 Use a released image instead of rebuilding:
 
 ```shell
-IMAGE_TAG=registry.k8s.io/kueue/kueue:v0.16.0 make test-e2e
+IMAGE_TAG=registry.k8s.io/kueue/kueue:v0.16.0 make test-e2e-baseline
 # or a staging image from a PR
-IMAGE_TAG=us-central1-docker.pkg.dev/k8s-staging-images/kueue/kueue:main make test-e2e
+IMAGE_TAG=us-central1-docker.pkg.dev/k8s-staging-images/kueue/kueue:main make test-e2e-baseline
 ```
 
 To reproduce a bug against an exact release, also `git checkout v0.16.0` first — CRDs and deployment manifests come from the checkout, only the controller image is overridden by `IMAGE_TAG`.
@@ -74,21 +76,24 @@ To reproduce a bug against an exact release, also `git checkout v0.16.0` first �
 Focus a subset:
 
 ```shell
-GINKGO_ARGS="--label-filter=feature:jobset" make test-e2e
-GINKGO_ARGS="--label-filter=feature:jobset,feature:trainjob" make test-e2e
-GINKGO_ARGS="--focus='Creating a Pod requesting TAS'" make test-tas-e2e
+GINKGO_ARGS="--label-filter=feature:jobset" make test-e2e-extended
+GINKGO_ARGS="--label-filter=feature:jobset,feature:trainjob" make test-e2e-extended
+GINKGO_ARGS="--focus='Creating a Pod requesting TAS'" make test-tas-e2e-baseline
 GINKGO_ARGS="--label-filter=feature:admissionfairsharing" make test-e2e-sequential-baseline
 GINKGO_ARGS="--label-filter=feature:spark" make test-e2e-sequential-extended
 ```
 
 ### E2E singlecluster label taxonomy
 
-`appwrapper, certs, deployment, job, fairsharing, jaxjob, jobset, kuberay, kueuectl, leaderworkerset, metrics, pod, pytorchjob, statefulset, tas, trainjob, visibility, e2e_v1beta1` (source: `hack/make/test.mk`).
+- Baseline (`test-e2e-baseline`): `certs, deployment, job, fairsharing, kueuectl, metrics, pod, statefulset, visibility, ha`.
+- Extended (`test-e2e-extended`): `appwrapper, jaxjob, jobset, kuberay, leaderworkerset, pytorchjob, trainjob, mpijob`.
+
+(source: `hack/make/test.mk`)
 
 ### E2E customconfigs label taxonomy
 
-- Baseline: `admissionfairsharing, certs, failurerecoverypolicy, localqueuemetrics, objectretentionpolicies, podintegrationautoenablement, reconcile, visibility, waitforpodsready`.
-- Extended: `managejobswithoutqueuename, spark`.
+- Baseline (`test-e2e-sequential-baseline`): `admissionfairsharing, certs, failurerecoverypolicy, localqueuemetrics, managejobswithoutqueuename, objectretentionpolicies, podintegrationautoenablement, reconcile, visibility, waitforpodsready`.
+- Extended (`test-e2e-sequential-extended`): `managejobswithoutqueuename, workloadidentifierannotations, spark`.
 
 ## E2E_MODE — cluster lifecycle
 
@@ -103,16 +108,16 @@ GINKGO_ARGS="--label-filter=feature:spark" make test-e2e-sequential-extended
 
 ```shell
 # First time — builds image, creates cluster, runs tests, keeps cluster
-E2E_MODE=dev make kind-image-build test-e2e
+E2E_MODE=dev make kind-image-build test-e2e-baseline
 
 # Subsequent iterations — rebuild image, redeploy Kueue, rerun tests, keep cluster
-E2E_MODE=dev make kind-image-build test-e2e
+E2E_MODE=dev make kind-image-build test-e2e-baseline
 
 # Repeat the run until it fails (for flake-hunting)
-E2E_MODE=dev GINKGO_ARGS="--until-it-fails" make kind-image-build test-e2e
+E2E_MODE=dev GINKGO_ARGS="--until-it-fails" make kind-image-build test-e2e-baseline
 
 # Focus one spec, fast iteration
-E2E_MODE=dev GINKGO_ARGS="--focus='MultiKueue should dispatch'" make kind-image-build test-multikueue-e2e-main
+E2E_MODE=dev GINKGO_ARGS="--focus='MultiKueue should dispatch'" make kind-image-build test-multikueue-e2e-baseline
 ```
 
 ### Dev-mode-only speedups
@@ -140,7 +145,7 @@ kind delete clusters kind kind-manager kind-worker1 kind-worker2
 If you use `kind` for other work, set `KIND_CLUSTER_NAME=kueue-dev` (or similar) so the suite doesn't manage your default cluster.
 
 ```shell
-KIND_CLUSTER_NAME=kueue-dev E2E_MODE=dev make kind-image-build test-e2e
+KIND_CLUSTER_NAME=kueue-dev E2E_MODE=dev make kind-image-build test-e2e-baseline
 ```
 
 ### Debugging metrics
@@ -148,14 +153,14 @@ KIND_CLUSTER_NAME=kueue-dev E2E_MODE=dev make kind-image-build test-e2e
 To bring up a Kind cluster with Prometheus already wired in for metrics debugging:
 
 ```shell
-E2E_MODE=dev GINKGO_ARGS="--label-filter=feature:prometheus" make kind-image-build test-e2e
+E2E_MODE=dev GINKGO_ARGS="--label-filter=feature:prometheus" make kind-image-build test-e2e-baseline
 ```
 
 See [[metrics]] for what's exposed.
 
-### Legacy: interactive attach mode
+### Legacy (historical): interactive attach mode
 
-Before `E2E_MODE=dev`, the way to keep a cluster for manual investigation was:
+Before `E2E_MODE=dev`, the way to keep a cluster for manual investigation was the following. This is historical: neither `E2E_RUN_ONLY_ENV` nor `test-multikueue-e2e-main` is wired up at kueue@3bbb8cce4.
 
 ```shell
 E2E_RUN_ONLY_ENV=true make kind-image-build test-multikueue-e2e-main
@@ -166,11 +171,11 @@ E2E_RUN_ONLY_ENV=true make kind-image-build test-multikueue-e2e-main
     -r ./test/e2e/multikueue
 ```
 
-Prefer `E2E_MODE=dev` for new workflows; `E2E_RUN_ONLY_ENV=true` remains available for the VSCode Ginkgo Test Explorer attach pattern.
+`E2E_RUN_ONLY_ENV` is still documented in the site guide but is not read by any `hack/testing` script at kueue@3bbb8cce4; use `E2E_MODE=dev`.
 
 ## The full MultiKueue invocation
 
-`make test-multikueue-e2e-main` expands (via `run-test-multikueue-e2e-%` in `hack/make/test.mk`) into `hack/testing/e2e-multikueue-test.sh` with a specific environment. The exact invocation at the time of [[issue-10200]]:
+`make test-multikueue-e2e-baseline` / `-extended` expand (via `run-test-multikueue-e2e-baseline-%` / `run-test-multikueue-e2e-extended-%` in `hack/make/test.mk`) into `hack/testing/e2e-multikueue-test.sh` with a specific environment; today the recipe also passes `E2E_TARGET_FOLDER` and `E2E_CONFIG_FOLDER` (e.g. `multikueue/baseline`). The exact invocation at the time of [[issue-10200]], when MultiKueue was still one suite:
 
 ```shell
 E2E_KIND_VERSION="kindest/node:v1.35.0" KIND_CLUSTER_NAME=kind \
@@ -202,27 +207,21 @@ Which eventually runs:
   -v ./test/e2e/multikueue/...
 ```
 
-In practice you don't call the script directly — `make test-multikueue-e2e-main` fills in the versions from `hack/make/deps.mk`. Reach for the raw invocation when you need to pin a non-default version of a dependency (e.g. reproduce a bug with JobSet `v0.10.x`).
+In practice you don't call the script directly — `make test-multikueue-e2e-baseline` fills in the versions from `hack/make/deps.mk`. Reach for the raw invocation when you need to pin a non-default version of a dependency (e.g. reproduce a bug with JobSet `v0.10.x`).
 
 ## Parallelization
 
 `E2E_NPROCS` controls Ginkgo `-procs`. Defaults in `hack/make/test.mk`:
 
-- `test-e2e` (singlecluster): `E2E_NPROCS=4`.
-- `test-multikueue-e2e-main`: `E2E_NPROCS=5`.
+- `test-e2e-baseline` / `test-e2e-extended`: `E2E_NPROCS=4` (`test-e2e-extended-shard-2`: 2).
+- `test-multikueue-e2e-baseline` / `-extended`: `E2E_NPROCS=5` (`-extended-ray-autoscaling`: 3).
 - Everything else: `E2E_NPROCS=1` (sequential).
 
-Cluster-scoped object names are suffixed per parallel worker; namespaces are created per spec. Tests that *cannot* safely run in parallel (disruptive operator restarts, controller re-deploys) live under `test/e2e/multikueuesequential/` and run via `make test-multikueue-e2e-sequential` ([[issue-10200]]).
+Cluster-scoped object names are suffixed per parallel worker; namespaces are created per spec. Tests that *cannot* safely run in parallel (disruptive operator restarts, controller re-deploys) live under `test/e2e/multikueue/sequential/` and run via `make test-multikueue-e2e-sequential` ([[issue-10200]]).
 
-## Parallel builds for multi-image suites
+## Extra images for MultiKueue suites
 
-MultiKueue e2e needs both a Ray-mini image and the secretreader plugin image. `test-multikueue-e2e-parallel-builds` builds them concurrently:
-
-```shell
-make test-multikueue-e2e-parallel-builds   # kind-ray-project-mini-image-build + kind-secretreader-plugin-image-build in parallel
-```
-
-This runs automatically as a dependency of `test-multikueue-e2e-main`.
+`test-multikueue-e2e-sequential` depends on `kind-secretreader-plugin-image-build`, which builds the secretreader plugin image. The Ray-mini image is built by `kind-ray-project-mini-image-build` (top-level `Makefile`). There is no `test-multikueue-e2e-parallel-builds` target at kueue@3bbb8cce4.
 
 ## Flake patterns
 
@@ -236,7 +235,7 @@ The e2e analogue of the integration pattern. [[issue-6525]] — "MultiKueue when
 
 ### Disruptive specs in a parallel suite
 
-[[issue-10200]] — When new MultiKueue specs were added to the parallel suite without awareness of disruptive ones, total runtime climbed and flake rate rose. Disruptive specs go to `test/e2e/multikueuesequential/`. Mark a new spec with `Disruptive` (and add a label filter) if it restarts operators, reconfigures webhooks, or otherwise mutates shared state.
+[[issue-10200]] — When new MultiKueue specs were added to the parallel suite without awareness of disruptive ones, total runtime climbed and flake rate rose. Disruptive specs go to `test/e2e/multikueue/sequential/`. Mark a new spec with `Disruptive` (and add a label filter) if it restarts operators, reconfigures webhooks, or otherwise mutates shared state.
 
 ## Reproducing CI failures locally
 
@@ -256,6 +255,6 @@ Bot rerun commands (in the PR):
 - [[testing]] — the landing page.
 - [[testing-integration]] — the cheaper tier.
 - [[multikueue]] — the feature exercised by the multikueue e2e suites.
-- [[topology-aware-scheduling]] — exercised by `test-tas-e2e`.
+- [[topology-aware-scheduling]] — exercised by `test-tas-e2e-baseline` / `test-tas-e2e-extended`.
 - [[dashboard]] — the KueueViz UI exercised by `test-e2e-kueueviz`.
-- [[feature-gates]] — what the customconfigs suites toggle.
+- [[feature-gates]] — what the sequential (customconfigs) suites toggle.

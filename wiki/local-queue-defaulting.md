@@ -1,10 +1,10 @@
 # LocalQueue Defaulting
 
-**Summary**: When the `LocalQueueDefaulting` feature gate is enabled, Kueue automatically injects the `kueue.x-k8s.io/queue-name: default` label onto jobs that lack a queue-name label, as long as a LocalQueue named `default` exists in the same namespace.
+**Summary**: Kueue (formerly behind the `LocalQueueDefaulting` gate, GA in v0.17 and since removed) automatically injects the `kueue.x-k8s.io/queue-name: default` label onto jobs that lack a queue-name label, as long as a LocalQueue named `default` exists in the same namespace.
 
 **Sources**: `raw/kueue/keps/2936-local-queue-defaulting/README.md`, `raw/kueue/keps/2936-local-queue-defaulting/kep.yaml`, pr-13375.md, raw/kueue/pkg/controller/jobframework/defaults.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -17,7 +17,7 @@ Without LocalQueue defaulting, users must explicitly label every job with `kueue
 ## How it works
 
 1. The cluster admin creates a [[local-queue]] named `default` in each namespace that should benefit from defaulting.
-2. The feature gate `LocalQueueDefaulting` is enabled.
+2. (Historical) The `LocalQueueDefaulting` gate was required before GA; it is now removed and defaulting is always on — do not set it.
 3. Kueue's mutating webhook checks every new job: if the job lacks `kueue.x-k8s.io/queue-name` and a `default` LocalQueue exists in the job's namespace, the webhook injects `kueue.x-k8s.io/queue-name: default`.
 
 The `default` LocalQueue must be created manually by the admin — Kueue does not create it automatically. (source: keps/2936-local-queue-defaulting/README.md)
@@ -34,7 +34,6 @@ The `default` LocalQueue must be created manually by the admin — Kueue does no
 
 1. Label user namespaces with a selector (for `managedJobsNamespaceSelector`).
 2. Create a `default` LocalQueue in each labeled namespace pointing to the appropriate [[cluster-queue]].
-3. Enable `LocalQueueDefaulting`.
 
 Users can submit jobs without any Kueue-specific labels and they will be automatically queued.
 

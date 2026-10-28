@@ -4,7 +4,7 @@
 
 **Sources**: `raw/cve/CVE-*.md` mitigation blocks (which repeat per category); the category pages [[security-denial-of-service]], [[security-authn-authz]], [[security-information-disclosure]], [[security-injection-and-input-validation]], [[security-supply-chain]]; [[code-quality]] for the project's existing review bar; 2026-10 CVE additions (`CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-26287.md`, `CVE-2026-7767.md`, `CVE-2026-86671.md`, `CVE-2026-109358.md`). 2026-10-21 additions: pr-17143.md, pr-17249.md, pr-17246.md, pr-17088.md, pr-16035.md, `CVE-2026-113727.md`, `CVE-2026-113708.md`, `CVE-2026-77524.md`.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -28,13 +28,13 @@
 ### Errors and logs
 
 - [ ] `klog.InfoS` / `klog.ErrorS` with `klog.KObj(obj)` for identifiers, never `%+v` of a Kubernetes object.
-- [ ] Log level discipline per [[code-quality]]: v=2 default; v=4 for verbose but bounded; v=6 for per-cycle debug only.
+- [ ] Log level discipline per [[code-quality#7. Logging policy and verbosity]]: V(2) default summaries; V(3) per-object reconcile and scheduler-cycle progress; V(4) decision details; V(5) traces; V(6+) state dumps.
 - [ ] No webhook response includes a full request body. Error messages are user-actionable but field-scoped.
 - [ ] No event includes a secret-bearing field.
 
 ### Authentication and RBAC
 
-- [ ] If a new CR or sub-resource is added, the bundled `config/rbac/role.yaml` change uses the minimum verbs needed. No wildcard verbs or resources.
+- [ ] If a new CR or sub-resource is added, the bundled `config/components/rbac/role.yaml` change uses the minimum verbs needed. No wildcard verbs or resources.
 - [ ] New webhooks register with `failurePolicy: Fail` unless there's a documented reason for `Ignore`.
 - [ ] Any read of a `Secret` is via `resourceNames`, not a blanket verb on `secrets`.
 - [ ] [[multikueue]] kubeconfigs: never logged, never echoed in status, never with `insecure-skip-tls-verify: true`.
@@ -111,10 +111,10 @@ git grep -n 'os/exec\|InsecureSkipVerify' pkg/
 git grep -nE 'fmt\.Sprintf.*kueue\.x-k8s\.io' pkg/
 
 # Wildcard RBAC
-grep -nE "verbs:\s*\['\*'\]|resources:\s*\['\*'\]" config/rbac/role.yaml
+grep -nE "verbs:\s*\['\*'\]|resources:\s*\['\*'\]" config/components/rbac/role.yaml
 
 # Webhook failure policy
-grep -n 'failurePolicy' config/webhook/manifests.yaml
+grep -n 'failurePolicy' config/components/webhook/manifests.yaml
 ```
 
 These complement the [[testing|test pyramid]] — they don't replace integration tests but catch the patterns no test will exercise.

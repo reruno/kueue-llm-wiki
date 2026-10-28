@@ -1,10 +1,10 @@
 # Integration: Kubeflow training jobs
 
-**Summary**: Kueue integrates with the Kubeflow Training Operator's job types — PyTorchJob, TFJob, MPIJob, MXJob, PaddleJob, XGBoostJob, JAXJob. Each has its own controller and its own replica-type decomposition; Kueue's per-integration adapter maps replica types to PodSets.
+**Summary**: Kueue integrates with the Kubeflow Training Operator's job types — PyTorchJob, TFJob, MPIJob, PaddleJob, XGBoostJob, JAXJob (MXJob support was removed in v0.11, #4077). Each has its own controller and its own replica-type decomposition; Kueue's per-integration adapter maps replica types to PodSets.
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16972.md, pr-16973.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -28,7 +28,7 @@ Has Master + Workers. Gang scheduling is frequently requested ([[issue-2796]]). 
 
 Legacy TensorFlow operator job. Known preemption edge: "Broken preemption on TFJob with non default `runPolicy.ttlSecondsAfterFinished`" ([[issue-2923]]). Considered together with PyTorchJob in early adoption discussions ([[issue-652]] — Can we use tfjob or pytorchjob in kueue?).
 
-### XGBoostJob, MXJob, PaddleJob, JAXJob
+### XGBoostJob, PaddleJob, JAXJob
 
 Lighter traffic; adapters follow the same pattern. Representative MultiKueue flake: "[Flaky] Should run a kubeflow XGBoostJob" ([[issue-2838]]). PaddleJob test flakes ([[issue-2901]]). JAXJob is the most recent addition.
 

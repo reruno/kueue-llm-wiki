@@ -1,10 +1,10 @@
 # Visibility API
 
-**Summary**: The Visibility API is an aggregated-apiserver extension at `visibility.kueue.x-k8s.io` that exposes pending-workload information per [[local-queue]], [[cluster-queue]], and [[cohort]]. It lets tenants see their queue position and wait estimate without needing direct read access to the Workload CRD.
+**Summary**: The Visibility API is an aggregated-apiserver extension at `visibility.kueue.x-k8s.io` that exposes pending-workload information per [[local-queue]] and [[cluster-queue]]. It lets tenants see their queue position without needing direct read access to the Workload CRD.
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-14411.md, pr-16485.md, pr-16342.md, raw/kueue/apis/visibility/v1beta2/types.go, raw/kueue/pkg/visibility/storage/utils.go, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -17,7 +17,7 @@ Reading all Workloads to answer "where am I in line" is expensive at scale. The 
 - The feature started as alpha under the `QueueVisibility` feature gate ([[issue-1102]] — Add `QueueVisibility` to featureGate).
 - Position-in-queue report was added ([[issue-1657]]).
 - Integration tests landed ([[issue-1377]]) and HA of the extension apiserver was considered ([[issue-1510]]).
-- Cohort-level visibility was added ([[issue-2272]]).
+- Cohort-level visibility was proposed ([[issue-2272]]) but closed as not planned.
 - "Deprecate the `QueueVisibility` feature gate and corresponding API" ([[issue-2256]]) marks the transition from the older aggregated approach to the new server implementation.
 - Cross-namespace / cross-LocalQueue visibility fetches were extended ([[issue-10575]]).
 
@@ -58,4 +58,4 @@ The cert-manager visibility e2e test no longer deletes the first Job's Workload 
 - [[local-queue]] — tenant-facing view.
 - [[metrics]] — complementary Prometheus surface.
 - [[api-versions]] — v1beta1 removal.
-- [[kueuectl]] — `kueuectl list workloads`/pending views built on this API.
+- [[kueuectl]] — `kueuectl list workload`/pending views built on this API.

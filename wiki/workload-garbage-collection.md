@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/1618-optional-gc-of-workloads/README.md`, `raw/kueue/keps/1618-optional-gc-of-workloads/kep.yaml`
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-10-28
 
 ---
 
@@ -56,7 +56,7 @@ A sibling bug in the "finishing" path (not retention): with the **`FinishOrphane
 
 ## Cascade deletion warning
 
-Deleting a Workload deletes its owner (the Job, JobSet, etc.) via owner references, which in turn garbage-collects all dependent resources (Pods, Services, etc.). Verify that finished jobs are no longer needed before enabling `afterDeactivatedByKueue`. (source: keps/1618-optional-gc-of-workloads/README.md)
+When `afterDeactivatedByKueue` expires, Kueue deletes the owning job (Job, JobSet, etc.) itself with background propagation, which garbage-collects its dependents (Pods, Services, the Workload). `afterFinished` deletes only the Workload. Verify that finished jobs are no longer needed before enabling `afterDeactivatedByKueue`. (source: keps/1618-optional-gc-of-workloads/README.md)
 
 ## Risk: slow startup with many expired objects
 

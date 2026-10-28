@@ -1,11 +1,10 @@
-
 # Reviewer: tenzen-y
 
 **Summary**: Profile of Kueue core approver @tenzen-y — their review philosophy, domain expertise, recurring concerns, and approval workflow. Intended for LLMs and contributors so that review feedback in tenzen-y's areas is coherent with the project's implicit standards.
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/` — analysis of PRs where @tenzen-y left substantive feedback. Representative examples: pr-10145, pr-10282, pr-10623, pr-10668, pr-10674, pr-10677, pr-10684.
 
-**Last updated**: 2026-05-12
+**Last updated**: 2026-10-28
 
 ---
 
@@ -13,7 +12,7 @@
 
 GitHub handle: [@tenzen-y](https://github.com/tenzen-y)
 
-Role: One of three top-level Kueue approvers (alongside `gabesaba` and `mimowo`), listed in `OWNERS_ALIASES` under both `kueue-approvers` and `kueue-reviewers`. Co-assigned with [[reviewer-mimowo|@mimowo]] to every new release issue (`.github/ISSUE_TEMPLATE/NEW_RELEASE.md`) and listed in `SECURITY_CONTACTS`. The de-facto release manager for Kueue.
+Role: One of three top-level Kueue approvers (alongside `mimowo` and `sohankunkerkar`; `gabesaba` is emeritus since 2026-06), listed in `OWNERS_ALIASES` under both `kueue-approvers` and `kueue-reviewers`. Co-assigned with [[reviewer-mimowo|@mimowo]] to every new release issue (`.github/ISSUE_TEMPLATE/NEW_RELEASE.md`) and listed in `SECURITY_CONTACTS`. The de-facto release manager for Kueue.
 
 **Primary domain expertise** (inferred from CHANGELOG and review activity):
 
@@ -107,7 +106,7 @@ For production-relevant fixes, the default is to cherry-pick to the last 2 relea
 
 ### Escalation pattern
 
-For scope/timing questions: tag both other top-level approvers (`@mimowo @gabesaba`). For domain-specific guidance: tag the area owner (e.g., `@mbobrovskyi`, `@PBundyra`).
+For scope/timing questions: tag both other top-level approvers (`@mimowo @sohankunkerkar`). For domain-specific guidance: tag the area owner (e.g., `@mbobrovskyi`, `@PBundyra`).
 
 ---
 

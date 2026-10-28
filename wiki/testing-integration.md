@@ -2,9 +2,9 @@
 
 **Summary**: Integration tests run Kueue's controllers and webhooks against a controller-runtime `envtest` (an etcd + kube-apiserver pair; no kubelet, no kube-scheduler). They are Ginkgo + Gomega suites under `test/integration/`. This page covers the suites, the CI variants (main / baseline / extended / multikueue), how to write one, and the flake patterns that recur.
 
-**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/test/integration/`, `raw/kueue/test/util/constants.go`, `raw/kueue/test/util/util.go`, `raw/kueue/site/content/en/docs/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[pr-2415]], [[pr-6906]]; pr-16793.md, issue-16789.md, pr-16781.md, pr-16791.md, pr-16723.md; `raw/kueue/test/integration/framework/framework.go`, `raw/kueue/test/util/behavioral/`.; pr-17282.md, issue-16873.md
+**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/test/integration/`, `raw/kueue/test/util/constants.go`, `raw/kueue/test/util/util.go`, `raw/kueue/site/content/en/community/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[pr-2415]], [[pr-6906]]; pr-16793.md, issue-16789.md, pr-16781.md, pr-16791.md, pr-16723.md; `raw/kueue/test/integration/framework/framework.go`, `raw/kueue/test/util/behavioral/`.; pr-17282.md, issue-16873.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -33,7 +33,6 @@ test/integration/
 ├── framework/              # shared suite bootstrap
 ├── singlecluster/
 │   ├── controller/
-│   ├── conversion/
 │   ├── importer/
 │   ├── kueuectl/
 │   ├── scheduler/
@@ -117,7 +116,7 @@ Integration tests can be debugged in VSCode's Go extension (`run test | debug te
 }
 ```
 
-Get `KUBEBUILDER_ASSETS` by running `ENVTEST_K8S_VERSION=1.35 make envtest && ./bin/setup-envtest use $ENVTEST_K8S_VERSION -p path`.
+Get `KUBEBUILDER_ASSETS` by running `ENVTEST_K8S_VERSION=1.37 make envtest && ./bin/setup-envtest use $ENVTEST_K8S_VERSION -p path`.
 
 ## Writing an integration test
 
@@ -129,8 +128,8 @@ The conventions in the current codebase (see e.g. `test/integration/singlecluste
 var _ = ginkgo.Describe("Kueuectl Resume", ginkgo.Ordered, ginkgo.ContinueOnFailure, func() {
     ginkgo.When("Resuming a LocalQueue", func() {
         ginkgo.DescribeTable("Should resume a LocalQueue",
-            func(name string, wantInitialStopPolicy v1beta1.StopPolicy) {
-                lq := testing.MakeLocalQueue(name, ns.Name).StopPolicy(wantInitialStopPolicy).Obj()
+            func(name string, wantInitialStopPolicy kueue.StopPolicy) {
+                lq := utiltestingapi.MakeLocalQueue(name, ns.Name).StopPolicy(wantInitialStopPolicy).Obj()
 
                 ginkgo.By("Create a LocalQueue", func() {
                     gomega.Expect(k8sClient.Create(ctx, lq)).To(gomega.Succeed())
@@ -138,10 +137,10 @@ var _ = ginkgo.Describe("Kueuectl Resume", ginkgo.Ordered, ginkgo.ContinueOnFail
 
                 gomega.Eventually(func(g gomega.Gomega) {
                     g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(lq), createdLocalQueue)).To(gomega.Succeed())
-                    g.Expect(ptr.Deref(createdLocalQueue.Spec.StopPolicy, v1beta1.None)).Should(gomega.Equal(wantInitialStopPolicy))
-                }, util.Timeout, util.Interval).Should(gomega.Succeed())
+                    g.Expect(ptr.Deref(createdLocalQueue.Spec.StopPolicy, kueue.None)).Should(gomega.Equal(wantInitialStopPolicy))
+                }, behavioral.Timeout, behavioral.Interval).Should(gomega.Succeed())
             },
-            ginkgo.Entry("stop-policy=Hold", "lq-hold", v1beta1.Hold),
+            ginkgo.Entry("stop-policy=Hold", "lq-hold", kueue.Hold),
         )
     })
 })
@@ -152,7 +151,7 @@ var _ = ginkgo.Describe("Kueuectl Resume", ginkgo.Ordered, ginkgo.ContinueOnFail
 - **`ginkgo.Ordered` + `ginkgo.ContinueOnFailure`** on `Describe` blocks when later specs depend on earlier setup. Used throughout the kueuectl suite.
 - **One `ginkgo.It` per independent scenario.** `ginkgo.DescribeTable` + `ginkgo.Entry` (as in the skeleton above) is still found in older suites, but the community writing-tests guide keeps table-driven style for **unit** tests (map-based tables), and CodeRabbit was told to stop suggesting `DescribeTable` (source: pr-16723.md, pr-16481.md). See [[testing#Community test-writing guidelines]].
 - **`ginkgo.DeferCleanup(...)`** for per-spec teardown. Prefer over manual `AfterEach`.
-- **Builders from `pkg/util/testing`**: `testing.MakeClusterQueue(...)`, `testing.MakeLocalQueue(...)`, `testing.MakeWorkload(...)`, chained with fluent setters and closed with `.Obj()`.
+- **Builders from `pkg/util/testing/v1beta2`** (imported as `utiltestingapi`): `utiltestingapi.MakeClusterQueue(...)`, `utiltestingapi.MakeLocalQueue(...)`, `utiltestingapi.MakeWorkload(...)`, chained with fluent setters and closed with `.Obj()`.
 - **Assertion helpers from `test/util/behavioral`** (package `behavioral`): `behavioral.ExpectAdmittedWorkloadsTotalMetric`, `behavioral.ExpectWorkloadToFinish`, `behavioral.ExpectWorkloadsToBePending`, `behavioral.ExpectObjectToBeDeleted`, etc. They wrap `Eventually` with the right timeout and interval. Helpers that **simulate** kubelet or controller behaviour (valid only in envtest) live in `test/util/behavioral/integration` (source: pr-16781.md, pr-16791.md). **Correction (2026-10-21)**: earlier text cited `test/util/util.go` and a `util.` prefix, which no longer exist after the helper reorganization.
 - **Never `time.Sleep`.** Use `gomega.Eventually(..., behavioral.Timeout, behavioral.Interval).Should(...)` or `gomega.Consistently(...)`.
 - **Do not call `Reconcile` directly**; let event handlers trigger the work. Retry only transient errors such as conflicts inside `Eventually`, and clean up so the spec can run in a loop (source: pr-16723.md).
@@ -171,9 +170,9 @@ From `test/util/behavioral/constants.go` (formerly `test/util/constants.go`):
 | `TinyTimeout` | 10 ms | Only for synchronous expectations. |
 | `ShortTimeout` | 1 s | Fast reconcile loops. |
 | `Timeout` | 10 s | Default. Most assertions. |
-| `MediumTimeout` | 45 s | Preemption + re-admission chains. |
-| `LongTimeout` | 90 s | Cross-cluster flows (MultiKueue), or specs that flake at default under CI load ([[issue-6525]]). |
-| `VeryLongTimeout` | 5 min | Scale-oriented specs. |
+| `MediumTimeout` | 45 s | E2E: complex operations such as running Pods to completion. |
+| `LongTimeout` | 90 s | E2E: Pod lifecycle incl. container/sandbox teardown; also the usual flake bump ([[issue-6525]]). |
+| `VeryLongTimeout` | 5 min | Kueue startup incl. cert propagation and component readiness. |
 | `ShortInterval` | 10 ms | Rarely needed. |
 | `Interval` | 250 ms | Default poll interval. |
 | `LongInterval` | 1 s | Use when the reconcile cadence is slow. |
@@ -186,7 +185,7 @@ From `test/util/behavioral/constants.go` (formerly `test/util/constants.go`):
 
 Fixes that actually work:
 
-1. Bump the timeout on the final assertion from `util.Timeout` to `util.MediumTimeout` or `util.LongTimeout`.
+1. Bump the timeout on the final assertion from `behavioral.Timeout` to `behavioral.MediumTimeout` or `behavioral.LongTimeout`.
 2. Add an explicit synchronization step: wait for the deleted object to be `NotFound` *before* starting the timer for the final admission. This gives the final `Eventually` a clean window.
 
 ### `Consistently` racing with cleanup

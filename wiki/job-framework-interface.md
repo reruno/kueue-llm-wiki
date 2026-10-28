@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/369-job-interface/README.md`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`, pr-16370.md, pr-16436.md, pr-16460.md, pr-16461.md, pr-16470.md, pr-13375.md, pr-16773.md, pr-16774.md, pr-16779.md, pr-16881.md, pr-16972.md, pr-16973.md, pr-13775.md, pr-12948.md, pr-16994.md, pr-17529.md, pr-17530.md, issue-16736.md, pr-15412.md, issue-15400.md, pr-17053.md, raw/kueue/pkg/controller/jobframework/defaults.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -69,9 +69,9 @@ Added in [[pr-11191]] (documented in [[pr-11215]]). The base reconciler normally
 
 ## The base reconciler
 
-`BaseReconciler` (`pkg/controller/jobframework/reconciler.go`) wraps a `GenericJob` and handles:
+`JobReconciler` (`pkg/controller/jobframework/reconciler.go`) wraps a `GenericJob` and handles:
 
-1. **Finalizer management**: adds `kueue.x-k8s.io/resource-in-use` on the job; removes it when the job is finished or the workload is gone.
+1. **Finalizer management**: creates the Workload with the `kueue.x-k8s.io/resource-in-use` finalizer and removes it from the Workload when the job is finished or gone.
 2. **Workload creation**: creates a `Workload` from `PodSets()` when the job is first observed.
 3. **Suspend/unsuspend**: calls `Suspend()` when the workload is evicted; calls `RunWithPodSetsInfo()` when admitted — injecting flavor-assigned node affinities.
 4. **Condition propagation**: copies the workload's `Admitted`/`Evicted`/`Finished` conditions to the job.
@@ -83,24 +83,24 @@ Added in [[pr-11191]] (documented in [[pr-11215]]). The base reconciler normally
 
 `BaseWebhook` provides mutating and validating webhook handlers that every integration gets for free:
 
-- **Defaulting**: injects `kueue.x-k8s.io/queue-name` from namespace default (if LocalQueueDefaulting enabled); ensures `spec.suspend=true` if the job has a queue label but is not yet admitted.
-- **Validation on create**: rejects non-suspended jobs with a queue label (users shouldn't create unsuspended Kueue-managed jobs); validates queue-name exists.
-- **Validation on update**: prevents changing the queue label after creation; validates resource requests match supported patterns.
+- **Defaulting**: injects `kueue.x-k8s.io/queue-name` from namespace default (when a `default` LocalQueue exists); ensures `spec.suspend=true` if the job has a queue label but is not yet admitted.
+- **Validation on create**: validates the queue-name label format (a valid LocalQueue name), prebuilt-workload, max-exec-time and related annotations; it does not check that the LocalQueue exists.
+- **Validation on update**: the queue label is immutable while the job is not suspended; a changed non-empty value on a suspended job is format-validated (see below).
 
 (source: pkg/controller/jobframework/base_webhook.go)
 
 ## Integration registration
 
-A new integration calls `jobframework.RegisterIntegration()` at startup:
+A new integration registers through `IntegrationManager.RegisterIntegration()` (wired from `pkg/controller/jobs/jobs.go`). The batch Job does:
 
 ```go
-jobframework.RegisterIntegration("batch/v1", jobframework.IntegrationCallbacks{
-    SetupIndexes:            jobframework.SetupIndexes,
-    NewReconciler:           NewReconciler,
-    SetupWebhook:            SetupWebhook,
-    JobType:                 &batchv1.Job{},
-    AddToScheme:             batchv1.AddToScheme,
-    IsManagingObjectsOwner:  IsManagingObjectsOwner,
+m.RegisterIntegration(FrameworkName /* "batch/job" */, jobframework.IntegrationCallbacks{
+    SetupIndexes:      SetupIndexes,
+    NewJob:            NewJob,
+    NewReconciler:     NewReconciler,
+    SetupWebhook:      SetupWebhook,
+    JobType:           &batchv1.Job{},
+    MultiKueueAdapter: &multiKueueAdapter{},
 })
 ```
 
@@ -120,7 +120,7 @@ Kueue sums the resource requests across all pods in each PodSet and tracks them 
 1. Implement `GenericJob` for your CRD type.
 2. Implement optional interfaces as needed (especially `JobWithReclaimablePods` for elastic jobs, `JobWithManagedBy` for MultiKueue support).
 3. Create a `BaseWebhook` wrapping your type; register it with the webhook server.
-4. Call `RegisterIntegration()` from your `init()` or setup function.
+4. Register through `IntegrationManager.RegisterIntegration()` (wired from `pkg/controller/jobs/jobs.go`).
 5. Add integration tests under `test/integration/controller/jobs/yourkind/`.
 
 ## Mutate third-party CRDs with a merge patch, not `Update`

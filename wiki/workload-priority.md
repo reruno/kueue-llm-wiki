@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13775.md, pr-13719.md, pr-16422.md, pr-14411.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/jobs/deployment/deployment_webhook.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -14,11 +14,11 @@ Kubernetes has `PriorityClass` for Pod-level preemption (node-level). Kueue need
 
 `WorkloadPriorityClass` is Kueue's version: cluster-scoped, same shape (name, integer value), but consumed only by Kueue's scheduling loop. A Job labeled `kueue.x-k8s.io/priority-class: <name>` gets that priority. If no label, the integration controller reads the Pod template's `PriorityClassName` and uses the corresponding stock PriorityClass integer.
 
-`spec.priorityClassSource` on the Workload distinguishes the two ([[issue-7342]] — v1beta2 API change for `priorityClassSource`). Metrics also expose `priority_class_source` ([[issue-7291]]).
+`spec.priorityClassRef` (group/kind; `priorityClassSource` in v1beta1) on the Workload distinguishes the two ([[issue-7342]] — v1beta2 API change for `priorityClassSource`). Metrics carry only `priority_class`; a `priority_class_source` label was requested ([[issue-7291]]) but not planned.
 
 ## Mutability
 
-`priority` as an int32 is mutable. `priorityClassName` / `priorityClassSource` is *not* mutable on an existing Workload ([[issue-2593]] — user asking why). Design reason: changing the source would require re-reading the class at scheduling time, and Kueue prefers to freeze the derived integer at Workload creation so the queue heap is stable.
+`priority` as an int32 is mutable. `priorityClassRef` is frozen only while the Workload holds a quota reservation (see [[workload]]); historically `priorityClassName`/`priorityClassSource` were immutable ([[issue-2593]] — user asking why). Design reason: changing the source would require re-reading the class at scheduling time, and Kueue prefers to freeze the derived integer at Workload creation so the queue heap is stable.
 
 In-place updates were added for specific cases: the label-based update path ([[issue-5004]] — Update Workload priority based on update of `kueue.x-k8s.io/priority-class` label) and "mutate priority class while running without disruption" ([[issue-7138]]). Deployment-owned Pods have their own nuance ([[issue-5148]]). MultiKueue adds another wrinkle ([[issue-7429]]).
 
@@ -28,7 +28,7 @@ Without any priority annotation and without a `priorityClassName` on the Pod tem
 
 ## Observability
 
-`kueue_admitted_workloads_total{priority_class=...,priority_class_source=...}` and similar labels are on most relevant metrics ([[issue-5989]], [[issue-7291]]). See [[metrics]].
+`kueue_admitted_workloads_total{priority_class=...}` and similar labels are on most relevant metrics ([[issue-5989]]). See [[metrics]].
 
 ## Transitions the API server refuses while quota is reserved
 

@@ -1,11 +1,10 @@
-
 # Reviewers and the Kueue Review Process
 
 **Summary**: Overview of Kueue's reviewer roster, OWNERS structure, Prow approval workflow, and how individual reviewers divide responsibility. Use this page as the entry point when navigating to a specific reviewer profile or to [[code-quality|the project's shared code quality bar]].
 
 **Sources**: `raw/kueue/OWNERS`, `raw/kueue/OWNERS_ALIASES`, `raw/kueue/CONTRIBUTING.md`, `raw/kueue/AGENTS.md`, and analysis of PR review comments across `raw/github/kubernetes-sigs__kueue/`; pr-16505.md, pr-16850.md, pr-16739.md, pr-17055.md, pr-14150.md; pr-17326.md, pr-17284.md, pr-17348.md, pr-17162.md, pr-17487.md, `raw/kueue/cmd/experimental/skills/OWNERS`, `raw/kueue/cmd/experimental/skills/reviewer/multikueue/SKILL.md` (OWNERS state re-read at kueue@3bbb8cce4).
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 

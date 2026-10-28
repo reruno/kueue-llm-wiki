@@ -4,7 +4,7 @@
 
 **Sources**: pr-15553.md, pr-15562.md, pr-15623.md, issue-15564.md, issue-15547.md, raw/kueue/keps/10852-inadmissible-workloads-observability/README.md, raw/kueue/pkg/features/kube_features.go, raw/kueue/apis/kueue/v1beta2/workload_types.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/metrics/metrics.go, pr-13063.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16483.md, pr-17093.md, pr-17294.md, issue-11843.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -27,7 +27,7 @@ Precedence, strongest first (source: KEP README, `workload_types.go`):
 
 `Admitted=False` uses `NoReservation`, `UnsatisfiedAdmissionChecks`, `PendingDelayedTopologyRequests`; the hybrid `NoReservationUnsatisfiedChecks` is deliberately not used. The legacy reasons `Pending` and `Inadmissible` are deprecated in the API; with the gate off `requeueAndUpdate` collapses every scheduler verdict to `Pending`.
 
-Controller behaviour (`syncQuotaReservedFalseCondition`): the workload controller keeps scheduler-set reasons (`WaitingForQuota`, `NoMatchingFlavor`, `ExceedsMaxQuota`, `TopologyPlacementFailed`, `WaitingForPreemptedWorkloads`, `WaitingForPodsReady`, `PendingEvaluation`) until the next scheduler cycle, but deliberately re-evaluates `Suspended` and `Misconfigured` so they can return to `PendingEvaluation` once the blockage is fixed. A Workload whose scheduling hash is in the no-fit set is given the recorded no-fit reason with message "Bypassed scheduling evaluation because an equivalent workload recently failed"; this can leave a stale reason until a cluster event clears the hashes ([[scheduler-internals#Scheduling-equivalence hash: what it does and does not include]]).
+Controller behaviour (`resolveGranularUnadmittedQuotaReservedCondition`, `schedulerSetReasons`): the workload controller keeps scheduler-set reasons (`WaitingForQuota`, `NoMatchingFlavor`, `ExceedsMaxQuota`, `TopologyPlacementFailed`, `WaitingForPreemptedWorkloads`, `WaitingForPodsReady`, `PendingEvaluation`, `SchedulingSimulationFailed`, `PreemptionGated`) until the next scheduler cycle, but deliberately re-evaluates `Suspended` and `Misconfigured` so they can return to `PendingEvaluation` once the blockage is fixed. A Workload whose scheduling hash is in the no-fit set is given the recorded no-fit reason with message "Bypassed scheduling evaluation because an equivalent workload recently failed"; this can leave a stale reason until a cluster event clears the hashes ([[scheduler-internals#Scheduling-equivalence hash: what it does and does not include]]).
 
 ## Metrics
 

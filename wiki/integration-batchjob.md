@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`.
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-28
 
 ---
 
@@ -12,7 +12,7 @@
 
 - **Trigger**: a Job carries `kueue.x-k8s.io/queue-name: <lq>`.
 - **Suspend**: `.spec.suspend: true` is set before any Pods are created. The `batch/v1` controller respects the field natively — no Pod objects exist while suspended.
-- **PodSet**: one PodSet, with `count = max(parallelism, completions)`.
+- **PodSet**: one PodSet, with `count = min(parallelism, completions)` (`podsCount()`).
 - **Admit**: Kueue flips `.spec.suspend: false`. `kube-controller-manager`'s Job controller creates the Pods.
 - **Finish**: Job's `Complete` or `Failed` condition triggers Workload's `Finished`.
 
@@ -26,11 +26,11 @@ The batch/v1 Job adapter is the canonical MultiKueue adapter: the manager create
 
 ## MultiKueue does not copy `spec.ttlSecondsAfterFinished`
 
-When a `batch/v1` Job is dispatched through [[multikueue]], the remote worker Job is created **without** `spec.ttlSecondsAfterFinished`, so the worker's TTL controller cannot delete the completed remote Job before its terminal status has been synced back to the manager. The manager Job keeps its own TTL and remains authoritative for cleanup. Behind `MultiKueueBatchJobClearingTTLSecondsAfterFinishedOnWorkerCluster` — Beta/on in v0.20, Alpha/off in the 0.18 and 0.19 backports. See [[multikueue#Worker Job TTL]] ([[pr-14734]], [[pr-14827]], [[pr-14828]]).
+When a `batch/v1` Job is dispatched through [[multikueue]], the remote worker Job is created **without** `spec.ttlSecondsAfterFinished`, so the worker's TTL controller cannot delete the completed remote Job before its terminal status has been synced back to the manager. The manager Job keeps its own TTL and remains authoritative for cleanup. Behind `MultiKueueBatchJobClearingTTLSecondsAfterFinishedOnWorkerCluster` — Alpha/off on all branches (introduced Beta/on by pr-14734 but downgraded by #15126 before v0.20.0); enable it explicitly. See [[multikueue#Worker Job TTL]] ([[pr-14734]], [[pr-14827]], [[pr-14828]]).
 
 ## Reclaimable pods when `parallelism > completions`
 
-Correction to the PodSet count above: the Workload PodSet reserves `min(parallelism, completions)` pods (`podsCount()`). `ReclaimablePods` used to measure the reclaimable count against `parallelism`, so with `parallelism: 10`, `completions: 5` and one succeeded Pod it reported 6, clamped to the PodSet count of 5, and the 4 still-running Pods no longer held quota (ClusterQueue could over-admit). It now measures against `podsCount()` for both Indexed and NonIndexed Jobs (source: pr-16111.md; backports pr-16132.md, pr-16138.md).
+The Workload PodSet reserves `min(parallelism, completions)` pods (`podsCount()`). `ReclaimablePods` used to measure the reclaimable count against `parallelism`, so with `parallelism: 10`, `completions: 5` and one succeeded Pod it reported 6, clamped to the PodSet count of 5, and the 4 still-running Pods no longer held quota (ClusterQueue could over-admit). It now measures against `podsCount()` for both Indexed and NonIndexed Jobs (source: pr-16111.md; backports pr-16132.md, pr-16138.md).
 
 ## Zero-parallelism elastic Jobs
 

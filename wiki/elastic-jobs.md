@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/` (cited inline; this update: pr-16125.md, pr-16601.md, pr-16613.md, pr-16371.md, pr-16400.md, pr-16514.md, pr-16521.md, pr-16743.md, pr-16780.md, pr-16473.md, pr-16740.md, pr-16776.md, pr-13996.md, pr-12964.md, pr-12965.md, pr-12963.md, pr-14283.md, pr-15106.md, issue-16443.md, issue-16623.md; this update: pr-17119.md, pr-17359.md, pr-16771.md, pr-16189.md, pr-17224.md, issue-15323.md, pr-17107.md, pr-17146.md), `raw/kueue/pkg/workloadslicing/`, `raw/kueue/pkg/scheduler/scheduler.go`, `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -12,7 +12,7 @@
 
 A vanilla Kueue [[admission]] is binary: a Workload is either Admitted (quota reserved for its full size) or not. If a user wants to scale the underlying job — e.g. a RayCluster auto-scaling up, a Deployment scaling replicas — there's no good path: evicting and re-admitting a whole training job to change its replica count is too disruptive.
 
-WorkloadSlices (feature gate `ElasticJobsViaWorkloadSlices`) decouples admission into slices. The initial admission creates slice 1. A scale-up creates slice 2 that gets independently admitted against the remaining quota; scale-down releases the newest slices.
+WorkloadSlices (feature gate `ElasticJobsViaWorkloadSlices`) handle resizing without re-admission from scratch. A scale-down updates the admitted slice's counts in place and releases the freed quota. A scale-up creates a replacement slice for the full new size, which is admitted in its place; the old slice is finished only after that admission succeeds (source: raw/kueue/pkg/workloadslicing/manager.go).
 
 **Enablement is keyed off an annotation, not a label.** A managed Job opts into workload slicing via the `kueue.x-k8s.io/elastic-job` annotation (`workloadslicing.EnabledAnnotationKey`), and that annotation is **immutable** on an existing managed Job — the webhook (`validatedUpdateForEnabledWorkloadSlice` in `pkg/controller/jobframework/validation.go`) rejects adding/removing it with `apivalidation.FieldImmutableErrorMsg`. [[pr-11342]] fixed the validation to report the error against the correct field path `metadata.annotations[kueue.x-k8s.io/elastic-job]` (it previously pointed at `metadata.labels[...]`).
 
@@ -160,7 +160,7 @@ With `ElasticJobsViaWorkloadSlicesWithTAS`, Pods above the new count of a scaled
 - `workloadslicing.Manager` (`pkg/workloadslicing/manager.go`) holds the shared dependencies: client, clock, recorder, custom labels, role tracker. It is initialised once as `JobReconciler.workloadSlices`, and `EnsureWorkloadSlices` is now its method. The selection, update, eviction and normalisation behaviour is unchanged (source: pr-16780.md; prerequisite for the open pr-16778).
 - `kueue_replaced_workload_slices_total` was defined and documented but never registered, so it never appeared on `/metrics`. It is now registered (source: pr-16743.md, fixes issue-16623.md; backports pr-16763/0.20, pr-16856/0.19; shipped v0.20.1 / v0.19.8). The scale-up still emits the `WorkloadSliceReplaced` event on the old slice ("Replaced to accommodate a workload ... due to workload slice aggregation"; source: issue-16623.md). See [[metrics]].
 - MultiKueue workers: the scheduler admits the replacement and then finishes the old slice. If that finish failed (e.g. update conflict), the ordinary job reconciler recovered, but the **prebuilt-workload path** used on MultiKueue workers did not, so the old slice kept quota on the worker. `FinishReplacedWorkloadSlices` now runs during prebuilt job reconciliation. It finishes a slice when some replacement points to it via `replacement-for` and that replacement holds quota and is neither evicted nor finished (source: pr-16473.md; backport pr-16772, shipped v0.20.1).
-- RayCluster webhook message: an autoscaling RayCluster that is not elastic is rejected with `a kueue-managed RayCluster can use in-tree autoscaling only as an elastic job: enable the ElasticJobsViaWorkloadSlices feature gate and set the "kueue.x-k8s.io/elastic-job": "true" annotation`. The text is built from `workloadslicing.EnabledAnnotationKey`/`Value` (source: pr-13996.md; message-only change).
+- RayCluster webhook message: an autoscaling RayCluster that is not elastic is rejected with `a kueue-managed job can use autoscaling only as an elastic job: enable the ElasticJobsViaWorkloadSlices feature gate and set the "kueue.x-k8s.io/elastic-job": "true" annotation`. The text is built from `workloadslicing.EnabledAnnotationKey`/`Value` (source: pr-13996.md, reworded by #16071; raycluster/common.go).
 
 ## Older fixes backported in this batch
 

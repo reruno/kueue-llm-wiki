@@ -1,10 +1,10 @@
 # Security — Information Disclosure
 
-**Summary**: Patterns from the 148 Information Disclosure CVEs in `raw/cve/`. Covers logging hygiene, error-response content, [[metrics]] label cardinality (as a covert channel), [[visibility-api]] cross-tenant exposure, and credential handling.
+**Summary**: Patterns from the 162 Information Disclosure CVEs in `raw/cve/`. Covers logging hygiene, error-response content, [[metrics]] label cardinality (as a covert channel), [[visibility-api]] cross-tenant exposure, and credential handling.
 
 **Sources**: `raw/cve/` — representative entries `CVE-2019-1002101.md` (kubectl cp path traversal also exposes file contents), `CVE-2020-8554.md` (man-in-the-middle via ExternalIP), `CVE-2020-8563.md` (sensitive info in logs), `CVE-2021-25741.md` (subpath symlink), CWE-200/CWE-532/CWE-522/CWE-552 entries broadly; 2026-09 additions `CVE-2025-71425.md`, `CVE-2025-71423.md`, `CVE-2026-47701.md`, `CVE-2026-86332.md`, `CVE-2026-94611.md`, `CVE-2026-45726.md`; 2026-10 additions `CVE-2026-106561.md`, `CVE-2026-106563.md`, `CVE-2026-71895.md`, `CVE-2026-18517.md`; 2026-10-21 additions `CVE-2026-110248.md`, `CVE-2026-77564.md`, `CVE-2026-113672.md`, `CVE-2026-113709.md`, `CVE-2026-65172.md`, `CVE-2026-77934.md`, `CVE-2026-87354.md`; Kueue sources pr-17246.md, pr-17088.md, pr-16035.md, `raw/kueue/pkg/config/metrics.go`.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -26,7 +26,7 @@ From the shared `Security Code Patterns` block in every Info-Disclosure CVE file
 
 ## Specific anti-patterns by CWE
 
-### CWE-532 — Sensitive information in log files (18 CVEs)
+### CWE-532 — Sensitive information in log files (19 CVEs)
 
 The most common pattern in the corpus. Concrete Kueue triggers:
 
@@ -36,7 +36,7 @@ The most common pattern in the corpus. Concrete Kueue triggers:
 
 **Rule**: log identifiers (`namespace/name`, UID, owner ref), never bodies. Use structured logging with explicit field selection. Already part of [[code-quality|the project's log-level discipline]] for noise reasons — same rule serves security.
 
-### CWE-200 — Sensitive information exposure (17 CVEs)
+### CWE-200 — Sensitive information exposure (18 CVEs)
 
 Catch-all for fields that should not cross tenant boundaries. In Kueue:
 
@@ -44,7 +44,7 @@ Catch-all for fields that should not cross tenant boundaries. In Kueue:
 - [[metrics]] label cardinality: never use `workload_name` or `pod_name` as a label. Always use `cluster_queue` (cluster-scoped, intentionally public among queue users) or `namespace` (visible only to namespace members).
 - The [[dashboard|KueueViz UI]] aggregates state across queues — its RBAC must mirror the visibility-api's. Two aggregate-field leaks were fixed in October 2026 (see "KueueViz: names leaked through aggregate fields" below).
 
-### CWE-522 — Insufficiently protected credentials (7 CVEs)
+### CWE-522 — Insufficiently protected credentials (5 CVEs)
 
 For Kueue, this is about [[multikueue]] kubeconfig Secrets:
 
@@ -52,7 +52,7 @@ For Kueue, this is about [[multikueue]] kubeconfig Secrets:
 - Never emit a kubeconfig in a Workload's status or events.
 - When the manager controller fails to connect to a worker, the error must not include the bearer token from the kubeconfig.
 
-### CWE-552 — Files / directories accessible to outside parties (4 CVEs)
+### CWE-552 — Files / directories accessible to outside parties (1 CVE)
 
 Less directly applicable (Kueue writes few files), but relevant for:
 

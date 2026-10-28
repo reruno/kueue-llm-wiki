@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-13616.md, pr-13956.md, pr-16766.md, pr-16466.md, pr-16658.md, pr-13622.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -13,9 +13,9 @@
 A `ResourceFlavor` object has:
 
 - `nodeLabels` — map of labels that Kueue injects as `nodeSelector` on admitted Pods, so `kube-scheduler` lands them on matching nodes ([[issue-425]] — this is intentional injection, not a naming accident).
-- `nodeTaints` — reverse of the label mapping; informational.
+- `nodeTaints` — taints the flavor's nodes carry; a PodSet must tolerate them (NoSchedule/NoExecute) to be assigned this flavor, unless the flavor's own `tolerations` cover them.
 - `tolerations` — Pod tolerations that Kueue mutates onto admitted Pods so they can run on tainted nodes. The tolerations also need to flow into any PodTemplate attached to a ProvisioningRequest ([[admission-check]]) so that autoscaled nodes match ([[issue-2572]]).
-- `topology` (with TAS) — a reference to a [[topology-aware-scheduling]] Topology object. Only flavors that reference a Topology participate in topology-aware placement.
+- `topologyName` (with TAS) — a reference to a [[topology-aware-scheduling]] Topology object. Only flavors that reference a Topology participate in topology-aware placement.
 
 ## Flavors inside ClusterQueue
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15633.md, pr-16140.md, pr-15949.md, pr-16282.md, pr-15913.md, pr-16168.md, raw/kueue/apis/kueue/v1beta2/clusterqueue_types.go, pr-15371.md, pr-16375.md, pr-16438.md, pr-15040.md, pr-17010.md, pr-16487.md, pr-16488.md, pr-16528.md, pr-16728.md, pr-17479.md, pr-17480.md, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/cache/queue/manager.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -31,11 +31,11 @@ See [[resource-flavor]] for flavor mechanics.
 
 ## Cohort membership
 
-A CQ's `spec.cohort` field joins it into a [[cohort]]. CQs in the same cohort can borrow unused nominal quota from each other subject to `borrowingLimit` and `lendingLimit` ([[pr-10406]]). Hierarchical cohorts (a CQ can point at a Cohort which itself has a parent Cohort) are supported ([[issue-3644]], [[issue-3583]]) — see [[borrowing-and-lending]].
+A CQ's `spec.cohortName` field (`spec.cohort` in v1beta1) joins it into a [[cohort]]. CQs in the same cohort can borrow unused nominal quota from each other subject to `borrowingLimit` and `lendingLimit` ([[pr-10406]]). Hierarchical cohorts (a CQ can point at a Cohort which itself has a parent Cohort) are supported ([[issue-3644]], [[issue-3583]]) — see [[borrowing-and-lending]].
 
 ## State fields to watch
 
-`status.flavorsReservation` and `status.flavorsUsage` are the authoritative view of what's reserved and what's actually consumed. `status.pendingWorkloads` and `status.admittedWorkloads` count head-of-queue and admitted jobs. `status.conditions` includes `Active` (the CQ is healthy, referenced flavors exist, webhooks pass).
+`status.flavorsReservation` and `status.flavorsUsage` are the authoritative view of what's reserved and what's actually consumed. `status.pendingWorkloads`, `status.reservingWorkloads` and `status.admittedWorkloads` count pending, quota-reserving and admitted (unfinished) Workloads. `status.conditions` includes `Active` (the CQ is healthy, referenced flavors exist, webhooks pass).
 
 A CQ becomes inactive if a referenced [[resource-flavor]] is missing or a referenced [[admission-check]] is not `Active` — by design ([[issue-3645]] — TAS: CQ is not deactivated when there is no Topology, which was fixed). It also becomes inactive with reason **`CohortCycleDetected`** (`ClusterQueueActiveReasonCohortCycleDetected`) when its Cohort's parent chain contains a cycle (#13774, v0.20.0, backported to 0.19.7/0.18.11); see [[cohort#Cycles in the Cohort hierarchy]].
 
@@ -64,9 +64,9 @@ A CQ becomes inactive if a referenced [[resource-flavor]] is missing or a refere
 
 Release note: "Fixed a bug where setting a ClusterQueue's `stopPolicy` to `HoldAndDrain` did not evict admitted Workloads whose LocalQueue was held or deleted." Main merged 2026-10-20; backports pr-17480 (0.20) and pr-17479 (0.19) merged the same day, after v0.20.2 / v0.19.9.
 
-## Finalizer (`kueue.x-k8s.io/cluster-queue`)
+## Finalizer (`kueue.x-k8s.io/resource-in-use`)
 
-A CQ carries a finalizer that is only removed once the CQ has no Workloads or LocalQueues referencing it. The finalizer drop is driven by the CQ reconciler, which re-checks emptiness every time it is enqueued.
+A CQ carries a finalizer that is only removed once the CQ has no Workloads holding quota in it (the cache's `ClusterQueueEmpty`). The finalizer drop is driven by the CQ reconciler, which re-checks emptiness every time it is enqueued.
 
 The scheduler can also create a transient race: when admission fails, the scheduler removes the assumed Workload from its in-memory cache. If it forgets to nudge the CQ reconciler after that cleanup, the CQ may stay stuck with the finalizer indefinitely after the user deletes all Workloads and LQs in a narrow window (deleting Workloads while they are evicting, then deleting the LQ shortly after). [[pr-10821]] (cherry-picked to release-0.16, release-0.17 in v0.16.7 / v0.17.2) closes the race by making the scheduler enqueue the CQ on assumed-cache cleanup so the finalizer is dropped on the next reconcile. Tracked in [[issue-10759]].
 
@@ -77,7 +77,7 @@ The top-level `resources.quotaCheckStrategy` configuration field (gated behind t
 ## Common pitfalls
 
 - **Nominal quota versus usage.** A CQ with pending workloads in one flavor blocking borrowing across flavors within the cohort is an intentional-but-tricky behavior ([[issue-1036]]). StrictFIFO amplifies this — see [[queueing-strategy]].
-- **Immutable fields.** `queueingStrategy` was historically immutable to avoid re-sorting the queue mid-flight; the restriction was tightened and then reconsidered ([[issue-1877]], [[issue-434]]).
+- **Immutable fields.** `queueingStrategy` was historically immutable to avoid re-sorting the queue mid-flight; it was made immutable and then made mutable again in v0.7 (#1934) ([[issue-1877]], [[issue-434]]).
 - **Over-admission after quota change.** Removing or lowering quota on a CQ that has admitted workloads does not retroactively evict them; the CQ can be "over-nominal" until they finish ([[issue-2678]]).
 
 ## Shrinking capacity never evicts admitted Workloads

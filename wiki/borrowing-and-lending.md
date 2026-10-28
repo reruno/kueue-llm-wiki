@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-17010.md, issue-16049.md, pr-16738.md, issue-16665.md, issue-16666.md, pr-16479.md, pr-16360.md, issue-17022.md, pr-17034.md, pr-17016.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -41,7 +41,7 @@ When cohorts have parents, borrowing walks up: sibling CQs in the immediate coho
 
 ## Monitoring
 
-Per-CQ metrics expose `admitted_usage`, `reserved_usage`, `nominal_quota`, and borrow-specific counters; dashboards typically surface "usage / nominal" per CQ and "borrowed / lendingLimit" per pair. See [[metrics]].
+Per-CQ metrics expose `kueue_cluster_queue_resource_usage`, `kueue_cluster_queue_resource_reservation`, `kueue_cluster_queue_nominal_quota`, `kueue_cluster_queue_borrowing_limit` and `kueue_cluster_queue_lending_limit` (source: raw/kueue/pkg/metrics/metrics.go); dashboards typically surface "usage / nominal" per CQ and "borrowed / lendingLimit" per pair. See [[metrics]].
 
 ## The `LendingLimit` feature gate is gone
 

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16343.md, pr-16911.md, pr-16912.md, pr-16738.md, issue-16665.md, issue-16666.md, pr-16487.md, pr-16488.md, pr-16528.md, pr-16581.md, pr-17057.md, issue-16530.md, pr-14348.md, pr-16360.md, pr-16361.md, pr-13433.md, pr-10776.md, issue-16529.md, issue-17022.md, pr-17034.md, pr-17349.md, pr-17390.md, pr-17285.md, pr-17171.md, pr-17196.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/scheduler/preemption/preemption.go, raw/kueue/pkg/features/kube_features.go, raw/kueue/pkg/scheduler/preemption/fair_strategy.go, raw/kueue/pkg/scheduler/preemption/fairsharing/ordering.go, raw/kueue/pkg/cache/scheduler/fair_sharing.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -41,7 +41,7 @@ The cache stores per-ancestor `SubtreeQuota` values used to compute fair-share d
 
 ### Nil-pointer panic on cohort-less CQs
 
-`fair_sharing_iterator.Iter()` has a special-case branch for a preemptor ClusterQueue that has **no parent cohort** (`!t.preemptorCq.HasParent()`). Without an explicit return at the end of that branch, control fell through to the general path and dereferenced `t.preemptorCq.Parent().Root()` — `Parent()` is nil for a cohort-less CQ, so the scheduler panicked. The bug only triggers on clusters that enable FairSharing **and** have ClusterQueues outside any cohort. [[pr-10891]] adds the missing `return` and a regression test. Released in v0.18.0.
+`TargetClusterQueueOrdering.Iter()` (`pkg/scheduler/preemption/fairsharing/ordering.go`) has a special-case branch for a preemptor ClusterQueue that has **no parent cohort** (`!t.preemptorCq.HasParent()`). Without an explicit return at the end of that branch, control fell through to the general path and dereferenced `t.preemptorCq.Parent().Root()` — `Parent()` is nil for a cohort-less CQ, so the scheduler panicked. The bug only triggers on clusters that enable FairSharing **and** have ClusterQueues outside any cohort. [[pr-10891]] adds the missing `return` and a regression test. Released in v0.18.0.
 
 ## Interaction with priority and preemption
 

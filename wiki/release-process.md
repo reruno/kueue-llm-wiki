@@ -1,10 +1,10 @@
 # Release process
 
-**Summary**: Kueue cuts a minor release roughly every eight weeks (recent minors: v0.18, v0.19, v0.20) and keeps patching the two previous minors. Patch releases pick fixes into release branches. Release artifacts include container images, a signed manifest bundle, and Helm charts; SLSA attestations are generated for releases.
+**Summary**: Kueue cuts a minor release roughly every eight weeks (recent minors: v0.18, v0.19, v0.20) and keeps patching the two previous minors. Patch releases pick fixes into release branches. Release artifacts include container images, a manifest bundle, Helm charts, an SBOM and OpenVEX data; SLSA attestations and artifact signing are still open requests ([[issue-1466]], [[issue-1477]]).
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-14150.md, pr-16442.md, pr-16917.md, pr-16916.md, pr-16440.md, pr-16439.md, pr-16456.md, pr-16476.md, pr-16502.md, pr-16505.md, pr-16690.md, pr-16711.md, pr-16714.md, pr-16850.md; `raw/kueue/RELEASE.md`, `raw/kueue/release-timelines/`, `raw/kueue/.github/ISSUE_TEMPLATE/NEW_RELEASE.md`, `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`; 2026-10-21 batch: pr-17258.md, pr-17259.md, pr-17261.md, pr-17262.md, issue-16938.md, issue-17026.md, pr-17264.md, pr-17265.md, issue-17256.md, pr-17266.md, pr-17298.md, pr-17299.md, pr-17116.md, pr-17129.md, pr-17130.md, pr-17137.md, issue-17113.md, pr-17126.md, pr-17227.md, pr-16340.md, pr-17295.md, pr-17296.md, pr-17148.md.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -38,7 +38,7 @@ Representative release tracking issues:
 - v0.4.1 ([[issue-1056]]), v0.4.2 ([[issue-1200]]).
 - v0.5.0 ([[issue-1256]]), v0.5.1 ([[issue-1368]]), v0.5.2 ([[issue-1539]]).
 - v0.15.8 ([[issue-10054]]), v0.16.5 ([[issue-10053]]), v0.16.6 ([[issue-10476]]), v0.17.1 ([[issue-10477]]).
-- v0.16.7 ([[issue-10706]]), v0.17.2 ([[issue-10705]]) — paired patch releases on 2026-04-30 carrying CQ-finalizer fix ([[pr-10821]]), TAS stateWithLeader / NodeHotSwap fixes, FailureRecovery terminal-pod handling ([[pr-10853]]), and Helm/KueueViz fixes (#10977 / #10978 / #10979).
+- v0.16.7 ([[issue-10706]]), v0.17.2 ([[issue-10705]]) — paired patch releases on 2026-04-30 carrying CQ-finalizer fix ([[pr-10821]]), TAS stateWithLeader / NodeHotSwap fixes, FailureRecovery terminal-pod handling ([[pr-10853]]); the Helm/KueueViz fixes (#10977 / #10978 / #10979) and the `FinishOrphanedWorkloads` Alpha downgrade ([[pr-11010]]) followed in v0.16.8 / v0.17.3.
 - v0.16.9 ([[issue-11360]]), v0.17.4 ([[issue-11359]]) — paired patch releases carrying the MultiKueue connection-health fixes (per-cluster reconcile lock [[pr-11332]]/[[pr-11333]]; exponential watch-establish timeout [[pr-11328]]/[[pr-11329]]), the MultiKueue AllAtOnce eviction-race fixes ([[pr-11472]]/[[pr-11473]] and [[pr-11507]]/[[pr-11508]]), the TAS multi-PodSet pod-count fix ([[pr-11326]]/[[pr-11331]]), the finished-Workload GC finalizer fix ([[pr-11307]]/[[pr-11308]]), and the scheduler `preemptionExpectations` race fix ([[pr-11648]]/[[pr-11647]]).
 - v0.18 plan ([[issue-10261]] — "☂️ Release 0.18 plan" umbrella issue); v0.18.0 release tracking ([[issue-10861]]).
 
@@ -102,8 +102,8 @@ The site at kueue.sigs.k8s.io publishes from the `website` branch, which tracks 
 
 - **Cherry-pick automation** lifts fixes from main to release branches; "Cherry-picker should copy release notes" ([[issue-1715]]) addressed the release-note-propagation gap.
 - **Promotion PR automation** was hardened to always rebase onto latest main ([[issue-10535]] — ensure the promotion PR is created on top of the latest main branch).
-- **SLSA attestations** are generated for release artifacts ([[issue-1466]]).
-- **Signing** — release artifacts are signed; an early gap was "Release artifacts are not signed" ([[issue-1477]]).
+- **SLSA attestations** — requested, not implemented ([[issue-1466]], open).
+- **Signing** — GitHub release artifacts are not signed ([[issue-1477]], open).
 - **OLM listing** — images are packaged for OperatorHub ([[issue-1101]]).
 - **Helm chart sync** — webhook configs auto-sync to helm ([[issue-1461]]).
 
@@ -117,7 +117,7 @@ Kueue depends on `cluster-autoscaler/apis` for the ProvisioningRequest types; hi
 
 ## v0.18.6 and v0.19.2 (paired patch releases, 2026-08)
 
-Prepared by [[pr-14685]] ([[issue-14322]]) and [[pr-14686]] ([[issue-14323]]); `main` and the website were re-synced by [[pr-14690]], [[pr-14691]], [[pr-14692]], [[pr-14696]]. Headline content carried by these two branches in this window:
+Prepared by [[pr-14685]] ([[issue-14322]]) and [[pr-14686]] ([[issue-14323]]); `main` and the website were re-synced by [[pr-14690]], [[pr-14691]], [[pr-14692]], [[pr-14696]]. Headline content landing on these two branches around this window (not all of it is in v0.18.6 / v0.19.2: the reserved-`pods` refusal and its gate, the AdmissionCheck `observedGeneration` refresh, pr-14731, the LWS revision-guard fix and the two `kueuectl` fixes first shipped in v0.18.7 / v0.19.3; pr-14064, pr-14076 and pr-14050 were already in v0.18.5):
 
 - the pod-group foreign-Workload adoption fix ([[pr-14617]], [[pr-14630]]) — see [[integration-plain-pod]];
 - the reserved `pods` resource-name refusal plus its `ReservedResourceNameValidation` escape-hatch gate ([[pr-14756]], [[pr-14758]], [[pr-14773]], [[pr-14774]]) — see [[dra]];

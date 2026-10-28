@@ -1,10 +1,10 @@
 # Gang scheduling
 
-**Summary**: "Gang scheduling" in Kueue means: if a [[workload]] can't get *all* its Pods running within a deadline, tear it down and requeue — rather than leave it partially running and holding quota. The mechanism is `WaitForPodsReady`, an opt-in config gate per ClusterQueue (and globally in the Kueue configuration).
+**Summary**: "Gang scheduling" in Kueue means: if a [[workload]] can't get *all* its Pods running within a deadline, tear it down and requeue — rather than leave it partially running and holding quota. The mechanism is `WaitForPodsReady`, configured globally in the Kueue Configuration (on by default with a 30m timeout; per-Workload overrides via annotation, see [[wait-for-pods-ready]]).
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/` (this update: pr-16904.md, pr-16483.md, pr-17181.md, pr-17209.md, pr-17250.md, pr-17397.md, pr-17400.md, `raw/kueue/pkg/cache/scheduler/was/virtual_podgroups.go`, `raw/kueue/pkg/scheduler/assignment/was/was_planner.go`).
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -16,13 +16,13 @@ All-or-nothing workloads (distributed training, MPI) only make progress once eve
 
 When enabled, after a Workload is admitted (see [[admission]]) Kueue watches the job's Pod readiness. If not every Pod reaches `Ready` within `waitForPodsReady.timeout`, the Workload is **evicted**: Pods deleted, quota released, Workload requeued (per `requeuingStrategy`).
 
-Key configuration fields (global and/or per-CQ):
+Key configuration fields (global Configuration `waitForPodsReady`):
 
 - `timeout` — deadline for PodsReady.
 - `requeuingStrategy.timestamp` — re-queue by creation time or eviction time.
 - `requeuingStrategy.backoffBaseSeconds` — exponential backoff base. Default consistency with timeout was debated ([[issue-2215]]).
 - `requeuingStrategy.backoffMaxSeconds` — cap on retry backoff ([[issue-2216]] — limit the retry period length).
-- `requeuingStrategy.backoffLimit` — after N evictions, deactivate the Workload ([[issue-2174]] — reactivated workload could be immediately re-deactivated).
+- `requeuingStrategy.backoffLimitCount` — after N evictions, deactivate the Workload ([[issue-2174]] — reactivated workload could be immediately re-deactivated).
 
 ## When gang eviction fires
 

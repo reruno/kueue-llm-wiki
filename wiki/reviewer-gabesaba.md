@@ -1,11 +1,10 @@
-
 # Reviewer: gabesaba
 
 **Summary**: Profile of Kueue emeritus approver @gabesaba — their review philosophy, algorithmic focus, and approval workflow. Specializes in scheduler internals, preemption, and performance.
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/` — analysis of PRs where @gabesaba left substantive feedback. Representative examples: pr-7392, pr-8484, pr-8658, pr-8709, pr-9359, pr-10082, pr-10422, pr-10510, pr-10524.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 

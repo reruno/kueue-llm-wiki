@@ -1,16 +1,16 @@
 # Metrics
 
-**Summary**: The `kueue-controller-manager` binary exposes Prometheus metrics on `/metrics`. Metrics cover per-[[cluster-queue]] usage and reservation, [[workload]] admission/preemption counters, [[admission-check]] outcomes, and scheduling-loop latency. Labels include `cluster_queue`, `flavor`, `priority_class`, `priority_class_source`, `replica_role`, and (Alpha, `CustomMetricLabels`) operator-defined `custom_*` labels sourced from ClusterQueues, LocalQueues, Cohorts or Workloads.
+**Summary**: The `kueue-controller-manager` binary exposes Prometheus metrics on `/metrics`. Metrics cover per-[[cluster-queue]] usage and reservation, [[workload]] admission/preemption counters, [[admission-check]] outcomes, and scheduling-loop latency. Labels include `cluster_queue`, `flavor`, `priority_class`, `replica_role`, and (Alpha, `CustomMetricLabels`) operator-defined `custom_*` labels sourced from ClusterQueues, LocalQueues, Cohorts or Workloads.
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15026.md, pr-16208.md, raw/kueue/pkg/metrics/metrics.go, raw/kueue/site/content/en/docs/reference/metrics.md, pr-13420.md, pr-13469.md, pr-13635.md, pr-16730.md, pr-16670.md, pr-16372.md, pr-16379.md, pr-16398.md, pr-16762.md, pr-16833.md, pr-16890.md, pr-16888.md, pr-16493.md, pr-16581.md, pr-17057.md, issue-16530.md, pr-16743.md, issue-16623.md, pr-15391.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/site/content/en/docs/tasks/manage/observability/configure_custom_metric_labels.md, raw/kueue/apis/config/v1beta2/configuration_types.go; 2026-10-21 batch: pr-16653.md, pr-17238.md, pr-17239.md, pr-17240.md, pr-17046.md, pr-17219.md, pr-17222.md, pr-16647.md, issue-16640.md, pr-17336.md, pr-17435.md, pr-17414.md, pr-17448.md, pr-17416.md, pr-17417.md, pr-17452.md, issue-17412.md, pr-16035.md, pr-16535.md, issue-16029.md, issue-11843.md, raw/kueue/pkg/cache/queue/local_queue_counts.go, raw/kueue/pkg/cache/scheduler/clusterqueue.go, raw/kueue/pkg/config/metrics.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
 ## Core families
 
-- `kueue_pending_workloads` (gauge, per CQ) — head-of-queue and active pending counts.
+- `kueue_pending_workloads` (gauge, per CQ) — pending counts by `status` (`active`, `inadmissible`).
 - `kueue_reserving_active_workloads`, `kueue_admitted_active_workloads` — currently reserving/admitted.
 - `kueue_admitted_workloads_total`, `kueue_evicted_workloads_total` — admissions and preemptions, labeled by reason (see [[preemption]]).
 - `kueue_cluster_queue_nominal_quota`, `kueue_cluster_queue_borrowing_limit`, `kueue_cluster_queue_lending_limit`, `kueue_cluster_queue_resource_usage` — per-CQ quota shape.
@@ -22,9 +22,9 @@
 Labels are expanded incrementally. Relevant issues:
 
 - "Add priority_class label to Kueue metrics" ([[issue-5989]]).
-- "Add priority_class_source label to Kueue metrics" ([[issue-7291]]).
+- "Add priority_class_source label to Kueue metrics" ([[issue-7291]]). Closed as not planned; no such label exists.
 
-The `priority_class_source` label distinguishes stock `PriorityClass` from `WorkloadPriorityClass` so dashboards can separate the two. See [[workload-priority]].
+There is no `priority_class_source` label; only `priority_class` is exposed. See [[workload-priority]].
 
 ## Cohort metrics reliability
 
@@ -36,9 +36,9 @@ Cohort-level metrics have had flakes as the hierarchical-cohort accounting matur
 
 These are test flakes, not always reliability issues in production; still, dashboards that sum across cohort levels should be checked for double-counting under hierarchical setups.
 
-### Cohort CPU unit fix (v0.16.7 / v0.17.2 / v0.18.0)
+### Cohort CPU unit fix (v0.17.2 / v0.18.0)
 
-Until v0.16.6, `kueue_cohort_subtree_quota` and `kueue_cohort_subtree_resource_reservations` reported raw **milliCPU** values (e.g. `30000`) for CPU resources, while the equivalent ClusterQueue metrics correctly reported **CPU units** (e.g. `30.0`). The cohort variant did not call `resourceFloat()`. Dashboards that summed CQ + cohort metrics or compared them side-by-side would get wildly inconsistent numbers. [[pr-10747]] aligns the cohort path: `applyCohortMetricPoint` now applies the same conversion and the metric function signatures take `float64`. Fixes [[issue-10746]].
+Before v0.17.2 / v0.18.0 (and on every 0.16 release), `kueue_cohort_subtree_quota` and `kueue_cohort_subtree_resource_reservations` reported raw **milliCPU** values (e.g. `30000`) for CPU resources, while the equivalent ClusterQueue metrics correctly reported **CPU units** (e.g. `30.0`). The cohort variant did not call `resourceFloat()`. Dashboards that summed CQ + cohort metrics or compared them side-by-side would get wildly inconsistent numbers. [[pr-10747]] aligns the cohort path: `applyCohortMetricPoint` now applies the same conversion and the metric function signatures take `float64`. Fixes #10746.
 
 ### Stale cohort metrics after subtree change
 
@@ -73,14 +73,14 @@ Both measure from the Workload entering recovery (`PodsReady=False`, `Reason=Wai
 
 ### Readiness metrics are no longer emitted after a recovery
 
-`kueue_ready_wait_time_seconds`, `kueue_admitted_until_ready_wait_time`, `kueue_local_queue_ready_wait_time_seconds` and `kueue_local_queue_admitted_until_ready_wait_time_seconds` were being emitted again when a Workload *recovered*, not only when it first became ready — which skewed every one of them toward longer waits. [[pr-14626]] (fixes #14623) records them only on the initial readiness transition; use the recovery histograms above for the recovery path.
+`kueue_ready_wait_time_seconds`, `kueue_admitted_until_ready_wait_time_seconds`, `kueue_local_queue_ready_wait_time_seconds` and `kueue_local_queue_admitted_until_ready_wait_time_seconds` were being emitted again when a Workload *recovered*, not only when it first became ready — which skewed every one of them toward longer waits. [[pr-14626]] (fixes #14623) records them only on the initial readiness transition; use the recovery histograms above for the recovery path.
 
 ### `kueue_pod_scheduling_gate_removal_seconds`
 
 Two independent fixes to the same metric:
 
 - **Negative observations are clamped to zero** ([[pr-14474]] / [[pr-14731]], fixes [[issue-14456]]). `pkg/util/pod.RecordPodSchedulingGateRemovalSeconds` computes `cl.Now().Sub(cond.LastTransitionTime.Time)`. `LastTransitionTime` is stamped by the **apiserver** while `Now()` reads the **controller's** clock, so skew, a leader transition, or a wall-clock adjustment can make the duration negative. A negative observation makes the classic histogram's `_sum` *decrease*, Prometheus reads the drop as a counter reset, and `rate()` over that series returns garbage. This matches the guard `ReportWorkloadEvictionLatency` already had. The timestamp-source comment was corrected in [[pr-14740]] / [[pr-14750]] ([[issue-14730]]).
-- **`replica_role` label added** ([[pr-14488]] / [[pr-14530]], fixes [[issue-14457]]). It was the only metric in the health group without it, so leader / follower / standalone observations were indistinguishable. The `RoleTracker` is threaded through the shared recording helper and all three emit paths (Pod controller via a new `WithRoleTracker` PodOption; the TAS topology ungater and the elastic-job ungater already carried a tracker); `roletracker.GetRole` yields `standalone` when the tracker is nil. The label is placed **before** the configured ClusterQueue custom labels, matching every other role-labeled metric. **Adding a label changes series identity** — existing queries on this metric must be updated.
+- **`replica_role` label added** ([[pr-14488]] / [[pr-14530]], fixes #14457). It was the only metric in the health group without it, so leader / follower / standalone observations were indistinguishable. The `RoleTracker` is threaded through the shared recording helper and all three emit paths (Pod controller via a new `WithRoleTracker` PodOption; the TAS topology ungater and the elastic-job ungater already carried a tracker); `roletracker.GetRole` yields `standalone` when the tracker is nil. The label is placed **before** the configured ClusterQueue custom labels, matching every other role-labeled metric. **Adding a label changes series identity** — existing queries on this metric must be updated.
 
 Related: the "Job controller with CustomMetricLabels" integration block widened the shared metric vectors and panicked later specs ([[issue-14744]], fixed by [[pr-14745]] / [[pr-14751]]).
 

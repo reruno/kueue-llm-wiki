@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/` (this update: pr-16514.md), `raw/kueue/pkg/controller/elasticjobs/elastic_job_ungater.go`.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -15,7 +15,7 @@
 - `spec.controllerName` — the unique name the owning controller filters on.
 - `spec.parameters` — a ref to a controller-specific config object (e.g. `ProvisioningRequestConfig`).
 
-A [[cluster-queue]]'s `spec.admissionChecks` or `spec.admissionCheckStrategy` references AdmissionChecks by name. The strategy variant lets checks apply only to specific ResourceFlavors, so a CQ can gate an `h100` flavor on a ProvisioningRequest while leaving `cpu-on-demand` ungated.
+A [[cluster-queue]]'s `spec.admissionChecksStrategy.admissionChecks[]` references AdmissionChecks by `name`; an optional `onFlavors` list applies a check only to specific ResourceFlavors (v1beta1's plain `spec.admissionChecks` list was removed in v1beta2), so a CQ can gate an `h100` flavor on a ProvisioningRequest while leaving `cpu-on-demand` ungated.
 
 ## Built-in check types
 
@@ -33,7 +33,7 @@ Each check writes to `status.admissionChecks[].state` as one of:
 
 ## Check-applied updates
 
-A check can populate `Workload.spec.podSetUpdates` with extra labels, annotations, tolerations, or node selectors that must be merged into the job's PodTemplate at unsuspend time. This is how ProvisioningRequest injects node-affinity to the specific provisioned capacity block, and how MultiKueue labels worker-cluster workloads.
+A check can populate `status.admissionChecks[].podSetUpdates` with extra labels, annotations, tolerations, or node selectors that must be merged into the job's PodTemplate at unsuspend time. This is how ProvisioningRequest injects node-affinity to the specific provisioned capacity block, and how MultiKueue labels worker-cluster workloads.
 
 **Correction (2026-10-21)**: the updates live in the Workload **status**, at `status.admissionChecks[].podSetUpdates[]` (each entry is keyed by PodSet `name`), not in `spec`. Code reads them from `wl.Status.AdmissionChecks[*].PodSetUpdates` (source: elastic_job_ungater.go; [[topology-aware-scheduling]] NodeHotSwap section). Other consumers besides the unsuspend-time template merge:
 
@@ -42,7 +42,7 @@ A check can populate `Workload.spec.podSetUpdates` with extra labels, annotation
 
 ## Per-flavor checks
 
-`admissionCheckStrategy` lets an admin apply a check only to specific ResourceFlavors — e.g. run ProvisioningRequest for an autoscaled flavor but not a pre-provisioned one. See [[provisioning-request]] for the canonical use case.
+`admissionChecksStrategy` lets an admin apply a check only to specific ResourceFlavors — e.g. run ProvisioningRequest for an autoscaled flavor but not a pre-provisioned one. See [[provisioning-request]] for the canonical use case.
 
 ## A `Rejected` check during an in-flight eviction
 

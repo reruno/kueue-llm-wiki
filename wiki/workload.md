@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16479.md, pr-14520.md, pr-13671.md, pr-16627.md, pr-13956.md, pr-17069.md, issue-16486.md, pr-16779.md, pr-16881.md, pr-17147.md, pr-17215.md, pr-17220.md, pr-17269.md, issue-14811.md, issue-17221.md, pr-17090.md, pr-17201.md, pr-17202.md, issue-13991.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/webhooks/workload_webhook.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -13,7 +13,7 @@
 Key fields:
 
 - `spec.queueName` — which [[local-queue]] this Workload targets.
-- `spec.priorityClassName` / `spec.priorityClassSource` / `spec.priority` — see [[workload-priority]]. `priorityClassSource` distinguishes a stock `scheduling.k8s.io/PriorityClass` from a `kueue.x-k8s.io/WorkloadPriorityClass` ([[issue-7342]]).
+- `spec.priorityClassRef` (`group`/`kind`/`name`) / `spec.priority` — see [[workload-priority]]. The ref's group/kind distinguishes a stock `scheduling.k8s.io/PriorityClass` from a `kueue.x-k8s.io/WorkloadPriorityClass` (v1beta1 used `priorityClassName`/`priorityClassSource`; [[issue-7342]]).
 - `spec.podSets[]` — one entry per distinct Pod template the job needs, with `count` and `template`. A Workload has multiple PodSets when the job is multi-template (e.g. a JobSet, RayJob with head + workers, PyTorchJob with master + workers).
 - `spec.active` — can be flipped to `false` to deactivate a Workload (stop it from being admitted again after eviction).
 - `status.admissionChecks[].podSetUpdates[]` (`AdmissionCheckState.PodSetUpdates`) — mutations that [[admission-check]]s applied (additional tolerations, node selectors, labels, annotations) before admission, so the integration can patch them into the job's Pod template when unsuspending. **Correction (2026-10-21)**: this page listed it as `spec.podSetUpdates`; there is no such spec field (source: apis/kueue/v1beta2/workload_types.go at kueue@8922c563e).
@@ -32,7 +32,7 @@ Each PodSet has a `count` (replica count) and a `template` (full `PodTemplateSpe
 
 The `PodSetAssignments` in `status.admission.podSetAssignments[]` mirrors the PodSet array and records the flavor chosen per PodSet ([[issue-1163]]). PodSetAssignments count must equal PodSet count.
 
-**Maximum PodSets per Workload.** `spec.podSets` is length-validated; the cap was raised from **8 to 10** in [[pr-11388]] (fixes/relates to [[issue-11379]], which requested 16). The cap is deliberately conservative rather than unbounded because [[topology-aware-scheduling]] flavor-assignment cost scales roughly as `flavors × PodSets`. The practical motivation is Ray: one PodSet is reserved for the Ray head group, so raising the cap to 10 lets a RayCluster/RayJob/RayService declare up to **9 worker groups** (was 7). See [[integration-rayjob]].
+**Maximum PodSets per Workload.** `spec.podSets` is length-validated; the cap was raised from **8 to 10** in [[pr-11388]] (fixes/relates to [[issue-11379]], which requested 16). The cap is deliberately conservative rather than unbounded because [[topology-aware-scheduling]] flavor-assignment cost scales roughly as `flavors × PodSets`. The practical motivation is Ray: one PodSet is reserved for the Ray head group, so raising the cap to 10 lets a RayCluster/RayJob/RayService declare up to **9 worker groups** (was 7). Since v0.19.0 (#12819) the cap is **18** (`jobframework.MaxPodSets`), so Ray can declare up to **17 worker groups**. See [[integration-rayjob]].
 
 For TAS-enabled flavors, each assignment also includes a `topologyAssignment` listing domain→count tuples — see [[topology-aware-scheduling]].
 
@@ -80,13 +80,13 @@ A Workload carries a finalizer so quota accounting stays consistent while the un
 
 `PodSet.minCount` accepts **0** since [[pr-14720]] (fixes [[issue-14719]]); the OpenAPI `Minimum` was previously 1 even though `count` already allowed 0, so `count=0, minCount=0` — the shape partial scale-up of elastic workload slices needs — was rejected. The CEL rule `minCount <= count` is unchanged and no scheduler behaviour changed. Applies to both `v1beta1` and `v1beta2`.
 
-The maximum number of PodSets per Workload remains **10**.
+The maximum number of PodSets per Workload is **18** (#12819, v0.19.0).
 
 ## `priorityClassRef` is frozen once quota is reserved
 
 The Workload CRD's CEL rules freeze `priorityClassRef` for a Workload that has reserved quota: it cannot be **added**, cannot be **removed**, its **group** and **kind** cannot change, and for a Pod `PriorityClass` neither can its **name**.
 
-`classifyWorkloadsForPriorityUpdate` only skipped the *addition* case, so a reserved Workload whose owner dropped its `WorkloadPriorityClass` label was written with a ref the API server refuses; the reconcile failed and retried for as long as the reservation was held. In a batch this splits the set: unreserved components take the transition, reserved ones are refused forever. [[pr-14565]] (fixes [[issue-14482]]) adds `priorityRefTransitionAllowed`, consulted **in the write loop** next to the existing `priorityStateEqual` skip — it cannot live in the classifier, which only receives the class *name*; the target's group and kind do not exist until `ExtractPriority` has resolved the ref, which happens after classification. A Workload **without** a reservation is unconstrained and still follows its owner. See [[workload-priority]].
+`classifyWorkloadsForPriorityUpdate` only skipped the *addition* case, so a reserved Workload whose owner dropped its `WorkloadPriorityClass` label was written with a ref the API server refuses; the reconcile failed and retried for as long as the reservation was held. In a batch this splits the set: unreserved components take the transition, reserved ones are refused forever. [[pr-14565]] (fixes [[issue-14482]]) adds `priorityRefTransitionAllowed` (now `hasSameOrEmptyPriorityClass`), consulted **in the write loop** next to the existing `priorityStateEqual` skip — it cannot live in the classifier, which only receives the class *name*; the target's group and kind do not exist until `ExtractPriority` has resolved the ref, which happens after classification. A Workload **without** a reservation is unconstrained and still follows its owner. See [[workload-priority]].
 
 ## Reactivation matches deactivation reasons by prefix
 
@@ -105,6 +105,6 @@ The core Workload indexer only looked at container `requests` when indexing exte
 - [[workload-priority]] — priority fields and immutability.
 - [[gang-scheduling]] — PodsReady condition.
 - [[workload-garbage-collection]] — **[Stable]** retention policies for finished/deactivated Workloads.
-- [[workload-max-execution-time]] — **[Beta]** `spec.maximumExecutionTimeSeconds` enforcement.
+- [[workload-max-execution-time]] — **[Stable]** `spec.maximumExecutionTimeSeconds` enforcement.
 - [[concurrent-admission]] — **[Alpha]** Parent/Variant Workload model for racing flavors.
 - [[workload-resource-adjustment]] — how the requests that count against quota are recomputed from LimitRange defaults, and the raw-vs-adjusted split in `workload.Info`.

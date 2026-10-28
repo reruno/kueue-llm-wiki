@@ -1,10 +1,10 @@
 # Security — Authentication, Authorization, RBAC, and Privilege Escalation
 
-**Summary**: Patterns from Authentication Bypass (40), RBAC Misconfiguration (15), Privilege Escalation (70), and Unauthorized Write Access (38) CVE categories. Covers Kueue's controller ServiceAccount, [[webhooks|webhook]] handlers, [[multikueue]] cross-cluster credentials, and tenant isolation between [[cluster-queue|ClusterQueues]].
+**Summary**: Patterns from Authentication Bypass (42), RBAC Misconfiguration (15), Privilege Escalation (73), and Unauthorized Write Access (40) CVE categories. Covers Kueue's controller ServiceAccount, [[webhooks|webhook]] handlers, [[multikueue]] cross-cluster credentials, and tenant isolation between [[cluster-queue|ClusterQueues]].
 
 **Sources**: `raw/cve/` — representative entries `CVE-2018-18264.md` (Kubernetes Dashboard auth bypass), `CVE-2018-16886.md` (etcd RBAC), `CVE-2019-3779.md` (privilege escalation), `CVE-2019-11247.md` (cross-namespace custom resource access), `CVE-2019-11249.md`, `CVE-2020-8559.md`, `CVE-2022-23524-26.md` (Helm SSRF/auth issues); 2026-09 additions `CVE-2026-19274.md`, `CVE-2026-55225.md`, `CVE-2026-53718.md`, `CVE-2026-85594.md`, `CVE-2026-61682.md`, `CVE-2026-93991.md`, `CVE-2026-55636.md`, and others cited inline; 2026-10 additions `CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-103413.md`, `CVE-2026-103546.md`, `CVE-2026-18533.md`, `CVE-2026-18537.md`, `CVE-2026-95837.md`; Kueue code `pkg/controller/jobframework/validation.go`, `pkg/controller/admissionchecks/multikueue/multikueuecluster.go`., raw/kueue/CHANGELOG/CHANGELOG-0.20.md; 2026-10-21 additions `CVE-2026-113727.md`, `CVE-2026-77524.md`, `CVE-2026-105311.md`, `CVE-2026-105312.md`, `CVE-2026-112778.md`, `CVE-2026-53999.md`, `CVE-2026-77459.md`, `CVE-2026-103314.md`, `CVE-2026-94197.md`, `CVE-2026-65162.md`, `CVE-2026-65172.md`; KueueViz fixes pr-17088.md, issue-17073.md, pr-17246.md, issue-17178.md, pr-17249.md, issue-17248.md, pr-17143.md, issue-17142.md; metrics access control pr-16035.md, pr-16535.md, issue-16029.md, `raw/kueue/pkg/config/metrics.go`, `raw/kueue/pkg/config/validation.go`
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -29,24 +29,24 @@ Patterns from `raw/cve/` Authentication Bypass entries:
 
 Patterns from `raw/cve/` RBAC entries:
 
-- **ClusterRoles with wildcard verbs (`*`) or resources (`*`).** Kueue's `manager-role` should be enumerable: grep `config/rbac/role.yaml` for `verbs: ['*']` or `resources: ['*']` — neither is acceptable. Each integration adds only the verbs it needs.
+- **ClusterRoles with wildcard verbs (`*`) or resources (`*`).** Kueue's `manager-role` should be enumerable: grep `config/components/rbac/role.yaml` for `verbs: ['*']` or `resources: ['*']` — neither is acceptable. Each integration adds only the verbs it needs.
 - **Roles binding `cluster-admin` to service accounts used by controllers.** Never. Kueue's bundled installation uses a dedicated ClusterRole.
 - **Missing namespace scoping** — using `ClusterRoleBinding` where `RoleBinding` suffices. Kueue's controller necessarily needs cluster-wide read on workload kinds (it watches cluster-wide), so most bindings are correctly cluster-scoped. But adapters or extension webhooks that operate per-namespace should prefer `RoleBinding`.
-- **ClusterRole aggregation labels.** As of v0.18, each per-resource editor/viewer ClusterRole carries a unique label `rbac.kueue.x-k8s.io/role: <resource>-<access>` (e.g. `clusterqueue-viewer`, `clusterqueue-editor`) — [[pr-11205]]. This lets downstream operators build custom aggregated ClusterRoles by selecting Kueue roles on this label *without* relying on the upstream `rbac.authorization.k8s.io/aggregate-to-view`/`aggregate-to-admin` labels (which Kueue does not stamp on these roles, deliberately, so a "view all CRDs" role isn't forced on every install).
+- **ClusterRole aggregation labels.** As of v0.18, each per-resource editor/viewer ClusterRole carries a unique label `rbac.kueue.x-k8s.io/role: <resource>-<access>` (e.g. `clusterqueue-viewer`, `clusterqueue-editor`) — [[pr-11205]]. This lets downstream operators build custom aggregated ClusterRoles by selecting Kueue roles on this label *without* relying on the upstream `rbac.authorization.k8s.io/aggregate-to-view`/`aggregate-to-admin` labels (Kueue also stamps `aggregate-to-view/edit/admin` on most namespaced viewer roles since v0.18, #10482; the per-role label lets operators aggregate more selectively).
 - **Kueue controller ServiceAccount with `get/list/watch` on Secrets cluster-wide.** Audit: Kueue itself should not need cluster-wide Secret access. [[multikueue]] does need read access to specific kubeconfig Secrets (the worker-cluster connection); restrict via resourceNames, not a blanket verb on `secrets`.
 
 ## Privilege Escalation (CWE-269, CWE-266, CWE-276)
 
-The 53 PrivEsc CVEs largely target the kubelet/pod security boundary rather than controllers, but the controller-pattern checklist still applies:
+The 73 PrivEsc CVEs largely target the kubelet/pod security boundary rather than controllers, but the controller-pattern checklist still applies:
 
 - **Functions that mutate ServiceAccount tokens or pod security contexts.** Kueue *does* mutate `.spec.suspend` and inject scheduling gates (for [[integration-statefulset|StatefulSet]] and [[integration-plain-pod|plain Pods]]). It must never mutate `securityContext`, `serviceAccountName`, or `automountServiceAccountToken`. A change that adds such mutation is a security review blocker.
-- **Missing `securityContext.runAsNonRoot` / `allowPrivilegeEscalation: false`.** These apply to Kueue's *own* deployment manifest. Verify in `config/manager/manager.yaml`.
+- **Missing `securityContext.runAsNonRoot` / `allowPrivilegeEscalation: false`.** These apply to Kueue's *own* deployment manifest. Verify in `config/components/manager/manager.yaml`.
 - **`HostPID` / `HostNetwork` / `HostIPC` set to `true`.** Kueue's manager pod must have all three `false`.
 - **Volumes that mount sensitive host paths** (`/etc/kubernetes`, `/var/run/docker.sock`). Kueue mounts no host paths.
 
 ## Unauthorized Write Access (CWE-863, CWE-285)
 
-The 30 Unauthorized Write CVEs map mostly to the API server's authorization layer, but the principle for Kueue is:
+The 40 Unauthorized Write CVEs map mostly to the API server's authorization layer, but the principle for Kueue is:
 
 - **Webhook mutations must not exceed the scope advertised.** A mutating webhook registered on `Workload` must not mutate fields the user doesn't expect — the spec must be precise.
 - **Status updates from one tenant must not influence another tenant's quota.** This is a Kueue-design question, not a Go-code question, but reviewers should think about it whenever changing [[cache-architecture|the cache]] or [[admission|admission accounting]].

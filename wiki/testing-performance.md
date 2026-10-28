@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/hack/make/test.mk` (formerly `Makefile-test.mk`), `raw/kueue/test/performance/scheduler/`, `raw/kueue/hack/testing/performance-test.sh`, `raw/kueue/hack/testing/compare-performance.sh`; pr-16652.md, pr-16923.md.; pr-17158.md, pr-16463.md, `raw/kueue/test/performance/multikueue/README.md`, `raw/kueue/test/performance/multikueue/configs/baseline/expectations.yaml`
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -26,7 +26,7 @@ test/performance/
 └── e2e/                 # (separate; exercises perf in a Kind cluster)
 ```
 
-Two binaries are built from this tree by `hack/make/test.mk` (the former `hack/make/test.mk`, split up in #14127):
+Two binaries are built from this tree by `hack/make/test.mk` (formerly `Makefile-test.mk`, split up in #14127):
 
 - `bin/performance-scheduler-runner` — the scenario driver (`make performance-scheduler-runner`).
 - `bin/minimalkueue` — a reduced Kueue that the runner targets (`make minimalkueue`).
@@ -95,7 +95,7 @@ pr-16463 (main; backports pr-17218, pr-17231) lets scheduler perf configs descri
 
 ## CI
 
-The unit tests of the performance tooling itself (for example the MultiKueue performance tool) now run in the regular unit-test shards, with race detection, JUnit and coverage. They no longer run as a separate race-test step in `make verify` (source: pr-16923.md). CI job names for the scheduler perf benchmarks are not individually attested in the raw issue/PR corpus. The make targets above are what contributors invoke locally; corresponding Prow jobs wrap them.
+The unit tests of the performance tooling itself (for example the MultiKueue performance tool) now run in the regular unit-test shards, with race detection, JUnit and coverage. They no longer run as a separate race-test step in `make verify` (source: pr-16923.md). Presubmits: `pull-kueue-test-scheduling-perf-main` and `pull-kueue-test-tas-scheduling-perf-main` (source: issue-12156.md, issue-15637.md). The make targets above are what contributors invoke locally; corresponding Prow jobs wrap them.
 
 ## Comparing runs
 

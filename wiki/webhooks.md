@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13375.md, pr-16972.md, pr-16973.md, pr-16705.md, pr-16710.md, pr-17060.md, pr-13996.md, pr-16779.md, raw/kueue/pkg/controller/jobframework/defaults.go, pr-17090.md, pr-17201.md, pr-17202.md, issue-13991.md, pr-17147.md, raw/kueue/pkg/webhooks/workload_webhook.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -12,25 +12,24 @@
 
 Webhooks run on:
 
-- **Kueue CRDs** — ClusterQueue, LocalQueue, ResourceFlavor, Workload, AdmissionCheck, Cohort, Topology. Defaulting and validation ([[issue-171]] — original "Add webhook for APIs defaulting and validation"). AdmissionCheck webhook was added separately ([[issue-1218]]).
+- **Kueue CRDs** — ClusterQueue, ResourceFlavor, Workload, Cohort (LocalQueue registers an empty webhook; AdmissionCheck and Topology rely on CRD/CEL validation). Defaulting and validation ([[issue-171]] — original "Add webhook for APIs defaulting and validation"). AdmissionCheck webhook was added separately ([[issue-1218]]).
 - **Integration types** — batch/v1.Job, JobSet, RayJob, PyTorchJob, etc. Each integration's mutating webhook:
   - Sets `.spec.suspend: true` on create if a queue-name label is present.
-  - Creates the companion Workload.
-  - Injects labels / tolerations from the [[resource-flavor]] at un-suspend.
-- **Plain Pods** — the mutating webhook stamps `kueue.x-k8s.io/managed` scheduling gates (see [[integration-plain-pod]]).
+  - Defaults the queue-name (from a `default` LocalQueue), WorkloadPriorityClass and `managedBy`. (The Workload itself, and [[resource-flavor]] node labels/tolerations at un-suspend, come from the job reconciler; see [[job-framework-interface]].)
+- **Plain Pods** — the mutating webhook stamps the `kueue.x-k8s.io/admission` scheduling gate (and the `kueue.x-k8s.io/managed` label) (see [[integration-plain-pod]]).
 
 ## Defaulting
 
 Defaulting happens on create and on spec mutation where allowed:
 
 - ResourceFlavor gets a finalizer so it can't be deleted while referenced ([[issue-283]] — Add the finalizer via webhook when creating resourceFlavor).
-- LocalQueue / Workload get the default `kueue.x-k8s.io/queue-name` under the `LocalQueueDefaulting` feature gate when enabled ([[pr-3652]] — KEP-2936: LocalQueue defaulting).
+- Jobs (and Pods) get the default `kueue.x-k8s.io/queue-name` when a `default` LocalQueue exists (formerly the `LocalQueueDefaulting` gate; now unconditional; [[pr-3652]] — KEP-2936: LocalQueue defaulting).
 
 ## Validation
 
 Validation enforces:
 
-- Flavor references point to existing flavors.
+- Flavor references are well-formed (a ClusterQueue naming a missing flavor is admitted but becomes inactive with `FlavorNotFound`).
 - `queueingStrategy` and some policy fields are immutable under circumstances (see [[queueing-strategy]]).
 - PriorityClassSource is one of the known values.
 - CEL validation for upgrade paths: "v1beta1 CEL validation fails on v1beta2-stored workloads: no such key: priorityClassSource" ([[issue-10593]]) — a cross-version CEL gotcha.
@@ -99,6 +98,6 @@ The `mworkload.kb.io` mutating webhook keeps `verbs=create`; an earlier attempt 
 - [[architecture]] — where webhooks sit in the control plane.
 - [[integrations]] — integrations ship their own webhooks.
 - [[resource-flavor]] — finalizer is webhook-added.
-- [[feature-gates]] — LocalQueueDefaulting controls a mutating default.
+- [[feature-gates]] — feature-gated webhook behaviour.
 - [[job-framework-interface]]
 - [[integration-statefulset]]

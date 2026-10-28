@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/scheduler/scheduler.go`, `raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go`, `raw/kueue/pkg/scheduler/logging.go`, pr-15444.md, pr-16078.md, pr-15829.md, pr-15844.md, pr-16167.md, pr-16290.md, pr-16130.md, issue-14792.md, pr-13956.md, pr-15432.md, pr-16765.md, pr-16766.md, pr-17069.md, pr-16466.md, issue-16443.md, pr-16658.md, issue-16661.md, pr-13616.md, pr-17010.md, pr-16479.md, pr-16492.md, pr-16527.md, pr-16672.md, pr-16682.md, pr-14520.md, pr-13668.md, issue-16405.md, issue-16486.md, pr-13844.md, pr-16521.md, pr-16858.md, pr-16630.md, pr-17455.md, issue-16624.md, pr-17346.md, pr-17041.md, pr-17474.md, issue-17040.md, pr-17461.md, pr-17514.md, pr-17517.md, pr-17227.md, pr-17107.md, pr-17146.md, pr-17168.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/cache/scheduler/initial_sync.go, raw/kueue/pkg/workload/flavor_scan_state.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -26,7 +26,7 @@ Release note: "TAS: Fix double-booking of nodes when the scheduler starts before
 headWorkloads := s.queues.Heads(ctx)  // blocks while queue is empty
 ```
 
-`Heads()` returns one workload per ClusterQueue — the highest-priority workload at the front of each queue. If any ClusterQueue has borrowing candidates, those are also included as additional heads. (source: pkg/scheduler/scheduler.go)
+`Heads()` returns one workload per ClusterQueue — the highest-priority workload at the front of each queue. All ready second-pass Workloads (delayed TAS assignment, failed-node replacement) are also included as additional heads (source: pkg/scheduler/scheduler.go, raw/kueue/pkg/cache/queue/manager.go).
 
 ### Phase 2: Snapshot
 
@@ -65,7 +65,7 @@ For each entry the iterator yields, `processEntry` runs the admission pipeline:
 5. **Fits check** — verify the snapshot still accommodates this workload (earlier admissions in this cycle may have consumed quota).
 6. **Issue preemptions** (Preempt mode) — send delete requests to preemption targets; mark entry as pending.
 7. **WaitForPodsReady** — block admission if the previous workload cycle left pods not ready.
-8. **Admit** — write the `QuotaReservation` and `Admitted` conditions; toggle `.spec.suspend = false` on the job. Admission is **asynchronous** (`admissionRoutineWrapper.Run()` launches a goroutine; `admit` returns `nil` before `PatchAdmissionStatus` completes). On a write error the first-pass rollback uses `Cache.DeleteWorkloadIfUnchanged`, not an unconditional delete; see [[scheduler-internals#Admission write errors keep a committed admission in the cache (pr-17041)]].
+8. **Admit** — write `status.admission` and the `QuotaReserved` condition (`Admitted` follows once AdmissionChecks pass); the job integration then sets `.spec.suspend = false`. Admission is **asynchronous** (`admissionRoutineWrapper.Run()` launches a goroutine; `admit` returns `nil` before `PatchAdmissionStatus` completes). On a write error the first-pass rollback uses `Cache.DeleteWorkloadIfUnchanged`, not an unconditional delete; see [[scheduler-internals#Admission write errors keep a committed admission in the cache (pr-17041)]].
 9. **WorkloadSlice replacement** — for elastic jobs, finish the *old* slice. As of [[pr-11195]] (fixes #9015) this happens **inside `admit`'s success path**, after `PatchAdmissionStatus` succeeds — i.e. the old slice is finished only once the new (larger) slice is confirmed admitted. Doing it before admission could leave the old slice `Finished` while the new one failed to admit, leaking quota (the job keeps running unsuspended with no admitted slice holding quota). `admit` now takes the `oldWorkloadSlice *preemption.Target`. pr-16521 (behaviour-preserving; backports pr-16541/0.19, pr-16542/0.20) inlined the single-use `replaceOldWorkloadSlice` wrapper: the success path calls `replaceWorkloadSlice` directly when `ElasticJobsViaWorkloadSlices` is on and an old slice exists; a failure is only logged and recovery is left to the job reconciler, no admission rollback. See [[elastic-jobs]].
 10. **Second-pass writes are fenced (TAS).** For a second pass (failed-node replacement, delayed topology assignment) the admission write now carries the entry's `resourceVersion` (strict patch) and the assume goes through `Cache.UpdateWorkloadIfUnchanged`; on Conflict the scheduler keeps the reservation, emits an `OutdatedScheduleCycle` warning event and requeues the second pass. First-pass writes are unchanged (#15761; backports pr-16858/0.20, pr-16859/0.19; v0.20.1). Details on [[topology-aware-scheduling]].
 
@@ -73,7 +73,7 @@ For each entry the iterator yields, `processEntry` runs the admission pipeline:
 
 ### Phase 6: Requeue
 
-All entries not `assumed` (successfully admitted) or `evicted` are re-queued with appropriate reasons: `PendingPreemption`, `PreemptionFailed`, `Inadmissible`, `PreemptionGated`. The queue manager uses these reasons to decide delay and ordering. A preemption-gated entry writes `QuotaReserved=False` with reason `PreemptionGated` (not `AdmissionGated`, which the workload controller rewrote to `PendingEvaluation`), and its `QuotaReserved`/`resourceRequests` updates are no longer dropped when `BlockedOnPreemptionGates` is already set ([[preemption#Preemption-gated Workloads report `PreemptionGated` (pr-16627)]]).
+All entries not `assumed` (successfully admitted) or `evicted` are re-queued with appropriate reasons: `PendingPreemption`, `PreemptionFailed`, `NoFit`, `PreemptionNoCandidates`, `PreemptionGated`. The queue manager uses these reasons to decide delay and ordering. A preemption-gated entry writes `QuotaReserved=False` with reason `PreemptionGated` (not `AdmissionGated`, which the workload controller rewrote to `PendingEvaluation`), and its `QuotaReserved`/`resourceRequests` updates are no longer dropped when `BlockedOnPreemptionGates` is already set ([[preemption#Preemption-gated Workloads report `PreemptionGated` (pr-16627)]]).
 
 **Scheduling-equivalence bulk requeue.** When the `SchedulingEquivalenceHashing` gate is on (**Beta, default on, since v0.18** — [[pr-11097]]), a Workload requeued to the inadmissible set carries its other scheduling-equivalent Workloads (same `SchedulingHash`) with it, so they aren't re-evaluated one-by-one. v0.18 **narrows** this to two requeue reasons only — `RequeueReasonNoFit` and `RequeueReasonPreemptionNoCandidates`. The earlier broad `!immediate` condition also bulk-moved `NamespaceMismatch` and `PreemptionGated` Workloads, which was wrong: it cross-contaminated namespace-mismatched Workloads and broke MultiKueue per-item processing ([[issue-10005]]). Side effect: a single Workload that needs ~100% of a CQ's quota now waits for the requeue batch (≈1s) or a capacity event, so its time-to-admission regresses. (source: pkg/scheduler/scheduler.go)
 
@@ -100,7 +100,8 @@ The `flavorassigner.FlavorAssigner` runs during Phase 3. For each [[workload]]'s
 
 | Mode | Meaning |
 |---|---|
-| `Fit` | Workload fits within nominal quota (no borrowing, no preemption needed) |
+| `Fit` | Workload fits in unused quota without preemption, possibly by borrowing |
+| `DeferredFit` | Fits once preemptions already issued this cycle complete; admission waits |
 | `Preempt` | Workload can fit if some lower-priority workloads are preempted |
 | `NoFit` | Workload cannot fit regardless |
 
@@ -166,7 +167,7 @@ The scheduler evaluates three tiers of capacity in order:
 2. **Borrowing** — unused nominal quota from other ClusterQueues in the same [[cohort]]; requires borrowing.
 3. **Preemption** — quota held by lower-priority workloads; requires evicting them.
 
-If a workload can fit in tier 1 → `Fit`. If it needs tier 3 → `Preempt`. If none fit → `NoFit`.
+If a workload can fit in tier 1 or 2 → `Fit`. If it needs tier 3 → `Preempt`. If none fit → `NoFit`.
 
 ## Quota arithmetic and integer-overflow safety
 

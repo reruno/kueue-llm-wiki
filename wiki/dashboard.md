@@ -1,10 +1,10 @@
 # Dashboard (KueueViz)
 
-**Summary**: KueueViz is a web UI for Kueue: it reads the Kueue API (and, partially, the [[visibility-api]]) to show per-[[cluster-queue]] usage, pending workloads, cohort utilization, and per-namespace quotas. It's a separate component (backend + frontend) deployed alongside Kueue, not part of the controller-manager.
+**Summary**: KueueViz is a web UI for Kueue: it reads the Kueue API (pending counts come from ClusterQueue/LocalQueue status, not the [[visibility-api]]) to show per-[[cluster-queue]] usage, pending workloads, cohort utilization, and per-namespace quotas. It's a separate component (backend + frontend) deployed alongside Kueue, not part of the controller-manager.
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-13970.md, pr-16392.md, pr-16394.md, pr-16696.md, pr-16739.md, pr-16608.md; 2026-10-21 batch: pr-17088.md, pr-17135.md, pr-17143.md, pr-17230.md, pr-17246.md, pr-17249.md, pr-16849.md, pr-17104.md, pr-17105.md, pr-17175.md, pr-17235.md, pr-17236.md, pr-17272.md, pr-17273.md, pr-17491.md, pr-17493.md, pr-16278.md, issue-17073.md, issue-17142.md, issue-17178.md, issue-17248.md, issue-16694.md, issue-17102.md, issue-17103.md, issue-17232.md, issue-17270.md, issue-17271.md, issue-17492.md and their backports; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`; `raw/kueue/cmd/kueueviz/backend/`.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -125,7 +125,7 @@ Still open (issues with open PRs): pages show the previous object's data after s
 
 ## Related pages
 
-- [[visibility-api]] — underlying API surface for some views.
+- [[visibility-api]] — the separate pending-workload API (not used by KueueViz).
 - [[metrics]] — alternate Prometheus-based visibility.
 - [[cluster-queue]], [[cohort]] — core entities shown.
 - [[security-authn-authz]] — SubjectAccessReview pattern used by the backend.

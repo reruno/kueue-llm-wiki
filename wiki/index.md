@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-10-21), `raw/kueue/` (source snapshot, kueue@3bbb8cce4) and `raw/cve/` (Kubernetes-ecosystem CVE corpus, 795 entries).
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -49,8 +49,8 @@
 
 - [[topology-aware-scheduling]] — Pack pods within a topology domain (rack/block/zone) to reduce cross-node latency.
 - [[multikueue]] — Dispatch Workloads across multiple worker clusters from a manager cluster.
-- [[multikueue-orchestrated-preemption]] — **[Alpha]** Serialize preemption across MultiKueue worker clusters to avoid unnecessary disruptions; a missing gate state means closed.
-- [[dra]] — **[Alpha]** Quota management for DRA-based devices (GPUs via ResourceClaimTemplates or extended resources).
+- [[multikueue-orchestrated-preemption]] — **[Beta]** Serialize preemption across MultiKueue worker clusters to avoid unnecessary disruptions; a missing gate state means closed.
+- [[dra]] — **[Beta]** Quota management for DRA-based devices (GPUs via ResourceClaimTemplates or extended resources).
 - [[resource-transformer]] — **[Stable]** Rewrite workload resource requests into quota units (MIG GPU slicing, budget credits).
 
 ## Integrations
@@ -59,20 +59,20 @@
 - [[job-framework-interface]] — **[Stable]** How to write a new Kueue integration; GenericJob interface and base reconciler.
 - [[integration-batchjob]] — `batch/v1` Job.
 - [[integration-jobset]] — JobSet (the recommended multi-template gang-scheduled primitive).
-- [[integration-kubeflow]] — PyTorchJob, TFJob, MPIJob, MXJob, PaddleJob, JAXJob, XGBoostJob (Training Operator v1).
+- [[integration-kubeflow]] — PyTorchJob, TFJob, MPIJob, PaddleJob, JAXJob, XGBoostJob (Training Operator v1).
 - [[integration-trainjob]] — **[Alpha]** TrainJob (Kubernetes Training Operator v2).
 - [[integration-rayjob]] — RayJob, RayCluster and RayService.
 - [[integration-leaderworkerset]] — LeaderWorkerSet (LWS).
 - [[integration-appwrapper]] — AppWrapper (Project CodeFlare).
 - [[integration-argo-workflow]] — Argo Workflows.
 - [[integration-plain-pod]] — Plain Pods and PodGroups.
-- [[integration-statefulset]] — **[Beta]** StatefulSet; uses pod scheduling gates instead of spec.suspend.
+- [[integration-statefulset]] — **[Stable]** StatefulSet; uses pod scheduling gates instead of spec.suspend.
 - [[integration-spark]] — **[Alpha]** SparkApplication (Kubeflow Spark Operator v2).
 
 ## Operator tooling
 
 - [[kueuectl]] — The `kubectl-kueue` CLI.
-- [[visibility-api]] — Pending-workload visibility (per-queue and per-cohort).
+- [[visibility-api]] — Pending-workload visibility per ClusterQueue and LocalQueue.
 - [[metrics]] — Prometheus metrics surface; custom metric labels, execution-time histograms, gauge-staleness fixes, **[Alpha]** `MetricsAccessControl` for loopback scraping.
 - [[dashboard]] — KueueViz web UI; per-user SubjectAccessReview authz on WebSockets, auth-mode validation, shutdown behaviour.
 - [[webhooks]] — Validating and mutating admission webhooks.
@@ -80,7 +80,7 @@
 - [[local-queue-defaulting]] — **[Stable]** Auto-assign a default LocalQueue to jobs that lack a queue-name label.
 - [[manage-jobs-selectively]] — **[Stable]** `manageJobsWithoutQueueName` + `managedJobsNamespaceSelector` for per-namespace control.
 - [[workload-garbage-collection]] — **[Stable]** Auto-delete finished or deactivated Workload objects after a retention period.
-- [[workload-max-execution-time]] — **[Beta]** Enforce a maximum wall-clock execution time per workload.
+- [[workload-max-execution-time]] — **[Stable]** Enforce a maximum wall-clock execution time per workload.
 - [[failure-recovery]] — **[Alpha]** Force-delete zombie pods stuck Terminating after node failure.
 
 ## Lifecycle and performance

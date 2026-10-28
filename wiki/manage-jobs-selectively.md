@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/3589-manage-jobs-selectively/README.md`, `raw/kueue/keps/3589-manage-jobs-selectively/kep.yaml`, pr-13375.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -20,7 +20,7 @@ When `true`: Kueue manages **all** jobs, even those without the label — suspen
 
 ### managedJobsNamespaceSelector (LabelSelector, optional)
 
-A namespace label selector that filters where `manageJobsWithoutQueueName` applies. When combined with `manageJobsWithoutQueueName: true`, only jobs in matching namespaces are managed without a label.
+A namespace label selector that decides which namespaces Kueue manages at all; with `manageJobsWithoutQueueName: true`, unlabeled jobs are also managed only in matching namespaces.
 
 (source: keps/3589-manage-jobs-selectively/README.md)
 
@@ -28,7 +28,7 @@ A namespace label selector that filters where `manageJobsWithoutQueueName` appli
 
 | `manageJobsWithoutQueueName` | `managedJobsNamespaceSelector` | `ManagedJobsNamespaceSelectorAlwaysRespected` gate | Result |
 |---|---|---|---|
-| `false` | any | any | Only labeled jobs managed, regardless of namespace |
+| `false` | not set / set | any | Only labeled jobs managed (only in matching namespaces when the selector is set) |
 | `true` | not set | any | All jobs managed in all namespaces |
 | `true` | set | disabled | All labeled jobs managed everywhere; unlabeled jobs managed only in matching namespaces |
 | `true` | set | **enabled** | Jobs in non-matching namespaces not managed at all (even if labeled); jobs in matching namespaces managed per `manageJobsWithoutQueueName` |

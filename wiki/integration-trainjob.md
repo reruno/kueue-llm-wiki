@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/pkg/controller/jobs/trainjob/trainjob_controller.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_webhook.go`
 
-**Last updated**: 2026-09-29
+**Last updated**: 2026-10-28
 
 ---
 
@@ -35,13 +35,13 @@ The TrainJob integration implements `JobWithReclaimablePods`: completed replicat
 **Supported** — a `multiKueueAdapter` exists with full status synchronization:
 - On dispatch: `spec.managedBy` is cleared on the remote (worker cluster) copy so the worker's TrainJob controller takes ownership.
 - Status sync: the manager cluster copies `status` back from the worker replica.
-- The `MultiKueue` feature gate controls whether the [[multikueue]] webhook auto-sets `spec.managedBy` to point to the MultiKueue AdmissionCheck.
+- The `MultiKueue` feature gate controls whether the [[multikueue]] webhook sets `spec.managedBy: kueue.x-k8s.io/multikueue` when the job's ClusterQueue has a MultiKueue AdmissionCheck.
 
 (source: pkg/controller/jobs/trainjob/trainjob_multikueue_adapter.go)
 
 ## JobWithManagedBy
 
-The TrainJob integration implements `JobWithManagedBy`: the `spec.managedBy` field indicates which controller is managing the job at any given time. When set to a MultiKueue AdmissionCheck's name, the manager cluster takes over dispatch. (source: pkg/controller/jobs/trainjob/trainjob_controller.go)
+The TrainJob integration implements `JobWithManagedBy`: the `spec.managedBy` field indicates which controller is managing the job at any given time. When set to `kueue.x-k8s.io/multikueue`, the manager cluster takes over dispatch. (source: pkg/controller/jobs/trainjob/trainjob_controller.go)
 
 ## Mutating webhook scope (v0.18.0)
 

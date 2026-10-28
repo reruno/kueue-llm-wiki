@@ -4,14 +4,14 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15371.md, pr-16627.md, pr-17010.md, pr-12786.md, pr-16479.md, pr-16630.md, pr-17041.md, pr-16728.md, pr-17147.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
 ## The two phases
 
 1. **QuotaReservation.** Kueue's scheduler picks a pending Workload from a ClusterQueue's queue (per [[queueing-strategy]]), checks that enough quota is available (nominal + borrowed per [[borrowing-and-lending]]), assigns a [[resource-flavor]] per PodSet, and writes `status.admission`. The condition `QuotaReserved=True` is set. At this point quota is consumed but the job is still suspended.
-2. **AdmissionChecks.** If the ClusterQueue declares `spec.admissionChecks`, each check observes the Workload and writes a per-check status entry. A check can **Pass** (Workload progresses), **Retry** (Workload is re-evaluated), or **Reject** (Workload is evicted).
+2. **AdmissionChecks.** If the ClusterQueue declares `spec.admissionChecksStrategy.admissionChecks`, each check observes the Workload and writes a per-check status entry. A check can **Pass** (Workload progresses), **Retry** (Workload is re-evaluated), or **Reject** (terminal; Workload is evicted and deactivated).
 3. **Admitted.** Once all checks are `Ready`, the Workload's `Admitted=True` condition is set and the integration controller flips `.spec.suspend: false` on the underlying job (or removes scheduling gates for Pod-level integrations).
 
 If there are no AdmissionChecks, phase 2 is a no-op and `Admitted=True` is set immediately after QuotaReserved.
@@ -50,7 +50,7 @@ Common reasons surfaced in events:
 - The ClusterQueue is `stopPolicy: Hold` (or `HoldAndDrain`, which also evicts admitted Workloads; since pr-16728 that includes Workloads whose LocalQueue is held or deleted, [[cluster-queue#Stop policies]]).
 - The ClusterQueue is inactive because its Cohort hierarchy has a cycle (`CohortCycleDetected`, [[cohort#Cycles in the Cohort hierarchy]]).
 - Preemption is needed but the Workload's preemption gate is closed: `QuotaReserved=False` reason `PreemptionGated` (was `AdmissionGated` before pr-16627; [[preemption#Preemption-gated Workloads report `PreemptionGated` (pr-16627)]]).
-- `workload.ValidateAdmissibility` rejected the candidate — most commonly `resources didn't satisfy LimitRange constraints`, i.e. the effective requests violate a namespace LimitRange `max`/`min`. This rejection leaves the requeue reason at `RequeueReasonGeneric` and, under BestEffortFIFO, does not recover when the LimitRange is relaxed; see [[workload-resource-adjustment]].
+- `workload.ValidateAdmissibility` rejected the candidate — most commonly `resources didn't satisfy LimitRange constraints`, i.e. the effective requests violate a namespace LimitRange `max`/`min`. This rejection leaves the requeue reason at `RequeueReasonGeneric` and, under BestEffortFIFO, used not to recover when the LimitRange was relaxed; LimitRange create/update/delete events now retry the namespace's inadmissible Workloads; see [[workload-resource-adjustment]].
 
 With `UnadmittedWorkloadsObservability` (Beta/on in v0.20) each of these is reported as a distinct `QuotaReserved=False` reason (`WaitingForQuota`, `NoMatchingFlavor`, `ExceedsMaxQuota`, `Misconfigured`, `Suspended`, `AdmissionGated`, ...) rather than `Pending`; see [[unadmitted-workloads-observability]].
 
@@ -69,7 +69,7 @@ Between `QuotaReserved` and `Admitted` a Workload may wait for AdmissionChecks; 
 Two conditions that used to be able to disagree, both now fixed:
 
 - An AdmissionCheck flipping to `Rejected` **while an eviction was in flight** was dropped, leaving `Admitted=True` beside a `Rejected` check ([[pr-14309]]). See [[admission-check#A `Rejected` check during an in-flight eviction]].
-- A Workload deactivated with a derived `DeactivatedDueTo<Cause>` reason stayed stuck after reactivation because its `WorkloadRequeued` condition was never transitioned ([[pr-14874]]). See [[workload#Reactivation matches deactivation reasons by prefix]].
+- A Workload deactivated with a derived `DeactivatedDueTo<Cause>` reason stayed stuck after reactivation because its `Requeued` condition was never transitioned ([[pr-14874]]). See [[workload#Reactivation matches deactivation reasons by prefix]].
 
 ## Related pages
 

@@ -1,11 +1,10 @@
-
 # Code Quality in Kueue
 
 **Summary**: The shared technical quality bar that Kueue reviewers enforce, synthesized across [[reviewer-mimowo|mimowo]], [[reviewer-tenzen-y|tenzen-y]], [[reviewer-gabesaba|gabesaba]], [[reviewer-mbobrovskyi|mbobrovskyi]], and [[reviewer-pbundyra|PBundyra]]. Use this page to predict what will block a PR and what will earn quick approval.
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/` PR review comments; `raw/kueue/CONTRIBUTING.md`; `raw/kueue/.golangci*.yaml`; `raw/kueue/hack/make/verify.mk`; `raw/kueue/pkg/features/kube_features.go`; the individual reviewer pages; pr-16725.md (logging policy), pr-10727.md (AI policy), pr-15264.md, pr-16633.md, issue-16866.md; `raw/kueue/site/content/en/community/contribution_guidelines/logging_policy.md`, `logging_reference.md`; `raw/kueue/AGENTS.md`.; pr-17148.md, pr-17377.md, pr-17304.md, pr-17283.md, pr-17352.md, pr-17431.md, pr-17162.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -227,8 +226,8 @@ Kueue has a written **logging policy** (`site/content/en/community/contribution_
 | `Error` | Operational failures that prevent or materially disrupt an operation and may need operator attention |
 | `V(0)` | Rare anomalies affecting Kueue as a whole (invariant violations); use `Error` if the operation is disrupted |
 | `V(1)` | Infrequent lifecycle and health transitions (startup, configuration, leadership, connection health); rare anomalies confined to one controller or the scheduler |
-| `V(2)` | Concise activity summaries: material changes in overall state, start and completion of top-level scheduler cycles |
-| `V(3)` | Main per-object diagnostics: `Reconcile` start/end/duration, key informer observations, main scheduling and controller decisions with reasons and outcomes, context for changes saved through the API, relevant cache-vs-API differences |
+| `V(2)` | Concise activity summaries: material changes in overall state |
+| `V(3)` | Scheduler cycle progress (start, end, duration, phase summaries); main per-object diagnostics: `Reconcile` start/end/duration, key informer observations, main scheduling and controller decisions with reasons and outcomes, context for changes saved through the API, relevant cache-vs-API differences |
 | `V(4)` | Details that explain a decision: old/new values, aggregated decision context, brief plans for grouped writes, fan-out or enqueue |
 | `V(5)` | Implementation traces: individual scheduling calculations, heap/cache mechanics, individual API-write attempts and retries, extra informer/webhook metadata, repeated steps in searches |
 | `V(6+)` | Deep tracing and broad internal-state dumps |

@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/` (cited inline; this update: pr-16514.md, pr-16543.md, pr-17119.md, pr-17359.md), `raw/kueue/pkg/controller/elasticjobs/elastic_job_ungater.go`, `raw/kueue/pkg/controller/admissionchecks/provisioning/controller.go`.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -19,7 +19,7 @@ The check reads the PR's status and reflects it back into the Workload's `status
 `ProvisioningRequestConfig` (a Kueue CRD) is pointed to by the AdmissionCheck's `spec.parameters`. It carries the `provisioningClassName` and the set of `managedResources` the PR should be created for ([[issue-2260]]):
 
 ```yaml
-apiVersion: kueue.x-k8s.io/v1beta1
+apiVersion: kueue.x-k8s.io/v1beta2
 kind: ProvisioningRequestConfig
 metadata:
   name: dws-config
@@ -31,9 +31,9 @@ spec:
 
 `managedResources` narrows which resources trigger a PR — e.g. for an MPIJob, this avoids creating a PR for the non-GPU launcher replica while still requesting capacity for the GPU workers ([[issue-2260]]).
 
-## Per-flavor gating via `admissionCheckStrategy`
+## Per-flavor gating via `admissionChecksStrategy`
 
-A CQ that mixes pre-provisioned and autoscaled flavors should only gate admission on a PR for the autoscaled flavor. `admissionCheckStrategy` on the [[cluster-queue]] expresses this: it lets an admin say "only run the ProvisioningRequest check when this Workload is assigned to flavor X." Without this, on-demand flavors would incur a pointless autoscaler round-trip.
+A CQ that mixes pre-provisioned and autoscaled flavors should only gate admission on a PR for the autoscaled flavor. `admissionChecksStrategy` on the [[cluster-queue]] expresses this: it lets an admin say "only run the ProvisioningRequest check when this Workload is assigned to flavor X." Without this, on-demand flavors would incur a pointless autoscaler round-trip.
 
 ## Tolerations and nodeSelectors flow-through
 
@@ -78,9 +78,9 @@ Elastic Jobs with a ProvisioningRequest check rely on per-pod (not per-template)
 ## Related pages
 
 - [[admission-check]] — the general admission-check framework this check plugs into.
-- [[cluster-queue]] — declares the check and (via `admissionCheckStrategy`) per-flavor gating.
+- [[cluster-queue]] — declares the check and (via `admissionChecksStrategy`) per-flavor gating.
 - [[resource-flavor]] — source of tolerations/nodeSelectors that must flow into the PR.
 - [[integration-plain-pod]] — DWS deletion edge case.
 - [[integration-kubeflow]] — MPIJob launcher/workers and ProvisioningRequestConfig.
 - [[elastic-jobs]] — ProvisioningRequest-backed workload slices.
-- [[feature-gates]] — `AdmissionCheckRetry` and related gates.
+- [[feature-gates]] — gate lifecycle (AdmissionCheck retries are configuration-controlled, not gated).

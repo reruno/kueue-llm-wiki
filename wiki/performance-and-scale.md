@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15538.md, pr-15949.md, pr-16282.md, pr-15026.md, issue-15957.md, issue-15537.md, issue-14608.md, issue-16338.md, pr-16340.md, pr-16463.md, pr-17218.md, pr-17231.md, pr-17414.md, pr-17448.md, issue-17412.md, pr-17461.md, pr-17424.md, pr-17157.md, pr-17227.md, pr-16630.md, raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`; `raw/kueue/apis/config/v1beta2/defaults.go`.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -67,7 +67,7 @@ Flavor assignment cost grows with the number of flavors in a ResourceGroup, and 
 ## Known hot spots (open or not merged in this batch)
 
 - Fair-sharing preemption recomputed cohort lendable capacity once per candidate (~11% of CPU on preemption-heavy clusters, issue-15957.md). **Fixed**: #15955 precomputes lendable Cohort capacity, making preemption up to 20% faster. Shipped in v0.20.0, v0.19.7 and v0.18.11 (source: CHANGELOG-0.20.md, CHANGELOG-0.19.md, CHANGELOG-0.18.md); see [[fair-sharing#Performance note: lendable capacity is precomputed per Cohort]].
-- Classical preemption collects and sorts the candidate pool even when preemption provably cannot help (issue-14608.md, still open). **Fixed**: candidate ordering is now cached per ClusterQueue for the scheduling cycle and candidates are merged lazily (issue-16338, pr-16340; gate `ClassicalPreemptionCandidateOrderCache`, Beta/on at 0.21 on main, Alpha/off in the 0.20/0.19 backports pr-17296/pr-17295). Reported 18-36 to 104-117 scheduling ops/s in a 10,000-Workload reclaim benchmark ([[preemption#Classical preemption reuses a per-cycle candidate ordering (`ClassicalPreemptionCandidateOrderCache`)]]).
+- Classical preemption collects and sorts the candidate pool even when preemption provably cannot help (issue-14608.md, still open). Not fixed. Related: the sorting cost (issue-16338) was fixed by pr-16340, which caches candidate ordering per ClusterQueue for the scheduling cycle and merges candidates lazily (gate `ClassicalPreemptionCandidateOrderCache`, Beta/on at 0.21 on main, Alpha/off in the 0.20/0.19 backports pr-17296/pr-17295). Reported 18-36 to 104-117 scheduling ops/s in a 10,000-Workload reclaim benchmark ([[preemption#Classical preemption reuses a per-cycle candidate ordering (`ClassicalPreemptionCandidateOrderCache`)]]).
 - Exact big-integer quota amounts add cost only beyond `int64`; the `int64` fast path allocates nothing, but `ResourceNodeClone` grew ~20% (pr-15026, [[cache-architecture#Quota amounts are exact past int64 (pr-15026)]]).
 
 ## Event-path CPU fixes in the October 2026 wave

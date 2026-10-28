@@ -4,11 +4,11 @@
 
 **Sources**: `raw/kueue/keps/3125-maximum-execution-time/README.md`, `raw/kueue/keps/3125-maximum-execution-time/kep.yaml`, pr-14449.md, pr-13420.md, raw/kueue/apis/kueue/v1beta2/workload_types.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
-> **Stage: Beta** — Feature gate `MaxExecTime`, enabled by default since v0.9. (source: keps/3125-maximum-execution-time/kep.yaml)
+> **Stage: Stable** — GA in v0.19 (Beta since v0.9). No feature gate; the feature is always on. (source: keps/3125-maximum-execution-time/kep.yaml)
 
 ## Motivation
 
@@ -65,7 +65,7 @@ If a workload is preempted before its budget expires, the elapsed time is accumu
 
 ## Debugging
 
-Check `status.accumulatedPastExecutionTimeSeconds` to see how much time has been consumed across cycles. Fleet-wide, `kueue_execution_time_seconds` / `kueue_local_queue_execution_time_seconds` (v0.20) observe the same accumulator plus the final admitted segment when a Workload finishes, so they show how close finished jobs ran to their budget (source: pr-13420.md; see [[metrics]]). The `WorkloadDeactivated` event indicates that the budget expired.
+Check `status.accumulatedPastExecutionTimeSeconds` to see how much time has been consumed across cycles. Fleet-wide, `kueue_execution_time_seconds` / `kueue_local_queue_execution_time_seconds` (v0.20) observe the same accumulator plus the final admitted segment when a Workload finishes, so they show how close finished jobs ran to their budget (source: pr-13420.md; see [[metrics]]). A Warning event with reason `MaximumExecutionTimeExceeded` indicates that the budget expired (followed by an `EvictedDueToDeactivatedDueToMaximumExecutionTimeExceeded` eviction event).
 
 ## Related pages
 

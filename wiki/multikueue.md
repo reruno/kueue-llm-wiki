@@ -4,7 +4,7 @@
 
 **Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15962.md, pr-15986.md, pr-15989.md, pr-16140.md, pr-15871.md, pr-16315.md, pr-16235.md, issue-16172.md, issue-16010.md, issue-15380.md, issue-13243.md, raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go, raw/kueue/pkg/metrics/metrics.go, raw/kueue/pkg/features/kube_features.go, pr-13244.md, pr-13996.md, pr-16470.md, pr-16370.md, pr-14036.md, pr-15280.md, pr-15387.md, pr-16473.md, pr-16772.md, pr-13706.md, pr-15092.md, raw/kueue/pkg/controller/jobs/raycluster/common.go, raw/kueue/pkg/controller/jobs/raycluster/raycluster_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-17228.md, pr-17360.md, pr-17362.md, pr-17331.md, pr-17118.md, pr-17357.md, pr-17358.md, pr-16259.md, pr-17466.md, pr-17464.md, pr-17513.md, pr-17157.md, raw/kueue/pkg/controller/admissionchecks/multikueue/clusterqueue.go, raw/kueue/pkg/controller/admissionchecks/multikueue/controllers.go, raw/kueue/pkg/controller/jobs/ray/ray_multikueue_adapter.go, raw/kueue/pkg/controller/jobs/rayservice/rayservice_multikueue_adapter.go, raw/kueue/apis/kueue/v1beta2/multikueue_types.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -18,7 +18,7 @@
 
 1. User creates a Job on the manager cluster, labeled with a [[local-queue]].
 2. Manager's integration controller creates a suspended Workload with QuotaReserved.
-3. MultiKueue check kicks in: it picks a worker cluster (preferring clusters with capacity per the Workload's requirements) and creates a mirror Job there.
+3. MultiKueue check kicks in: the dispatcher nominates worker clusters (all of them for AllAtOnce, a growing subset for Incremental, or an external choice) and creates a remote Workload in each. When one worker admits it, the manager deletes the other remote Workloads and creates the Job copy in that worker.
 4. Worker cluster's Kueue admits the mirror Workload through its own pipeline.
 5. Once the worker Workload is Admitted, the MultiKueue check on the manager returns Ready.
 6. The manager Workload is Admitted; the integration unsuspends the manager Job (cosmetically — Pods don't exist on the manager).
@@ -42,7 +42,7 @@ A general tracking theme: "Fair Share Preemption with MultiKueue + Plain Pods - 
 
 ## Worker cluster selection
 
-Worker choice is per-Workload: when the MultiKueue check evaluates, it queries each candidate worker cluster for free capacity (via a lightweight RPC reading the worker's ClusterQueue status), chooses one, and dispatches. There's no cross-worker global optimization — each admission cycle picks independently.
+Worker choice is per-Workload and made by the dispatcher: AllAtOnce creates the remote Workload on every worker and the first one to admit it wins; Incremental adds `stepSize` clusters per round; an external dispatcher sets `status.nominatedClusterNames`. Kueue does not query worker capacity before dispatching (source: raw/kueue/pkg/controller/admissionchecks/multikueue/workload.go, raw/kueue/site/content/en/docs/concepts/multikueue.md). There's no cross-worker global optimization — each admission cycle picks independently.
 
 ## KEP tracker and graduation
 
@@ -54,14 +54,14 @@ When a worker cluster's apiserver becomes unreachable, the manager's `clustersRe
 
 **Backoff formula.** `retryAfter(n) = 2^(min(n, 7) - 1) * 5s`, where `n = failedConnAttempts`. Sequence: `5s, 10s, 20s, 40s, 80s, 160s, 320s`, capped at ~5m20s. `retryIncrement = 5s`, `retryMaxSteps = 7`.
 
-**State.** `failedConnAttempts` is held on the `remoteClient`. It's incremented on each watch failure inside `setConfig` and reset to `0` only when the watch is successfully (re)established or when the kubeconfig itself changes. The `connecting` atomic flag stays `true` across failures, so subsequent reconciles re-enter the connect path even if the config is unchanged.
+**State.** `failedConnAttempts` is held on the `remoteClient`. It's incremented on each watch failure inside `setConfig` (now `updateConfigAndRefreshWatchers`) and reset to `0` only when the watch is successfully (re)established or when the kubeconfig itself changes. The `connecting` atomic flag (now the `connState` enum, #12837) stays `true` across failures, so subsequent reconciles re-enter the connect path even if the config is unchanged.
 
 **Trigger sources for a reconcile.** A retry can be queued by any of:
 - The `RequeueAfter` returned from the previous failed reconcile (this is the throttled path).
 - A `watch-ended` event when a previously running watch goroutine exits.
 - A change to the `MultiKueueCluster` object — **including the controller's own status patch**.
 
-**Why two consecutive failures appear in the same second.** When a healthy cluster first goes down, the `MultiKueueClusterActive` condition flips `True/Connected → False/ClientConnectionFailed`. That status write produces an object-change event that immediately enqueues a second reconcile (before the `RequeueAfter` from the first one fires). The second reconcile increments `failedConnAttempts` to 2 and logs `retryAfter: 10s`; its status update is a no-op because `cmpConditionState` sees the same condition, so the cascade stops there. From that point on, retries are paced strictly by `RequeueAfter`.
+**Why two consecutive failures appear in the same second.** When a healthy cluster first goes down, the `MultiKueueClusterActive` condition flips `True/Connected → False/ClientConnectionFailed`. That status write produces an object-change event that immediately enqueues a second reconcile (before the `RequeueAfter` from the first one fires). The second reconcile increments `failedConnAttempts` to 2 and logs `retryAfter: 10s`; its status update is a no-op because `cmpConditionState` (now `isConditionEqual`) sees the same condition, so the cascade stops there. From that point on, retries are paced strictly by `RequeueAfter`.
 
 This is an artifact of condition-flip + reconcile-on-status-update, not two real connection attempts being deliberately scheduled in the same second.
 
@@ -69,9 +69,9 @@ This is an artifact of condition-flip + reconcile-on-status-update, not two real
 
 The `multikueuecluster` reconciler runs a **single worker**, and `Reconcile → setRemoteClientConfig` holds the controller-wide `clustersReconciler.lock` through the whole `setConfig → establishWatch → client.Watch()` chain. So if `client.Watch()` against one unreachable worker **hung**, that single worker was blocked indefinitely: every other cluster behind it never reconciled, stayed `connecting=true`, was excluded by the dispatcher, and **admission stopped cluster-wide** ([[issue-11206]]).
 
-[[pr-11207]] (cherry-picked to 0.16/0.17) bounds the **watch-establishment** phase with a timeout (`watchWithEstablishTimeout`): on timeout it cancels the in-flight `Watch` and returns `errWatchEstablishTimeout`, falling back to the normal `failedConnAttempts`/`retryAfter` backoff. The default was set to **10 minutes** (not seconds): `client.Watch()` returns once HTTP 200 headers arrive, but a server with a cold cache + conversion-webhook warmup can legitimately block sending headers for several minutes at high workload counts, so a short timeout would cancel-and-retry forever. Successful-watch stream lifetime is unchanged.
+[[pr-11207]] (cherry-picked to 0.16/0.17) bounds the **watch-establishment** phase with a timeout (`establishWatch` with a timeout argument; the PR text called it `watchWithEstablishTimeout`): on timeout it cancels the in-flight `Watch` and returns `errWatchEstablishTimeout`, falling back to the normal `failedConnAttempts`/`retryAfter` backoff. The default was set to **10 minutes** (not seconds): `client.Watch()` returns once HTTP 200 headers arrive, but a server with a cold cache + conversion-webhook warmup can legitimately block sending headers for several minutes at high workload counts, so a short timeout would cancel-and-retry forever. Successful-watch stream lifetime is unchanged.
 
-**Per-cluster locking (the real concurrency fix).** The 10-minute timeout still parked the single reconciler worker for up to 10 minutes per hung cluster, and bumping `controller.groupKindConcurrency["MultiKueueCluster.kueue.x-k8s.io"]` above 1 did *not* help — every worker serialized on the same controller-wide `clustersReconciler.lock` held across the synchronous watch-establishment ([[issue-11297]]). [[pr-11305]] (cherry-picked as [[pr-11332]]/0.16, [[pr-11333]]/0.17 — v0.16.9 / v0.17.4) narrows `c.lock` to just the `remoteClients` map find-or-insert (new `findOrCreateRemoteClient`) and introduces a per-cluster `setConfigLock` on each `remoteClient` to guard the slow connect path. Different clusters now reconcile genuinely in parallel, so one slow/unresponsive remote no longer blocks healthy ones.
+**Per-cluster locking (the real concurrency fix).** The 10-minute timeout still parked the single reconciler worker for up to 10 minutes per hung cluster, and bumping `controller.groupKindConcurrency["MultiKueueCluster.kueue.x-k8s.io"]` above 1 did *not* help — every worker serialized on the same controller-wide `clustersReconciler.lock` held across the synchronous watch-establishment ([[issue-11297]]). [[pr-11305]] (cherry-picked as [[pr-11332]]/0.16, [[pr-11333]]/0.17 — v0.16.9 / v0.17.4) narrows `c.lock` to just the `remoteClients` map find-or-insert (new `findOrCreateRemoteClient`) and introduces a per-cluster `setConfigLock` (renamed `updateConfigLock` in #12612) on each `remoteClient` to guard the slow connect path. Different clusters now reconcile genuinely in parallel, so one slow/unresponsive remote no longer blocks healthy ones.
 
 **Exponential establish timeout (detect a hung remote in 1 minute).** [[pr-11304]] (cherry-picked as [[pr-11328]]/0.16, [[pr-11329]]/0.17 — v0.16.9 / v0.17.4, fixes [[issue-11303]]) replaces the static 10-minute establish timeout with an exponential schedule: it starts at **1 minute** and doubles per consecutive `failedConnAttempts`, capped at 10 minutes (`1m, 2m, 4m, 8m, 10m, 10m…`). Implemented via `pkg/util/wait.NewBackoff(initialEstablishTimeout, maxEstablishTimeout, 2, 0)` with `establishBackoff.WaitTime(int(rc.failedConnAttempts)+1)`; `establishWatch` now takes an explicit `timeout` argument. `failedConnAttempts` resets to zero on a successful establishment or on a config change. A truly hung remote is therefore caught in ~1 minute on the first failure instead of parking a worker for the full 10.
 
@@ -111,7 +111,7 @@ The `IncrementalDispatcherReconciler` nominates worker clusters for a workload i
 The default **AllAtOnce** dispatcher nominates *all* candidate worker clusters at once (`wlReconciler.nominateAndSynchronizeWorkers` in `pkg/controller/admissionchecks/multikueue/workload.go`) and writes the set into `Workload.Status.NominatedClusterNames`. Two v0.17.4 / v0.16.9 fixes harden it against stale-cache and ordering bugs; both are specific to AllAtOnce — the Incremental and External dispatchers copy the existing nominated list verbatim and are unaffected.
 
 - **Wait for eviction before re-nomination** ([[pr-11378]] on main; cherry-picked manually as [[pr-11472]]/0.17, [[pr-11473]]/0.16). A workload evicted from a worker cluster could fail to be re-admitted: a stale informer cache still showed `Status.ClusterName` set from the prior nomination (with `NominatedClusterNames == nil`), so the dispatcher skipped its guard and unconditionally created a remote workload on another worker; once that worker admitted, an SSA status update looped forever against webhook validation. The nomination guard was changed to skip entirely whenever `NominatedClusterNames` already equals the target set, so the dispatcher waits for the in-flight eviction to complete (which clears both `ClusterName` and `NominatedClusterNames`) before starting a fresh nomination/re-admission cycle.
-- **Order-insensitive nomination compare** ([[pr-11497]] on main; cherry-picked as [[pr-11507]]/0.17, [[pr-11508]]/0.16, fixes [[issue-11453]]). The check deciding whether to patch `Status.NominatedClusterNames` used the order-sensitive `equality.Semantic.DeepEqual`. Because the nominated set could be produced in a different order across reconciles, AllAtOnce issued spurious status patches even when the set was unchanged. A new helper `nominatedClusterSetsEqual(...)` sorts both lists before comparing, so the status is updated only when the actual set changes.
+- **Order-insensitive nomination compare** ([[pr-11497]] on main; cherry-picked as [[pr-11507]]/0.17, [[pr-11508]]/0.16, fixes [[issue-11453]]). The check deciding whether to patch `Status.NominatedClusterNames` used the order-sensitive `equality.Semantic.DeepEqual`. Because the nominated set could be produced in a different order across reconciles, AllAtOnce issued spurious status patches even when the set was unchanged. A new helper `nominatedClusterSetsEqual(...)` sorts both lists before comparing, so the status is updated only when the actual set changes. #14571 later replaced the helper with an inline set comparison (`sets.New(...).Equal(...)`).
 
 ## RBAC: RayService on worker clusters
 
@@ -142,7 +142,7 @@ MultiKueue no longer considers `spec.preemptionGates` when deciding whether a ma
 
 MultiKueue used to copy `spec.ttlSecondsAfterFinished` from the manager Job onto the remote worker Job. The worker's TTL controller could then delete the completed remote Job **before** MultiKueue synced its terminal status back, so the manager saw the remote as missing and dispatched the completed Job again.
 
-[[pr-14734]] omits the field when creating a remote Job, behind `MultiKueueBatchJobClearingTTLSecondsAfterFinishedOnWorkerCluster` (**Beta/on in v0.20**; **Alpha/off** in the release-0.18 / release-0.19 backports [[pr-14827]], [[pr-14828]]). Existing remote Jobs are not modified. With the gate on, the lifecycle is:
+[[pr-14734]] omits the field when creating a remote Job, behind `MultiKueueBatchJobClearingTTLSecondsAfterFinishedOnWorkerCluster` (**Alpha/off**, also in v0.20: #15126 downgraded it before v0.20.0; the release-0.18 / release-0.19 backports [[pr-14827]], [[pr-14828]] are Alpha/off too). Existing remote Jobs are not modified. With the gate on, the lifecycle is:
 
 1. the manager Job keeps its configured `spec.ttlSecondsAfterFinished`;
 2. the remote Job is created without it;
@@ -255,7 +255,7 @@ Graduated to **Beta, on by default, in v0.20** (pr-16235, tracked by issue-13966
 - [[admission-check]] — MultiKueue is one.
 - [[workload]] — mirror workloads exist on each worker.
 - [[integrations]] — which job types can be dispatched.
-- [[multikueue-orchestrated-preemption]] — **[Alpha]** serializes preemption across worker clusters to avoid duplicate disruption.
+- [[multikueue-orchestrated-preemption]] — **[Beta]** serializes preemption across worker clusters to avoid duplicate disruption.
 - [[job-framework-interface]]
 - [[integration-rayjob]]
 - [[elastic-jobs]]
