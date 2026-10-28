@@ -2,7 +2,7 @@
 
 **Summary**: An "integration" is a per-job-type controller inside Kueue that observes a particular CRD (batch/v1 Job, JobSet, RayJob, PyTorchJob, etc.), wraps each labeled instance in a [[workload]], and toggles `.spec.suspend` or scheduling gates when Kueue admits the Workload. Each integration handles the quirks of its target API — how many PodSets to emit, how tolerations flow, how status mirrors back — while the core scheduler stays generic.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16773.md, pr-16779.md, pr-16370.md, pr-13375.md, issue-16517.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16937.md, pr-17035.md, pr-16474.md, issue-16333.md, pr-15412.md, pr-16994.md, pr-17053.md, pr-17454.md, pr-16044.md, pr-17255.md, pr-16884.md, pr-16259.md, pr-17464.md, pr-17147.md, raw/kueue/pkg/features/kube_features.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16773.md, pr-16779.md, pr-16370.md, pr-13375.md, issue-16517.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16937.md, pr-17035.md, pr-16474.md, issue-16333.md, pr-15412.md, pr-16994.md, pr-17053.md, pr-17454.md, pr-16044.md, pr-17255.md, pr-16884.md, pr-16259.md, pr-17464.md, pr-17147.md, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-17059.md, pr-16612.md, pr-17420.md, pr-16175.md, pr-17845.md, pr-17563.md, pr-16982.md, pr-17382.md
 
 **Last updated**: 2026-10-28
 
@@ -74,7 +74,7 @@ Not all integrations work with [[multikueue]] out-of-the-box. Each needs a Multi
 
 ## Fixes merged 2026-10-14 to 2026-10-21
 
-Most of these went to `main`, release-0.20 and release-0.19 after v0.20.2 / v0.19.9 were cut, so they first ship in the next patch releases. The exceptions are marked.
+Most of these went to `main`, release-0.20 and release-0.19 after v0.20.2 / v0.19.9 were cut. All unmarked items shipped in **v0.20.3** and **v0.19.10**, except the RayService items, which are on release-0.20 only and shipped in v0.20.3. The two items marked as shipped were already in v0.20.2 / v0.19.9 (source: raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md). **Correction (2026-10-28)**: this note said they would first ship in the next patch releases.
 
 - **Prebuilt Workloads:** a job no longer adopts an unrelated prebuilt Workload that is already finished ([[job-framework-interface#A finished prebuilt Workload is not adopted]], pr-16994).
 - **Single Pods:** with `SkipReassignmentForPodOwnedWorkloads`, a Workload evicted while its Pod is still gated is requeued instead of parked forever. Shipped in v0.20.2 / v0.19.9 ([[integration-plain-pod#Single-Pod Workloads evicted while still gated are requeued]], pr-17053).
@@ -83,6 +83,18 @@ Most of these went to `main`, release-0.20 and release-0.19 after v0.20.2 / v0.1
 - **LeaderWorkerSet:** a queue-name change is rejected while any group Workload holds quota ([[integration-leaderworkerset]], pr-17255).
 - **Ray:** worker PodSet counts respect `minReplicas` / `maxReplicas` ([[integration-rayjob#Worker counts respect `minReplicas` and `maxReplicas`]], pr-16884). MultiKueue RayService worker autoscaling is supported (`main` and release-0.20 only), and `serveConfigV2` edits reach the worker while it autoscales ([[multikueue#RayService worker autoscaling]], pr-16259, pr-17464).
 - **JobSet:** an evicted Workload is no longer stuck holding quota after a JobSet restart ([[integration-jobset#Eviction after a JobSet restart]], pr-17147). Shipped in v0.20.2 / v0.19.9.
+
+## Fixes merged 2026-10-21 to 2026-10-27
+
+- **batch/Job (MultiKueue):** a re-dispatched Job no longer loops on `PodsReady` evictions on Kubernetes 1.35+, because the manager's `status.failed` is never lowered. Shipped in v0.20.3 / v0.19.10 ([[integration-batchjob#MultiKueue]], pr-17059).
+- **TrainJob:** the dry-run Workload used for PodSet defaulting has a generated name, so a same-named Workload no longer blocks admission. Shipped in v0.20.3 / v0.19.10 ([[integration-trainjob#PodSet defaulting uses a dry-run Workload with a generated name]], pr-17563).
+- **All integrations:** a job whose Namespace is not yet in the informer cache is requeued instead of left without a Workload (`main`, release-0.20, release-0.19; [[job-framework-interface#A Namespace missing from the cache requeues the job]], pr-16982).
+- **LeaderWorkerSet (MultiKueue):** the shared remote LWS is kept until its last group leaves the worker, and a scale-down shrinks it (`main`, release-0.20, release-0.19; [[integration-leaderworkerset#MultiKueue]], pr-16612).
+- **Single Pods (MultiKueue):** the gated manager Pod's copied status is reset after the Workload is requeued (`main`, release-0.20; [[integration-plain-pod#MultiKueue]], pr-17420).
+- **MultiKueue (all adapters):** a worker watch reconnect resyncs the affected manager Workloads at once (`main`, release-0.20; [[multikueue#Reconnect triggers an immediate Workload resync]], pr-16175 / pr-17845).
+- **SparkApplication:** PodSet index constants only, with no behaviour change (pr-17382).
+
+Unless marked as shipped, these are not in the v0.20.3 / v0.19.10 notes (source: raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md).
 
 ## Graduation levels (docs overview table)
 

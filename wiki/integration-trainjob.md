@@ -2,7 +2,7 @@
 
 **Summary**: Kueue integrates with the Kubernetes Training Operator v2's `TrainJob` CRD, delegating PodSet discovery to the child JobSet and supporting MultiKueue cross-cluster dispatch with full status synchronization.
 
-**Sources**: `raw/kueue/pkg/controller/jobs/trainjob/trainjob_controller.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_webhook.go`
+**Sources**: `raw/kueue/pkg/controller/jobs/trainjob/trainjob_controller.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_webhook.go`, pr-17563.md, pr-17571.md, pr-17572.md, pr-17862.md, pr-17871.md, pr-17872.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
 **Last updated**: 2026-10-28
 
@@ -17,6 +17,10 @@
 ## PodSets
 
 TrainJob delegates PodSet discovery to its child **JobSet**. The TrainJob controller materializes a JobSet from the referenced `TrainingRuntime`/`ClusterTrainingRuntime`, then Kueue's TrainJob integration calls the JobSet integration's `PodSets()` method. Each replicated job in the JobSet becomes one PodSet (e.g. `chief`, `worker`, `parameter-server`). (source: pkg/controller/jobs/trainjob/trainjob_controller.go)
+
+### PodSet defaulting uses a dry-run Workload with a generated name
+
+`TrainJob.PodSets()` must return **defaulted** PodSets, because Workloads read from the API server are defaulted and the reconciler compares the two to match an existing Workload. To get the defaults it builds a throwaway Workload from the PodSets and sends a dry-run `Create` (`DryRun: All`). It then uses the PodSets from the response. The throwaway Workload used to be named after the TrainJob. A dry-run create still fails with `AlreadyExists` when a Workload with that name exists in the namespace, for example a pod-group or prebuilt Workload. Every reconcile of that TrainJob failed, and it never got a Workload or admission. Since [[pr-17563]] the Workload has an empty `name` and `generateName: <trainjob-name>-` (source: pr-17563.md, raw/kueue/pkg/controller/jobs/trainjob/trainjob_controller.go). Shipped in **v0.20.3** ([[pr-17571]]) and **v0.19.10** ([[pr-17572]]) (source: raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md).
 
 ## Suspend / resume
 
@@ -62,6 +66,10 @@ This is the general "preserve unmodelled spec fields" hazard for any integration
 ## `Stop` is idempotent
 
 `TrainJob.Stop` always returned `true` and always sent the restore patch, so every reconcile while a TrainJob stayed evicted or unadmitted re-sent a no-op PATCH and made the framework emit another `Stopped` event. `Stop` now tracks whether it actually suspended the TrainJob, and `RestorePodSetsInfo` reports whether it changed anything (as the `GenericJob` contract documents) so `clientutil.Patch` skips no-op patches (source: pr-15652.md; backports pr-15754.md, pr-15755.md). `RuntimePatchWrapper` gained `Clone()` for tests (pr-15773.md).
+
+## TAS: grouped TrainJobs
+
+Rank-ordered ungating for TrainJob Pods in a `kueue.x-k8s.io/podset-group-name` group was fixed by [[pr-17862]]. When the resolved Pod template is grouped and has no `kueue.x-k8s.io/pod-index-offset`, Kueue adds `"0"` to its `ReplicatedJobPatch` annotations. Annotations that come from admission take precedence (source: pr-17862.md). Backports pr-17871 (0.20) and pr-17872 (0.19) are merged and pending the next patch. See [[topology-aware-scheduling]].
 
 ## RBAC: delete permission
 

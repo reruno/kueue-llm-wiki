@@ -2,7 +2,7 @@
 
 **Summary**: `PreemptionConfig` (KEP-13396, `kueue.x-k8s.io/v1alpha1`, cluster-scoped) lets an administrator declare extra preemption rules with triggers and candidate selectors; a [[cluster-queue]] opts in through an annotation. **Alpha, feature gate `ConfigurablePreemptions`, off by default, new in v0.20.** Rules add *fallback candidates* on top of the classical and fair-sharing algorithms; they never replace them.
 
-**Sources**: pr-15889.md, pr-15913.md, pr-15992.md, pr-16062.md, pr-16124.md, pr-16130.md, pr-16139.md, pr-16202.md, pr-16208.md, pr-16269.md, pr-16324.md, issue-15892.md, issue-15893.md, issue-16295.md, raw/kueue/apis/kueue/v1alpha1/preemptionconfig_types.go, raw/kueue/pkg/scheduler/preemption/config/, raw/kueue/keps/13396-configurable-preemptions/README.md, pr-16374.md, pr-16390.md, pr-16598.md, pr-17091.md, pr-16695.md, pr-16343.md, pr-17216.md, pr-17128.md
+**Sources**: pr-15889.md, pr-15913.md, pr-15992.md, pr-16062.md, pr-16124.md, pr-16130.md, pr-16139.md, pr-16202.md, pr-16208.md, pr-16269.md, pr-16324.md, issue-15892.md, issue-15893.md, issue-16295.md, raw/kueue/apis/kueue/v1alpha1/preemptionconfig_types.go, raw/kueue/pkg/scheduler/preemption/config/, raw/kueue/keps/13396-configurable-preemptions/README.md, pr-16374.md, pr-16390.md, pr-16598.md, pr-17091.md, pr-16695.md, pr-16343.md, pr-17216.md, pr-17128.md, pr-16684.md, pr-17019.md, pr-17746.md, raw/kueue/pkg/scheduler/preemption/config/filters/priority_filters.go, raw/kueue/pkg/scheduler/preemption/config/filters/factory.go, raw/kueue/pkg/scheduler/preemption/config/evaluator.go
 
 **Last updated**: 2026-10-28
 
@@ -27,6 +27,7 @@ The `PreemptionConfig` is read with a client `Get` **once per preemption attempt
 | Field | Meaning |
 |---|---|
 | `preemptorSelector` | Label selector on the *preemptor Workload*. Nil = every Workload (unlike `LabelSelectorAsSelector(nil)`, which matches nothing). |
+| `preemptorPriorityClassSelector` | (main, v0.21 dev, pr-16684) Priority-class selector on the preemptor, see below. AND-ed with `preemptorSelector`; nil or empty = any priority class. |
 | `activationPolicy.trigger` | Required. `Always`, `InsufficientQuota`, or `QuotaFeasibleAndInsufficientTopology`. |
 | `candidateSelectors[]` | Max 32. Candidates from all selectors are unioned. **No selectors = empty candidate set** (rule disallows preemption). |
 
@@ -37,16 +38,42 @@ Each candidate selector (`PreemptionConfigPreemptionCandidateSelector`):
 - `labelSelector`: label selector on candidate Workloads.
 - `numericLabels[]` (max 32, AND-ed): `key`, optional `fallbackValue` (int32), optional `comparison`, `minValue`, `maxValue`.
 - `priority`: `mode` (`Base` = `spec.priority`; `Boosted` = effective priority including [[preemption-cost]] boost) and `comparison` against the preemptor.
+- `priorityClassSelector` (main, v0.21 dev, pr-16684): priority-class selector on candidates, see below.
 
 `comparison` values are `LessThan`, `GreaterThan`, `LessThanOrEqual`, `GreaterThanOrEqual`, always "candidate value compared with preemptor value".
 
 Numeric-label semantics worth remembering (source: raw/kueue/pkg/scheduler/preemption/config/filters/numeric_label_filters.go):
 
 - Labels are parsed as int32 base 10. A missing or unparsable label uses `fallbackValue`; **without a fallback the candidate is excluded**. Kubernetes label values cannot start with `-`, so a negative `fallbackValue` is how you make unlabeled workloads compare smaller than every labeled one.
-- If the *preemptor* lacks the label and there is no fallback, a `comparison` matches no candidate (logged at V(2)).
+- If the *preemptor* lacks the label and there is no fallback, a `comparison` matches no candidate. This is logged at V(2) on v0.20.x releases; on main pr-17746 moved it to V(4), with a parse failure at V(5) and an unsupported comparison at V(1) (backports pending the next patch).
 - Labels are not copied from the job to the Workload automatically; add them to the Kueue configuration's label-copy list first.
 - With none of `comparison`/`minValue`/`maxValue`, the constraint only requires the key to exist with a valid integer.
 - A CEL rule rejects `minValue > maxValue` ("minValue must be less than or equal to maxValue"); `minValue`/`maxValue` are `>= 0` (source: pr-16124.md). This validation is done by the API server (CRD), not a webhook.
+
+## Priority-class selectors (`PreemptionConfigPriorityClassSelector`, pr-16684)
+
+Merged on main 2026-10-27 (release note: "ConfigurablePreemptions: Added `preemptorPriorityClassSelector` and `priorityClassSelector` (`sourceRef` and `nameExpressions`) to `PreemptionConfig`..."), still behind `ConfigurablePreemptions` (Alpha, off). It has no backport, so it is not in v0.20.x. The KEP text was moved from `FUTURE_WORK.md` into the KEP README by pr-17019 (docs only, release note NONE). That PR describes both selectors as top-level on the rule, but in the API `priorityClassSelector` is on each candidate selector (source: pr-16684.md, pr-17019.md, raw/kueue/apis/kueue/v1alpha1/preemptionconfig_types.go).
+
+Both selectors match `Workload.spec.priorityClassRef`, which Kueue fills for WorkloadPriorityClass and Pod PriorityClass alike, so no `labelKeysToCopy` entry is needed:
+
+- `sourceRef` (optional): `group` + `kind`, both required, enum `kueue.x-k8s.io`/`WorkloadPriorityClass` or `scheduling.k8s.io`/`PriorityClass`. Two CEL rules reject mismatched pairs. If set, a Workload without `priorityClassRef`, or with a different group/kind, does not match.
+- `nameExpressions` (optional, 1-16, atomic, AND-ed): `operator` `In` / `NotIn`, and `values` (1-16 names, a set, DNS-subdomain pattern). `In` requires `priorityClassRef.name` to be in `values`, so a Workload **without** a priority class never matches. `NotIn` requires it not to be in `values`, so a Workload without a priority class **always** matches.
+- `sourceRef` and `nameExpressions` are AND-ed. A selector with neither is treated as absent (`isEmptyPriorityClassSelector`, no filter built). A defaulted class (for example a `default` WorkloadPriorityClass under `WorkloadPriorityClassDefaulting`, or a `globalDefault` Pod PriorityClass) can be named in `nameExpressions` to match Workloads that did not set a class explicitly.
+
+Code: `filters.NewPriorityClassFilter` builds a `WorkloadFilter` for candidates (`buildPriorityClassFilter` in `factory.go`). An unsupported operator yields a `FilterBuildError` with reason `ReasonUnsupportedOperator` (`FilterPriorityClassSelector`), handled by the fail-fast path below. For the preemptor, `matchesPreemptor` first checks `preemptorSelector` and then `workloadMatchesPriorityClassSelector`, whose build errors are reported as `FilterPreemptorPriorityClassSelector` (source: raw/kueue/pkg/scheduler/preemption/config/filters/priority_filters.go, raw/kueue/pkg/scheduler/preemption/config/filters/factory.go, raw/kueue/pkg/scheduler/preemption/config/evaluator.go).
+
+```yaml
+rules:
+- name: prod-preempts-batch
+  activationPolicy: {trigger: InsufficientQuota}
+  preemptorPriorityClassSelector:
+    sourceRef: {group: kueue.x-k8s.io, kind: WorkloadPriorityClass}
+    nameExpressions: [{operator: In, values: [prod]}]
+  candidateSelectors:
+  - scope: WithinCohortTree
+    priorityClassSelector:
+      nameExpressions: [{operator: NotIn, values: [prod, system-critical]}]
+```
 
 ## Triggers and the evaluation order
 
@@ -76,7 +103,7 @@ A Workload preempted by a rule gets:
 - `status.schedulingStats.evictions[]` entry with `reason: Preempted` and **`underlyingCause` = the PreemptionConfig name**; `count` increments per preemption. The KEP originally said `reason: ConfigurablePreemption`; it was corrected to match the implementation (source: issue-16295.md, pr-16324.md).
 - The preemption metrics use the target's reason string, so the `ConfigurablePreemption` reason appears as a label value ([[metrics]]).
 
-If `ConfigurablePreemptionReasonData` is nil the code logs an error and falls back to the generic message.
+If `ConfigurablePreemptionReasonData` is nil the code falls back to the generic message. Since pr-17746 (main) this is logged as a V(1) info, `Configurable preemption reason data is missing; using default message`, instead of an error, because it means a broken invariant with a safe fallback.
 
 ## Error handling for bad rules (pr-16269)
 

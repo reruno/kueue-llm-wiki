@@ -2,7 +2,7 @@
 
 **Summary**: E2E tests run Kueue against a real (Kind-based) Kubernetes cluster, with any external operators (JobSet, KubeRay, Kubeflow Training, LeaderWorkerSet, AppWrapper, cert-manager, Prometheus Operator) installed alongside. This page covers the per-suite matrix, the dev-mode Kind lifecycle (`E2E_MODE=dev`), the full MultiKueue invocation recipe, and flake patterns specific to e2e.
 
-**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/hack/testing/e2e-common.sh`, `raw/kueue/hack/testing/e2e-test.sh`, `raw/kueue/hack/testing/e2e-multikueue-test.sh`, `raw/kueue/test/e2e/`, `raw/kueue/site/content/en/community/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-5414]]; pr-16348.md, pr-17050.md, pr-16753.md, pr-16723.md.
+**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/hack/testing/e2e-common.sh`, `raw/kueue/hack/testing/e2e-test.sh`, `raw/kueue/hack/testing/e2e-multikueue-test.sh`, `raw/kueue/test/e2e/`, `raw/kueue/site/content/en/community/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-5414]]; pr-16348.md, pr-17050.md, pr-16753.md, pr-16723.md; 2026-10-28 batch: pr-17822.md, pr-17882.md, pr-17704.md, issue-17702.md, pr-17686.md, pr-17807.md, pr-14142.md, pr-17847.md, pr-17629.md (`hack/make/test.mk`, `hack/testing/e2e-test.sh` and `e2e-common.sh` re-read at kueue@966f00d21).
 
 **Last updated**: 2026-10-28
 
@@ -33,14 +33,17 @@ Every target below is in `hack/make/test.mk` (formerly `Makefile-test.mk`). All 
 | `test-tas-e2e-deepintegration` | `test/e2e/singlecluster/tasapi/deepintegration/` | TAS deep-integration specs (used by `test-e2e-was-deep-tas-baseline-basic-fit`). |
 | `test-e2e-dra-baseline` / `test-e2e-dra-counter` / `test-e2e-dra-capacity` | `test/e2e/dra/{whole-device,counter,capacity}/` | DRA support path. |
 | `test-e2e-certmanager` | `test/e2e/certmanager/` | cert-manager-backed webhooks. |
+| `test-e2e-networkpolicy` | `test/e2e/networkpolicy/` | The opt-in NetworkPolicies (pr-14142): asserts the controller-manager policy by name, selector and exact port set, and checks that a listed port is reachable and an unlisted one denied, using a labelled listener Pod. Run with `E2E_NETWORK_POLICIES=true`. See [[security-authn-authz#Opt-in NetworkPolicies (pr-14142)]]. |
 | `test-e2e-sequential-baseline` (+ `-shard-0/1`) | `test/e2e/sequential/baseline/` | Non-default `configuration.kueue.x-k8s.io` Kueue configurations (baseline set). |
 | `test-e2e-sequential-extended` (+ `-shard-0/1`) | `test/e2e/sequential/extended/` | The same, extended set (includes Spark). |
 | `test-e2e-kueueviz` / `test-e2e-kueueviz-local` | `test/e2e/kueueviz/` | KueueViz UI end-to-end; runs Cypress against a real browser. See [[dashboard]]. |
 | `test-e2e-k8s-main-was` | `test/e2e/singlecluster/wasapi/` | WAS API suite against a kind node image built from k/k `main` with `WAS_ENABLED=true`. `test-e2e-was-api` (alias `test-e2e-was`) runs the same folder on a released Kubernetes version. |
 
+**NetworkPolicies in the baseline suites.** `run-test-e2e-baseline-%` and `run-test-e2e-sequential-baseline-%` set `E2E_NETWORK_POLICIES=true`, so admission, metrics and visibility run under the policies. With kustomize, `kueue_deploy` applies `config/networkpolicy` after Kueue; with Helm, the chart's `networkPolicy.enabled` is set. kind's default CNI enforces NetworkPolicy, so no extra agent is installed. The baseline run also sets `E2E_EXTRA_TARGET_FOLDER=networkpolicy`, so `e2e-test.sh` runs `test/e2e/networkpolicy/...` after the main suite. That second run clears `GINKGO_ARGS` and writes `networkpolicy.json`. A change that adds a Kueue listener port, or moves one in the e2e configs, must update the policy too. pr-14142 had to do this for the sequential-baseline visibility-port test (source: pr-14142.md; raw/kueue/hack/make/test.mk, hack/testing/e2e-test.sh, e2e-common.sh).
+
 There is no `test-e2e`, `test-multikueue-e2e-main`, `test-tas-e2e`, `test-e2e-dra`, `test-e2e-upgrade`, `test-e2e-certmanager-upgrade` or `test-e2e-customconfigs` target at kueue@3bbb8cce4; use the baseline/extended targets above.
 
-Add `-helm` to any supported target (`test-e2e-baseline-helm`, `test-e2e-extended-helm`, `test-tas-e2e-baseline-helm`, `test-tas-e2e-extended-helm`, `test-e2e-sequential-baseline-helm`, `test-e2e-sequential-extended-helm`) to install via Helm instead of kustomize. Or set `E2E_USE_HELM=true`. `test-multikueue-e2e-helm` is still defined but depends on the undefined `test-multikueue-e2e`, so it does not run (`hack/make/test.mk`).
+Add `-helm` to any supported target (`test-e2e-baseline-helm`, `test-e2e-extended-helm`, `test-tas-e2e-baseline-helm`, `test-tas-e2e-extended-helm`, `test-e2e-sequential-baseline-helm`, `test-e2e-sequential-extended-helm`) to install via Helm instead of kustomize. Or set `E2E_USE_HELM=true`. `test-multikueue-e2e-helm` is still defined but depends on the undefined `test-multikueue-e2e`, so it does not run (`hack/make/test.mk`, still true at kueue@966f00d21). **Helm is built on demand** (pr-17882): `setup-e2e-env` no longer depends on `helm` unless `E2E_USE_HELM=true`, and every `-helm` target, `test-e2e-sequential-extended` (and `-shard-1`, Spark operator) and the DRA targets (`test-e2e-dra-baseline`, `-counter`, `-capacity`, `test-e2e-multikueue-dra`, DRA example driver) list `helm` themselves. A new target that installs a chart must do the same, or it fails with `helm` missing on a fresh checkout.
 
 **Helm and kustomize e2e now test the same configuration.** The Helm path used to carry its own copy of the manager configuration in `test/e2e/config/{default,certmanager}/values.yaml`. Nobody kept it in sync, so Helm e2e ran with **no feature gates enabled** and some settings missing. `helm_install` in `hack/testing/e2e-common.sh` now takes the kustomization directory as a third argument (`test/e2e/config/${E2E_CONFIG_FOLDER:-default}` or `test/e2e/config/certmanager`), runs `kustomize build`, and derives the manager configuration and replica count from it. Edit only the kustomize config (source: pr-16348.md). It also sets the chart's `enableAlphaAPIs` to `true` exactly when the kustomize build contains a CRD from `config/components/crd/alpha`. Without this, the 4 PreemptionConfig RBAC specs failed under Helm because the chart skipped the alpha CRDs (source: pr-17050.md).
 
@@ -57,7 +60,7 @@ make kind-image-build   # build the controller image with the current source
 make test-e2e-baseline  # creates cluster, runs tests, deletes cluster
 ```
 
-Pick a k8s version (from `E2E_K8S_VERSIONS` — currently `1.34.11 1.35.8 1.36.4 1.37.0`; default `E2E_K8S_VERSION=1.36`):
+Pick a k8s version (from `E2E_K8S_VERSIONS` — currently `1.35.8 1.36.4 1.37.0` after pr-17807 dropped 1.34 at its EOL; default `E2E_K8S_VERSION=1.36`):
 
 ```shell
 E2E_K8S_FULL_VERSION=1.35.8 make test-e2e-baseline
@@ -94,6 +97,18 @@ GINKGO_ARGS="--label-filter=feature:spark" make test-e2e-sequential-extended
 
 - Baseline (`test-e2e-sequential-baseline`): `admissionfairsharing, certs, failurerecoverypolicy, localqueuemetrics, managejobswithoutqueuename, objectretentionpolicies, podintegrationautoenablement, reconcile, visibility, waitforpodsready`.
 - Extended (`test-e2e-sequential-extended`): `managejobswithoutqueuename, workloadidentifierannotations, spark`.
+
+### What `e2e-test.sh` does, in order (and how to read its timing)
+
+Since pr-17822 (main, 2026-10-28) the singlecluster script starts `ginkgo build ./test/e2e/<E2E_TARGET_FOLDER>` **in the background** as soon as it starts. It then builds the kind node image, creates the cluster (in the background) while preparing images, deploys Kueue, waits for the compile, and runs the compiled `<folder>/<basename>.test` binary instead of `ginkgo run` compiling from source. Compilation used to start only after Kueue was ready, while most of the job's CPU sat idle during cluster bring-up. In CI this cut about 42–44 s from time-to-first-spec on the baseline and extended jobs. `e2e-multikueue-test.sh` is unchanged (source: pr-17822.md; raw/kueue/hack/testing/e2e-test.sh).
+
+Every setup step is wrapped in `e2e_timed <label> <cmd>` (`hack/testing/e2e-common.sh`, pr-17704, fixes issue-17702), which logs a line in the same format as the `make-timing` lines:
+
+```
+e2e-timing: started=2026-10-24T05:47:19Z finished=2026-10-24T05:48:01Z status=0 duration=42s step=kind/install_jobset
+```
+
+Steps include `compile_e2e`, `build_kind_node_image`, `create_cluster`, `prepare_docker_images`, `wait_for_cluster`, `kueue_deploy`, per-cluster `<cluster>/load_images`, `<cluster>/install_<operator>` and `kueue_wait_ready`, `wait_for_compile` (how long the run still waited for the compile; 0 s means the compile was hidden) and `ginkgo`. A step that fails or times out is logged with its real exit status by `e2e_timed_log_unfinished` from the `cleanup` EXIT trap. `grep e2e-timing build-log.txt` gives the time breakdown of a slow job. **Gotcha for script authors:** call `e2e_timed` as a plain command under `errexit`, never inside `if`, `&&` or `||`. Bash disables `errexit` for the whole function in those contexts, so a failing step would keep running and be logged as `status=0`. The helper is covered by `hack/testing/e2e-common_test.sh`, run by `make verify`.
 
 ## E2E_MODE — cluster lifecycle
 
@@ -221,7 +236,7 @@ Cluster-scoped object names are suffixed per parallel worker; namespaces are cre
 
 ## Extra images for MultiKueue suites
 
-`test-multikueue-e2e-sequential` depends on `kind-secretreader-plugin-image-build`, which builds the secretreader plugin image. The Ray-mini image is built by `kind-ray-project-mini-image-build` (top-level `Makefile`). There is no `test-multikueue-e2e-parallel-builds` target at kueue@3bbb8cce4.
+The MultiKueue `ClusterProfile` plugin specs use the **upstream** secretreader image, `registry.k8s.io/cluster-inventory-api/secretreader:${CLUSTERPROFILE_VERSION}`. It is mounted directly into the Kueue manager Pod (`hack/testing/e2e-common.sh`). pr-17686 (fixes #10390) removed Kueue's custom build of the plugin, the `kind-secretreader-plugin-image-build` dependency of `test-multikueue-e2e-sequential` and `CLUSTERPROFILE_PLUGIN_IMAGE_VERSION`. The custom build existed only for Kubernetes 1.34, which pr-17807 dropped first. The PR verified the specs with `GINKGO_ARGS=--focus=ClusterProfile.*plugins make test-multikueue-e2e-sequential` on 1.35, 1.36 and 1.37. The Ray-mini image is built by `kind-ray-project-mini-image-build` (top-level `Makefile`). There is no `test-multikueue-e2e-parallel-builds` target at kueue@966f00d21.
 
 ## Flake patterns
 
@@ -236,6 +251,14 @@ The e2e analogue of the integration pattern. [[issue-6525]] — "MultiKueue when
 ### Disruptive specs in a parallel suite
 
 [[issue-10200]] — When new MultiKueue specs were added to the parallel suite without awareness of disruptive ones, total runtime climbed and flake rate rose. Disruptive specs go to `test/e2e/multikueue/sequential/`. Mark a new spec with `Disruptive` (and add a label filter) if it restarts operators, reconfigures webhooks, or otherwise mutates shared state.
+
+### Waiting for webhooks after a restart or `caBundle` change
+
+Sequential specs that restart Kueue or restore the webhook `caBundle` must wait until the **apiserver can actually call the webhooks**, not just for ready Pods or EndpointSlices, which do not mean stale connections have been dropped. Use `e2e.WaitForWebhookDataPath(ctx, k8sClient)`: a dry-run `ResourceFlavor` create retried for `LongTimeout`. `WaitForKueueAvailability` already ends with it. pr-17847 removed `SetLocalQueueStopPolicyWithTimeout`, whose long timeout had been hiding exactly this wait in `default_config_test.go` (fixes issue-17819).
+
+### Teardown order
+
+Delete ClusterQueues **before** their LocalQueues in `AfterEach` when Variants or other quota-less Workloads can be recreated during teardown (ConcurrentAdmission). Otherwise the ClusterQueue can keep its `resource-in-use` finalizer and the cleanup times out (pr-17629; see [[testing#Debugging flakes]]).
 
 ## Reproducing CI failures locally
 

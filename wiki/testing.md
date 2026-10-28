@@ -2,7 +2,7 @@
 
 **Summary**: How to run, focus, and debug Kueue's three test tiers (unit, integration, e2e) on a local dev machine, which make targets and env vars each tier honors, how CI exercises them, and where to look when a test goes flaky. Entry point for the developer-workflow section.
 
-**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/hack/testing/`, `raw/kueue/site/content/en/community/contribution_guidelines/testing.md`, `raw/kueue/test/util/constants.go`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-2415]], [[pr-5414]], [[pr-6906]]; pr-16723.md, pr-16481.md, pr-16781.md, pr-16791.md, pr-16823.md, pr-16996.md, pr-16923.md; 2026-10-21 batch: pr-17136.md, pr-17163.md, pr-17206.md, pr-17391.md, pr-17283.md, pr-17304.md, pr-17352.md, pr-17431.md, pr-17477.md, pr-17487.md, pr-17377.md, pr-17148.md, `raw/kueue/hack/make/verify.mk`, `raw/kueue/hack/make-failure-summary.sh`; `raw/kueue/site/content/en/community/contribution_guidelines/writing_tests.md`.
+**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/hack/testing/`, `raw/kueue/site/content/en/community/contribution_guidelines/testing.md`, `raw/kueue/test/util/constants.go`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-2415]], [[pr-5414]], [[pr-6906]]; pr-16723.md, pr-16481.md, pr-16781.md, pr-16791.md, pr-16823.md, pr-16996.md, pr-16923.md; 2026-10-21 batch: pr-17136.md, pr-17163.md, pr-17206.md, pr-17391.md, pr-17283.md, pr-17304.md, pr-17352.md, pr-17431.md, pr-17477.md, pr-17487.md, pr-17377.md, pr-17148.md, `raw/kueue/hack/make/verify.mk`, `raw/kueue/hack/make-failure-summary.sh`; `raw/kueue/site/content/en/community/contribution_guidelines/writing_tests.md`; 2026-10-28 batch: pr-17882.md, pr-17822.md, pr-17807.md, pr-14142.md, pr-17602.md, pr-17634.md, pr-17847.md, pr-16893.md, pr-17062.md, pr-17629.md, pr-17734.md, pr-17585.md, pr-17645.md, pr-17771.md, pr-17760.md, pr-17854.md, `raw/kueue/test/util/behavioral/queues.go`, `raw/kueue/test/util/behavioral/integration/workload.go`.
 
 **Last updated**: 2026-10-28
 
@@ -35,7 +35,7 @@ For e2e (any suite):
 
 - Docker (Kind needs it).
 - Kind — `make kind` fetches the pinned version.
-- `kubectl`, `kustomize`, `yq`, `helm`, `ginkgo` — all vendored into `./bin/` by `make setup-e2e-env`, so you do not need global installs.
+- `kubectl`, `kustomize`, `yq`, `ginkgo` (plus `ginkgo-top`, `kind` and the dependency CRDs) are vendored into `./bin/` by `make setup-e2e-env`, so you do not need global installs. **`helm` is built only when a target needs it** (pr-17882): the `*-helm` targets, `test-e2e-sequential-extended` and its `-shard-1` (Spark operator install), and the DRA targets (`test-e2e-dra-*`, `test-e2e-multikueue-dra`) depend on `helm` directly, and `setup-e2e-env` adds it only for an `E2E_USE_HELM=true` override. The 28 e2e presubmits that never run helm skip a 35–64 s `go install` (about 60 s less per job on average). A new target that runs helm must list `helm` as a prerequisite itself.
 - For `E2E_USE_HELM=true` flow, Helm is used to install Kueue instead of kustomize-rendered manifests.
 
 ## Build loop
@@ -101,6 +101,7 @@ make test-multikueue-e2e-extended    # MultiKueue with job integrations
 make test-multikueue-e2e-sequential  # disruptive MultiKueue specs
 make test-tas-e2e-baseline           # topology-aware scheduling (also -extended)
 make test-e2e-certmanager            # cert-manager-backed webhooks
+make test-e2e-networkpolicy          # opt-in NetworkPolicies (pr-14142)
 make test-e2e-sequential-baseline    # customconfigs baseline
 make test-e2e-sequential-extended    # customconfigs extended
 make test-e2e-dra-baseline           # DynamicResourceAllocation path (also -counter, -capacity)
@@ -114,7 +115,7 @@ Per-suite folder layout under `test/e2e/`: `singlecluster/{baseline,extended,tas
 Knobs most contributors touch:
 
 - `E2E_MODE=dev` — keep Kind cluster across runs (see [[testing-e2e]]).
-- `E2E_K8S_VERSION` (default `1.36`) — picks the Kind node image. Valid values live in `E2E_K8S_VERSIONS` (currently `1.34.11 1.35.8 1.36.4 1.37.0` in `hack/make/test.mk`).
+- `E2E_K8S_VERSION` (default `1.36`) — picks the Kind node image. Valid values live in `E2E_K8S_VERSIONS` (currently `1.35.8 1.36.4 1.37.0` in `hack/make/test.mk`; 1.34 was dropped at its EOL by pr-17807, see [[release-process#Kubernetes version support]]).
 - `KIND_CLUSTER_NAME` (default `kind`) — set this if you do not want the suite's teardown to delete your personal default cluster.
 - `IMAGE_TAG` — point at a released or staging image to skip `kind-image-build` entirely, e.g. `IMAGE_TAG=registry.k8s.io/kueue/kueue:v0.16.0`.
 - `GINKGO_ARGS` — passed through to Ginkgo.
@@ -237,7 +238,10 @@ Ginkgo suites under `test/integration/`. Shared fixtures live under `test/util/b
 - `test/util/behavioral/e2e/`: e2e-only helpers (clients, cluster components, images, kubelet/node control, restarts, KubeRay, metrics scraping).
 - Log verification moved into the integration framework (`test/integration/framework`).
 - Every Ginkgo helper calls `ginkgo.GinkgoHelper()`, so failures point at the caller. Explicit Gomega offsets were dropped (source: pr-16996.md, fixes #16896; release-0.19 got the same change as a manual pick, pr-17136). Exception: a function that only **returns** a closure (for example the diagnostic message builder `AssertMsgForMk`) needs `GinkgoHelper()` inside the closure, not in the outer function, which has already returned when the closure runs (pr-17163, fixes issue-17138).
-- Shared helpers added or merged in this window: `SetLocalQueueStopPolicy(ctx, c, lq, policy)` in `test/util/behavioral/queues.go` sets `spec.stopPolicy` to any value with the usual get/update `Eventually` retry, and `UnholdLocalQueue` is a wrapper over it with `kueue.None` (pr-17391, fixes issue-16876). `DeleteAllPodsInNamespace` in `test/util/behavioral/pods.go` is now the single Pod-deletion helper, used by `DeleteNamespace` (pr-17206, fixes issue-17139). Both were backported to release-0.20/0.19. Reuse them instead of hand-written patch loops.
+- **StopPolicy helpers (2026-10-23).** `test/util/behavioral/queues.go` now has a matching pair for each queue kind: `SetLocalQueueStopPolicy` / `UnsetLocalQueueStopPolicy` and `SetClusterQueueStopPolicy` / `UnsetClusterQueueStopPolicy` (`Unset` writes `nil`). Each pair shares a private `set...StopPolicy(…, *kueue.StopPolicy)` that runs a get/compare/update `Eventually` on a fresh read and returns early when the value already matches. `UnholdClusterQueue` was replaced by `SetClusterQueueStopPolicy` (pr-17634, pr-17602, fixes issue-17494). `SetLocalQueueStopPolicyWithTimeout` was removed (pr-17847, fixes issue-17819). Its long timeout was really waiting for the apiserver to accept webhook calls with a restored `caBundle`. Wait for that explicitly with the exported `e2e.WaitForWebhookDataPath` (`test/util/behavioral/e2e/components.go`: a dry-run `ResourceFlavor` create retried for `LongTimeout`), which `WaitForKueueAvailability` already calls. Do not stretch a helper's timeout to cover an unrelated readiness condition.
+- **Mutate only the freshly read object inside `Eventually`.** `FinishWorkloads` built `newWL.Status.Conditions = append(w.Status.Conditions, Finished)` from the **caller's** stale copy, which dropped conditions the server had added since and modified the caller's slice. It now uses `apimeta.SetStatusCondition(&newWL.Status.Conditions, …)` on the object it just fetched (pr-16893, fixes issue-16782).
+- **Prefer the purpose-built assertions.** MultiKueue KubeRay integration tests replaced hand-written Workload listing with `behavioral.ExpectNewWorkloadSlice` and `behavioral.ExpectWorkloadPodSetCount`, which check the replacement relationship rather than a raw Workload count (pr-17585, following a mimowo review comment).
+- Shared helpers added or merged earlier in this window: `SetLocalQueueStopPolicy(ctx, c, lq, policy)` in `test/util/behavioral/queues.go` sets `spec.stopPolicy` to any value with the usual get/update `Eventually` retry, (pr-17391, fixes issue-16876). **Correction (2026-10-28):** this page earlier described `UnholdLocalQueue` as a wrapper. Neither `UnholdLocalQueue` nor `UnholdClusterQueue` exists at kueue@966f00d21. Use `Set…StopPolicy(…, kueue.None)` or `Unset…StopPolicy`. `DeleteAllPodsInNamespace` in `test/util/behavioral/pods.go` is now the single Pod-deletion helper, used by `DeleteNamespace` (pr-17206, fixes issue-17139). Both were backported to release-0.20/0.19. Reuse them instead of hand-written patch loops.
 
 Timeout constants (from `test/util/behavioral/constants.go`):
 
@@ -299,6 +303,9 @@ Flakes are tracked with the `kind/flake` label ([[issue-9952]], [[issue-3044]], 
 - **10-second `Eventually` too tight.** The default `behavioral.Timeout` (formerly `util.Timeout`) is 10 s; under Prow load the sequence "Delete Sticky → Sync Cache → Finish Eviction → Reclaim Resources → Admit Next" often does not fit in 10 s ([[issue-9952]]). Usual fix: bump to `MediumTimeout`/`LongTimeout`, or add an explicit synchronization step (e.g. wait for `NotFound` before starting the next timer).
 - **`Consistently` racing with deletion.** A `Consistently` that asserts a resource's state can fail with `NotFound` if the cleanup path races the assertion ([[issue-9954]]).
 - **State race across parallel specs.** MultiKueue e2e runs disruptive tests sequentially for a reason; adding new specs into a parallel suite can surface order-dependent failures ([[issue-10200]]).
+- **A fixed sleep before acting on controller state.** A provisioning test slept 100 ms, assuming the controller had seen the Workload as admitted, then changed the ProvisioningRequest. It now waits with `behavioral.ExpectAdmissionCheckState(..., CheckStateReady)` and then `ExpectWorkloadsToBeAdmitted` through a `managerClient` (`mgr.GetClient()`), which reads the **manager's cache**, the same view the controller acts on (pr-17062, fixes issue-17061). When the race is with a controller, synchronise on what the controller sees, not on the API server.
+- **Creation-timestamp ties.** `metadata.creationTimestamp` has 1 s resolution. Two Workloads created back to back can tie, and the FIFO tie-break in `makeClassicalIterator` then returns an arbitrary order. A PodsReady test expected `prod-wl` to be admitted before `dev-wl` and flaked. Wait for the first Workload's quota reservation before creating the second (pr-17734, fixes issue-17732; seen on release-0.19).
+- **Teardown order with ConcurrentAdmission.** Deleting the LocalQueue before the ClusterQueue let the controller recreate a Variant that the scheduler assumed into the CQ cache. After the LocalQueue was gone nothing reconciled the CQ again, because a Workload without quota reservation reaches its CQ only through its LocalQueue. The CQ kept `resource-in-use` and `AfterEach` timed out with `Object still exists`. Delete the **ClusterQueue first, then the LocalQueue**, as `scheduler_test.go` already does (pr-17629, fixes issue-17518).
 
 When a test flakes in CI:
 
@@ -328,6 +335,14 @@ Add external CPU pressure with `stress` to reproduce CI-load patterns locally (`
 - `make generate manifests` — regenerates CRDs and RBAC after API changes ([[pr-6906]]).
 
 If a PR's `verify` job fails for import ordering, run `make lint-fix` locally and recommit.
+
+**`make verify` with nested worktrees (2026-10-23).** `ci-lint` module discovery, `fmt-verify` and the shellcheck script used `find`, which descends into Git worktrees or clones under the repo, such as `.claude/worktrees/` or `.worktrees/` created by coding tools. With 18 worktrees, `ci-lint` linted 215 modules instead of 4 and hit its timeout. `fmt-verify` passed 207,189 files to gofmt, overflowed the argument limit, and under GNU Make 3.81 (macOS default, which ignores `.SHELLFLAGS`) **passed silently without checking anything**. The three checks now list files with `git -c core.quotePath=false ls-files --cached --others --exclude-standard`: tracked plus untracked non-ignored files, no nested repositories. They fail if `git ls-files` fails or matches nothing. Gitignored files are no longer checked, and `fmt-verify` now prints the gofmt diff (source: pr-17645.md).
+
+Other verify-workflow changes in this window:
+
+- `gomod-verify` runs `go mod tidy` through `NETWORK_INSTALL_RETRY` (`hack/make/deps.mk`: up to 7 attempts, exponential backoff from 2 s). A single proxy stream reset (`HTTP/2 INTERNAL_ERROR`) used to fail the job (source: pr-17771.md, fixes issue-17768).
+- `kueue-priority-booster-test` runs the booster's `helm-verify` before its unit tests, so the existing `pull-kueue-priority-booster-test-unit-main` job catches chart-rendering errors without a test-infra change (source: pr-17760.md).
+- Config API reference generation (genref) no longer loads `client-go`. `apis/config/v1beta2/defaults.go` sets the leader-election lock to the literal `"leases"` instead of importing `resourcelock`, and the test checks it still equals client-go's constant. Locally genref went from 25.5 s to 5.2 s (source: pr-17854.md). Keep heavy imports out of `apis/` packages that generators parse.
 
 **Reading a failed `make verify` (2026-10).** Changes merged to main and both release branches:
 

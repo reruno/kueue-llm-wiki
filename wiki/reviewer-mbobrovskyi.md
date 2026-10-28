@@ -2,7 +2,7 @@
 
 **Summary**: Profile of Kueue reviewer @mbobrovskyi — review philosophy, domain focus, and approval patterns. Specializes in test infrastructure, API consolidation, controller-runtime patterns, and code-reuse hygiene.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` — analysis of PRs where @mbobrovskyi left substantive feedback. Representative examples: pr-10244, pr-10294, pr-10323, pr-10388, pr-10595.
+**Sources**: `raw/github/kubernetes-sigs__kueue/` — analysis of PRs where @mbobrovskyi left substantive feedback. Representative examples: pr-10244, pr-10294, pr-10323, pr-10388, pr-10595; 2026-10-28 batch: pr-17708.md, pr-17613.md.
 
 **Last updated**: 2026-10-28
 
@@ -84,6 +84,8 @@ mbobrovskyi looks for places where the same field is handled inconsistently acro
 
 This is the kind of bug that integration tests don't always catch; mbobrovskyi finds it by reading both paths side-by-side.
 
+The same habit applies to names that must match another source of truth. In pr-17708 (kueuectl pass-through for Cohort and Topology) the issue and PR proposed `ch` as the Cohort alias, but the code used `co`. mbobrovskyi confirmed `co` was correct because it matches the CRD `shortNames` in `apis/kueue/v1beta2/cohort_types.go`. Pass-through hands the arguments to `kubectl` unchanged, so only CRD-declared aliases work. He asked for the issue and description to be corrected, and for Cohort and Topology rows in the integration table `test/integration/singlecluster/kueuectl/passthrough_test.go`, not only in the unit test. He then rewrote the release note with `/set-release-note` using the `CLI:` prefix (source: pr-17708.md). See [[kueuectl#Pass-through commands]].
+
 ### Tests are a soft requirement
 
 Integration tests are expected but framed as a gap to fill, not a hard block (unlike [[reviewer-mimowo|mimowo]]):
@@ -135,6 +137,8 @@ Read as: "code is clean, but the design decision needs a top-level approver."
 ```
 
 mbobrovskyi tracks which fixes belong on release branches and will request cherry-picks himself, especially for test-infrastructure or dependency fixes that don't carry feature risk.
+
+He is also on `release-team` and prepared v0.19.10 (pr-17613, merged 2026-10-22) and its main re-sync (pr-17615). Singularity23x0 prepared v0.20.3 (pr-17614, pr-17616) (source: pr-17613.md, pr-17614.md). See [[release-process]].
 
 ---
 

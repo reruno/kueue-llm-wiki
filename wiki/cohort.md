@@ -2,9 +2,9 @@
 
 **Summary**: A cohort is a group of [[cluster-queue]]s that can share unused quota with each other. Cohorts can be flat (CQs point to a cohort name) or hierarchical (cohorts have parents). The cohort is the scope in which [[fair-sharing]] and [[borrowing-and-lending]] are computed.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16375.md, pr-16376.md, pr-16438.md, pr-16409.md, pr-15107.md, pr-16738.md, issue-16666.md, pr-16360.md, pr-16488.md, pr-17079.md, pr-17080.md, pr-17346.md, pr-17404.md, pr-17407.md, pr-16630.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/controller/core/cohort_controller.go, raw/kueue/pkg/cache/scheduler/cache.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16375.md, pr-16376.md, pr-16438.md, pr-16409.md, pr-15107.md, pr-16738.md, issue-16666.md, pr-16360.md, pr-16488.md, pr-17079.md, pr-17080.md, pr-17346.md, pr-17404.md, pr-17407.md, pr-16630.md, pr-13307.md, pr-17798.md, pr-17851.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/controller/core/cohort_controller.go, raw/kueue/pkg/cache/scheduler/cache.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -55,6 +55,10 @@ The cache keeps each Cohort's lendable capacity (`resourceNode.Lendable`) next t
 ## Borrowing inside a sub-cohort is not borrowing from outside
 
 In fair-sharing preemption a candidate ClusterQueue counts as a borrower of a contested flavor-resource only if it **and every Cohort up to the lowest common ancestor with the preemptor** borrow that flavor-resource (`candidateBorrowsFromLCA`). A leaf CQ with zero local quota that borrows from a sibling inside a sub-cohort that is within its own quota is therefore not preemptable by an outside preemptor (issue-16666, fixed by pr-16738). See [[fair-sharing#Candidate ClusterQueues are pruned by the *contested* flavor-resources (pr-16738)]].
+
+## A Cohort's own nominal quota gives its descendants a preemption claim (pr-13307)
+
+With fair sharing and `FairSharingPreemptWithinNominal` (Beta, on), the "within nominal, bypass DRS" preemption claim is evaluated at the preemptor's `AlmostLCA` with each target. If that node is a Cohort, it is within nominal when its usage does not exceed its `SubtreeQuota` (own `nominalQuota` plus lendable child quota) for every flavor-resource the incoming Workload requests. Descendants of a Cohort therefore get preferential access to that Cohort's quota against outside borrowers, even when the Cohort borrows on an unrelated flavor. Conversely, a ClusterQueue within its own nominal quota has no claim against a target reached through a **borrowing** parent Cohort. Main 2026-10-27; backports pr-17798 (0.20) and pr-17851 (0.19) pending the next patch (source: pr-13307.md, pr-17798.md, pr-17851.md). See [[fair-sharing#Nominal claim is evaluated at the AlmostLCA with each target (pr-13307, fixes #9466)]].
 
 ## Related pages
 

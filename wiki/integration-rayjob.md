@@ -2,7 +2,7 @@
 
 **Summary**: KubeRay's RayJob and RayCluster each have their own Kueue integration. RayCluster is a long-lived cluster you submit Ray jobs into; RayJob bundles a cluster with a job entrypoint. Kueue accounts for the head pod, the worker groups, and (for RayJob) a short-lived submitter Pod.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16870.md, pr-16882.md, pr-16897.md, pr-16908.md, pr-16915.md, pr-17060.md, pr-17097.md, pr-13244.md, pr-13996.md, pr-14036.md, pr-16853.md, pr-16854.md, pr-16884.md, pr-17366.md, pr-17367.md, pr-17205.md, pr-16259.md, pr-17466.md, pr-17464.md, pr-17513.md, raw/kueue/pkg/controller/jobs/raycluster/common.go, raw/kueue/pkg/controller/jobs/rayservice/rayservice_multikueue_adapter.go, raw/kueue/pkg/controller/jobs/ray/ray_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/controller/jobs/rayservice/rayservice_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16870.md, pr-16882.md, pr-16897.md, pr-16908.md, pr-16915.md, pr-17060.md, pr-17097.md, pr-13244.md, pr-13996.md, pr-14036.md, pr-16853.md, pr-16854.md, pr-16884.md, pr-17366.md, pr-17367.md, pr-17205.md, pr-16259.md, pr-17466.md, pr-17464.md, pr-17513.md, raw/kueue/pkg/controller/jobs/raycluster/common.go, raw/kueue/pkg/controller/jobs/rayservice/rayservice_multikueue_adapter.go, raw/kueue/pkg/controller/jobs/ray/ray_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/controller/jobs/rayservice/rayservice_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-17591.md, pr-17603.md, pr-17604.md, pr-17643.md, raw/kueue/pkg/controller/jobs/raycluster/raycluster_controller.go, raw/kueue/pkg/controller/jobs/rayjob/rayjob_controller.go, raw/kueue/pkg/features/kube_features.go
 
 **Last updated**: 2026-10-28
 
@@ -99,7 +99,7 @@ Production trigger: on Ray 2.55.1 (autoscaler v2) with `minReplicas = maxReplica
 
 The result is multiplied by `max(numOfHosts, 1)`. `BuildPodSets` (PodSet `count`, and `MinCount` for partial scale-up), `UpdatePodSets` (runtime counts read from a RayJob's or RayService's child RayCluster; a group with nil `replicas` is skipped there) and `WorkerGroupPodCounts` (MultiKueue runtime state) all use it. This makes Kueue independent of the Ray autoscaler version.
 
-Releases: `main` (merged 2026-10-16), release-0.20 ([[pr-17366]]) and release-0.19 ([[pr-17367]]). All merged after v0.20.2 / v0.19.9, so the next patch releases are the first to include it (source: pr-17366.md, pr-17367.md).
+Releases: `main` (merged 2026-10-16), release-0.20 ([[pr-17366]]) and release-0.19 ([[pr-17367]]). Shipped in **v0.20.3** (#17366) and **v0.19.10** (#17367) (source: pr-17366.md, pr-17367.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md).
 
 ## Head-container validation
 
@@ -135,7 +135,27 @@ With `MultiKueueRemoteSpecSync` (Beta/on in v0.20.0; also in v0.19.1 / v0.18.5),
 
 A MultiKueue-managed RayService with `enableInTreeAutoscaling` used to be rejected always, even with `MultiKueueRayInTreeAutoscaling` on. [[pr-16259]] adds RayService to worker-side autoscaling, next to RayCluster and RayJob. It needs `MultiKueueRayInTreeAutoscaling` (**Alpha, off**) and an elastic RayService (`kueue.x-k8s.io/elastic-job: "true"`, `ElasticJobsViaWorkloadSlices`). The manager reads worker counts from the worker RayService's **active** child RayCluster (`status.activeServiceStatus.rayClusterName`), writes them onto the manager copy as runtime annotations, creates or updates the workload slice, and repoints the worker RayService once the replacement slice is admitted. The lookup ignores a RayCluster that the RayService does not control or that has worker groups the service does not declare. In-place `serveConfigV2` updates during autoscaling were dropped at first and are fixed by [[pr-17464]]. Details: [[multikueue#RayService worker autoscaling]].
 
-Releases: `main` and **release-0.20 only** ([[pr-17466]], [[pr-17513]]), merged 2026-10-20, after v0.20.2. Maintainers backported the feature to complete KubeRay autoscaling support in 0.20. There is no release-0.19 backport (source: pr-16259.md, pr-17466.md, pr-17513.md).
+Releases: `main` and **release-0.20 only** ([[pr-17466]], [[pr-17513]]), merged 2026-10-20. Maintainers backported the feature to complete KubeRay autoscaling support in 0.20. Both shipped in **v0.20.3** (#17466 under Feature, #17513 under Bug or Regression). There is no release-0.19 backport (source: pr-16259.md, pr-17466.md, pr-17513.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md).
+
+## RayCluster PodsReady uses the head Pod (`RayClusterHeadPodReady`)
+
+Source: pr-17591.md; backports pr-17603 (0.20) and pr-17604 (0.19), merged 2026-10-22. Not in the v0.20.3 / v0.19.10 CHANGELOGs, so pending the next patch releases.
+
+`RayCluster.PodsReady()` used the legacy `status.state == ready`. That state can stay unready while workers are starting or waiting for scale-up quota, even when the head is ready. It can also keep an earlier `ready` value after the head becomes unready. Example from the PR: an elastic RayCluster is admitted with one head and one worker. The head becomes ready and the user starts using it as a devbox. A submitted Ray job autoscales to 16 workers before the first worker is ready, and the 15 new workers stay scheduling-gated while the scale-up slice waits for quota. `status.state` therefore never makes its first transition to `ready`. The admitted slice stays `PodsReady=False` and gets a `PodsReadyTimeout` eviction, which suspends the RayCluster and deletes the head.
+
+With the gate on, `PodsReady()` returns whether the RayCluster's `HeadPodReady` condition is `True`, for **every** RayCluster, with or without elastic-job annotations. A missing, `False` or `Unknown` condition counts as not ready, even if `status.state` is `ready`. With the gate off, readiness is `status.state == ready` (source: raycluster_controller.go).
+
+| Branch | `RayClusterHeadPodReady` |
+|---|---|
+| main | Beta, on (versioned 0.21) |
+| release-0.20 | Alpha, off (versioned 0.20) |
+| release-0.19 | Alpha, off (versioned 0.19) |
+
+(source: kube_features.go, pr-17603.md, pr-17604.md)
+
+- **ACTION REQUIRED** (main release note): the `HeadPodReady` condition needs **KubeRay v1.3.0 or later**. With an older KubeRay, set `RayClusterHeadPodReady=false`.
+- **Scope**: RayCluster only. `RayJob.PodsReady` still uses `status.rayClusterStatus.state == Ready`, and `RayService.PodsReady` uses the `RayServiceReady` condition (source: rayjob_controller.go, rayservice_controller.go).
+- **Limitation of this PR alone**: when the pending replacement slice is the reconciler's target, the admitted slice still missed readiness updates. pr-17643 fixed that by writing `PodsReady` on the admitted slice; see [[wait-for-pods-ready#Elastic jobs: PodsReady stays on the admitted slice]] (source: pr-17591.md, pr-17643.md).
 
 ## RayJob `ValidationFailed` puts the Workload on hold
 
@@ -155,3 +175,4 @@ KubeRay version support: maintainers intend to document support for only the las
 - [[multikueue]] — Ray + multi-cluster.
 - [[topology-aware-scheduling]] — Ray + topology.
 - [[job-framework-interface]]
+- [[wait-for-pods-ready]] — RayCluster readiness and elastic slices.

@@ -2,7 +2,7 @@
 
 **Summary**: MultiKueue dispatches [[workload]]s from a **manager cluster** to one of several **worker clusters**. Users submit jobs on the manager as usual; MultiKueue (implemented as an [[admission-check]]) picks a worker cluster with capacity, forwards the job, and mirrors status back. It's how one Kueue installation governs a fleet of clusters.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15962.md, pr-15986.md, pr-15989.md, pr-16140.md, pr-15871.md, pr-16315.md, pr-16235.md, issue-16172.md, issue-16010.md, issue-15380.md, issue-13243.md, raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go, raw/kueue/pkg/metrics/metrics.go, raw/kueue/pkg/features/kube_features.go, pr-13244.md, pr-13996.md, pr-16470.md, pr-16370.md, pr-14036.md, pr-15280.md, pr-15387.md, pr-16473.md, pr-16772.md, pr-13706.md, pr-15092.md, raw/kueue/pkg/controller/jobs/raycluster/common.go, raw/kueue/pkg/controller/jobs/raycluster/raycluster_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-17228.md, pr-17360.md, pr-17362.md, pr-17331.md, pr-17118.md, pr-17357.md, pr-17358.md, pr-16259.md, pr-17466.md, pr-17464.md, pr-17513.md, pr-17157.md, raw/kueue/pkg/controller/admissionchecks/multikueue/clusterqueue.go, raw/kueue/pkg/controller/admissionchecks/multikueue/controllers.go, raw/kueue/pkg/controller/jobs/ray/ray_multikueue_adapter.go, raw/kueue/pkg/controller/jobs/rayservice/rayservice_multikueue_adapter.go, raw/kueue/apis/kueue/v1beta2/multikueue_types.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15962.md, pr-15986.md, pr-15989.md, pr-16140.md, pr-15871.md, pr-16315.md, pr-16235.md, issue-16172.md, issue-16010.md, issue-15380.md, issue-13243.md, raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go, raw/kueue/pkg/metrics/metrics.go, raw/kueue/pkg/features/kube_features.go, pr-13244.md, pr-13996.md, pr-16470.md, pr-16370.md, pr-14036.md, pr-15280.md, pr-15387.md, pr-16473.md, pr-16772.md, pr-13706.md, pr-15092.md, raw/kueue/pkg/controller/jobs/raycluster/common.go, raw/kueue/pkg/controller/jobs/raycluster/raycluster_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-17228.md, pr-17360.md, pr-17362.md, pr-17331.md, pr-17118.md, pr-17357.md, pr-17358.md, pr-16259.md, pr-17466.md, pr-17464.md, pr-17513.md, pr-17157.md, raw/kueue/pkg/controller/admissionchecks/multikueue/clusterqueue.go, raw/kueue/pkg/controller/admissionchecks/multikueue/controllers.go, raw/kueue/pkg/controller/jobs/ray/ray_multikueue_adapter.go, raw/kueue/pkg/controller/jobs/rayservice/rayservice_multikueue_adapter.go, raw/kueue/apis/kueue/v1beta2/multikueue_types.go, pr-16175.md, pr-17845.md, pr-16612.md, pr-17644.md, pr-17647.md, pr-17420.md, pr-17738.md, pr-17059.md, pr-17569.md, pr-17574.md, issue-17047.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/controller/admissionchecks/multikueue/workload.go, raw/kueue/pkg/controller/jobframework/multikueue.go, raw/kueue/pkg/controller/jobs/job/job_multikueue_adapter.go, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_multikueue_adapter.go, raw/kueue/pkg/controller/jobs/pod/pod_multikueue_adapter.go
 
 **Last updated**: 2026-10-28
 
@@ -64,6 +64,20 @@ When a worker cluster's apiserver becomes unreachable, the manager's `clustersRe
 **Why two consecutive failures appear in the same second.** When a healthy cluster first goes down, the `MultiKueueClusterActive` condition flips `True/Connected → False/ClientConnectionFailed`. That status write produces an object-change event that immediately enqueues a second reconcile (before the `RequeueAfter` from the first one fires). The second reconcile increments `failedConnAttempts` to 2 and logs `retryAfter: 10s`; its status update is a no-op because `cmpConditionState` (now `isConditionEqual`) sees the same condition, so the cascade stops there. From that point on, retries are paced strictly by `RequeueAfter`.
 
 This is an artifact of condition-flip + reconcile-on-status-update, not two real connection attempts being deliberately scheduled in the same second.
+
+### Reconnect triggers an immediate Workload resync
+
+A re-established watch does not replay events missed while it was down. Before [[pr-16175]] (fixes [[issue-16172]]), remote changes made during the gap (`Admitted`, `Finished`, `Evicted`) reached the manager only through the `workerLostTimeout` requeue (default 15 min), even after the connection had recovered (source: issue-16172.md, pr-16175.md).
+
+The code on `main` works like this (source: raw/kueue/pkg/controller/admissionchecks/multikueue/multikueuecluster.go):
+
+- `updateConfigAndRefreshWatchers` now returns `(refreshed bool, retryAfter *time.Duration, err error)`. `refreshed` is true only when the client was rebuilt **and** every watcher was established: the Workload watcher, the adapter watchers and, with `MultiKueueManagerQuotaAutomation`, the queue watchers. It is false on the no-op path (same config, still connected) and on every error or deferred attempt.
+- `setRemoteClientConfig` runs under the per-cluster `updateConfigLock`. It records `hadClientBefore := client.getClient() != nil` before the refresh. A resync runs only when `hadClientBefore && refreshed`, which means a reconnect or a kubeconfig change of an existing client. The first connection does not trigger one.
+- `requeueWorkloadsForCluster` lists the **manager** Workloads through the local client. Nothing is listed on the worker. It sends each Workload whose `status.clusterName` is the cluster, or whose `status.nominatedClusterNames` contains it, to `queueWorkloadEvent`, which resolves the active workload slice. The normal Workload reconcile then reads the remote state again. The List has no selector, so it covers every manager Workload.
+- If the List fails, `remoteClient.resyncPending` stays true and the reconcile returns `RequeueAfter: resyncRetryInterval` (5s) with no error, so the new watches are kept. The next reconcile sees `refreshed == false`, but `resyncPending` makes it retry the resync anyway.
+- The PR description says it lists remote Workloads by origin label. The merged commit lists manager Workloads instead.
+
+Releases: on `main` as commit `bd6e48078` (part of kueue@966f00d21, committed 2026-10-27) and on release-0.20 via [[pr-17845]] (merged 2026-10-27). It is not in the v0.20.3 notes, so it ships in the next 0.20 patch. The raw data has no release-0.19 backport. The `pr-16175.md` snapshot (last updated 2026-10-21) still shows the PR as open, but the commit is on `main` and [[issue-16172]] is closed (source: pr-16175.md, pr-17845.md, issue-16172.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md).
 
 ### A hung remote watch no longer stalls all clusters
 
@@ -216,6 +230,41 @@ When a workload slice scales, the scheduler reserves quota for the replacement a
 
 A remote Workload that finished with reason `OwnerNotFound` was mirrored back verbatim. That permanently finished the manager Workload and left the manager Pod's scheduling gates stuck. Such a finish is now treated like `OutOfSync`: the admission check is reset and the Workload is re-dispatched (#14997). Shipped in v0.20.0, v0.19.3 and v0.18.7 ([[pr-15092]]) (source: pr-15092.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md).
 
+## Remote cleanup for jobs with several Workloads (LeaderWorkerSet)
+
+A LeaderWorkerSet creates one Workload per group, but all its groups share **one** LeaderWorkerSet on the worker. `wlGroup.RemoveRemoteObjects` deletes the remote controller object first, then the remote Workload. So when one group's Workload finished, was evicted, or was deleted by a scale-down, the shared remote LeaderWorkerSet was deleted, and the other groups still running there were stopped and then recreated ([[pr-16612]]) (source: pr-16612.md).
+
+Since [[pr-16612]] (source: raw/kueue/pkg/controller/admissionchecks/multikueue/workload.go):
+
+- `jobHasMultipleWorkloads()` is true when the adapter implements `jobframework.MultiKueueMultiWorkloadAdapter`. At the snapshot that is only LeaderWorkerSet.
+- `removeUnsharedRemoteObjects(cluster)` handles such jobs. If `hasOtherWorkloadsOnCluster` reports another Workload of the same job on that cluster, it deletes only the remote Workload (`removeRemoteWorkload` removes the `ResourceInUse` finalizer, then deletes the Workload). Otherwise it falls back to `RemoveRemoteObjects`.
+- `hasOtherWorkloadsOnCluster` reads **manager** Workloads only (`listComponentWorkloads` on the local client), so nothing is listed on the worker. It skips the Workload itself and any Workload that is being deleted, is finished, or has no quota reservation. A Workload counts if `status.clusterName` is the cluster or `status.nominatedClusterNames` contains it.
+- Only two call sites use the new helper: the deleted-Workload path in `Reconcile`, and step 2 of `reconcileGroup` (the local Workload is finished or has no quota reservation). The other `RemoveRemoteObjects` call sites are unchanged. They handle cases like removing remotes from clusters that were not chosen.
+- Scale-down: the remote LeaderWorkerSet now survives, so it is no longer recreated at the new size. When a group Workload is deleted, `enqueueComponentWorkloads` sends the job's other Workloads to `wlUpdateCh`. The LeaderWorkerSet adapter's `SyncJob` then patches the remote `spec.replicas` **down** to the local value. It never raises it. See [[integration-leaderworkerset#MultiKueue]].
+
+Releases: `main` (merged 2026-10-22), release-0.20 ([[pr-17644]]) and release-0.19 ([[pr-17647]], a manual cherry-pick). Neither is in the v0.20.3 / v0.19.10 notes, so it ships in the next patches (source: pr-17644.md, pr-17647.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md).
+
+## Manager-side status reset after a requeue (`MultiKueueLocalStatusResetter`)
+
+The Pod adapter copies the worker Pod's status onto the gated manager Pod. When the Workload was evicted on the worker and requeued, the worker Pod was deleted, but the manager Pod kept the copied status (phase `Running`, Pod IP, container statuses) until it was dispatched again. So the manager reported a queued Pod as running ([[pr-17420]]) (source: pr-17420.md).
+
+[[pr-17420]] adds the optional adapter interface `jobframework.MultiKueueLocalStatusResetter` with `ResetLocalStatus(ctx, localClient, key) error`. The reconciler calls it through `wlReconciler.resetLocalStatus`, which does nothing for adapters that do not implement it (source: raw/kueue/pkg/controller/jobframework/multikueue.go, raw/kueue/pkg/controller/admissionchecks/multikueue/workload.go). It is called in two places:
+
+1. **Step 2 of `reconcileGroup`**: the local Workload has no quota reservation and is not finished. The reset runs after the remote objects are removed, and its error is added to the returned errors.
+2. **Step 6c**: no remote Workload is admitted (the AdmissionCheck is not `Ready`). This covers a Workload that gets quota again before any reconcile sees it without quota, in which case step 2 never runs. A failed reset does not block nomination. Its error is joined with the result of `nominateAndSynchronizeWorkers`, or returned when cluster nomination is skipped, so the reconcile is retried.
+
+The interface contract: the reset may run on every reconcile, so it must not write when there is nothing to reset, and a missing local object is not an error. Only the single-Pod adapter implements it. See [[integration-plain-pod#MultiKueue]].
+
+Releases: `main` (merged 2026-10-26) and release-0.20 ([[pr-17738]]). The automatic release-0.19 cherry-pick failed and the raw data has no manual one. It ships in the next 0.20 patch (source: pr-17420.md, pr-17738.md).
+
+## batch/Job: the manager's `status.failed` never decreases
+
+A batch/Job that is re-dispatched after an eviction (for example `EvictedDueToNodeFailures`) gets a new worker Job that starts at `status.failed=0`. The adapter used to copy the remote status onto the manager Job as-is. On Kubernetes 1.35+ the API server rejects any status update that lowers `status.failed` on a `managedBy` Job ("cannot decrease the failed counter"). So the manager Job never showed the new worker's active and ready Pods, the Workload hit the `PodsReady` timeout, and it was evicted again, in a loop ([[issue-17047]]) (source: pr-17059.md, issue-17047.md).
+
+[[pr-17059]] routes every status-copying branch of `determineStatusUpdate` through `mergeJobStatus(local, remote)`. That function deep-copies the remote status and sets `Failed = max(local.Failed, remote.Failed)`. Everything else (active, ready, conditions, startTime, `succeeded`) is still copied from the worker. On the manager, `status.failed` is informational only, because the worker enforces backoff limits. Only `failed` is clamped. Clamping `succeeded` was split out of the PR in review. A reviewer noted that `succeeded` can legitimately decrease when a Job shrinks, so it needs its own formula (source: pr-17059.md, raw/kueue/pkg/controller/jobs/job/job_multikueue_adapter.go). See [[integration-batchjob#MultiKueue]].
+
+Shipped in **v0.20.3** (#17569) and **v0.19.10** (listed as #17059; release-0.19 cherry-pick [[pr-17574]]) (source: raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md, pr-17569.md, pr-17574.md).
+
 ## `MultiKueueKubeConfigPathValidation` is Beta (v0.20)
 
 [[pr-13706]] (fixes #13704) graduated the gate to **Beta, on by default in v0.20** (Alpha since 0.19). `MultiKueueCluster` kubeconfigs with `locationType: Path` must then live under **`/etc/multikueue/kubeconfigs/`**. Disabling the gate restores any file path, which can expose sensitive files readable by the manager (source: pr-13706.md, raw/kueue/pkg/features/kube_features.go). See [[security]].
@@ -247,7 +296,7 @@ Graduated to **Beta, on by default, in v0.20** (pr-16235, tracked by issue-13966
 ## Behaviours worth knowing (from open issues)
 
 - **The manager's flavor assignment is not mirrored to the worker.** Kueue injects the admitted flavor's node labels into the manager's *local* copy; the mirrored Workload on the worker is admitted independently against the worker's own ClusterQueue and flavors. Manager-side per-flavor quota therefore need not describe where work ran (source: issue-16010.md, open feature/bug report).
-- **A worker watch that reconnects does not replay missed events**, and there is no relist on reconnect; state changes during the gap (`Admitted`, `Finished`, `Evicted`) are normally picked up only by the `workerLostTimeout`-based requeue (source: issue-16172.md, open). Suspect this when the manager lags a worker after a network blip.
+- **Correction (2026-10-28)**: this list said a reconnecting worker watch is not resynced until the `workerLostTimeout` requeue ([[issue-16172]]). That is fixed on `main` and release-0.20. See [[#Reconnect triggers an immediate Workload resync]].
 - **RayJob + external AdmissionCheck `Retry`** can leave a manager Workload `Admitted` (holding quota) after the worker mirror is deleted, because the worker RayJob's `Suspended` status was not mirrored back first (source: issue-15380.md, open).
 
 ## Related pages

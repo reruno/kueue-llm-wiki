@@ -2,7 +2,7 @@
 
 **Summary**: "Gang scheduling" in Kueue means: if a [[workload]] can't get *all* its Pods running within a deadline, tear it down and requeue — rather than leave it partially running and holding quota. The mechanism is `WaitForPodsReady`, configured globally in the Kueue Configuration (on by default with a 30m timeout; per-Workload overrides via annotation, see [[wait-for-pods-ready]]).
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` (this update: pr-16904.md, pr-16483.md, pr-17181.md, pr-17209.md, pr-17250.md, pr-17397.md, pr-17400.md, `raw/kueue/pkg/cache/scheduler/was/virtual_podgroups.go`, `raw/kueue/pkg/scheduler/assignment/was/was_planner.go`).
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (this update: pr-16904.md, pr-16483.md, pr-17181.md, pr-17209.md, pr-17250.md, pr-17397.md, pr-17400.md; kueue@966f00d21 batch: pr-17153.md, pr-17550.md, pr-17605.md, pr-17419.md, `raw/kueue/pkg/cache/scheduler/was/virtual_podgroups.go`, `raw/kueue/pkg/features/kube_features.go`, `raw/kueue/pkg/scheduler/assignment/was/was_planner.go`).
 
 **Last updated**: 2026-10-28
 
@@ -46,7 +46,15 @@ For multi-template jobs (JobSet, RayJob), gang means "all PodSets' replicas must
 
 ## Not the same thing: Kubernetes gang `PodGroup`s in the WAS simulator
 
-Kubernetes workload-aware scheduling has its own gang object, `scheduling.k8s.io/v1beta1` `PodGroup` with `spec.schedulingPolicy.gang.minCount`. For the Alpha, main-only `SchedulerLibraryDeepIntegration` work, Kueue gained `was.BuildVirtualPodGroup(wl)`. It builds one **in-memory** gang PodGroup per Workload, named `virtual-pg-<workload>-<sha1>` with `minCount` equal to the sum of PodSet counts, so the scheduler library's `ScheduleWorkload()` can simulate all-or-nothing placement. Nothing is written to the API server. **Update (2026-10-21)**: the WAS planner (pr-16483) now uses it on every plan. It registers the PodGroup in the simulator with `SchedulerSimulator.AddPodGroup` (pr-17209), links each candidate virtual Pod to it through `spec.schedulingGroup.podGroupName` (pr-17181; only candidate Pods, not Pods of already-placed Workloads, pr-17250), calls `ScheduleWorkload`, and removes the PodGroup again with `RemovePodGroup` (pr-17400). If any Pod cannot be placed, the Workload is `NoFit` with reason `SchedulingSimulationFailed`. Real PodGroups are still ignored. It does not change `WaitForPodsReady` semantics (source: pr-16904.md, pr-16483.md, pr-17397.md, virtual_podgroups.go, was_planner.go). See [[topology-aware-scheduling]] (section "Deep integration").
+Kubernetes workload-aware scheduling has its own gang object, `scheduling.k8s.io/v1beta1` `PodGroup` with `spec.schedulingPolicy.gang.minCount`. For the Alpha, main-only `SchedulerLibraryDeepIntegration` work, Kueue gained `was.BuildVirtualPodGroup(wl)`. It builds one **in-memory** gang PodGroup per Workload, named `virtual-pg-<workload>-<sha1>` with `minCount` equal to the sum of PodSet counts, so the scheduler library's `ScheduleWorkload()` can simulate all-or-nothing placement. Nothing is written to the API server. **Update (2026-10-21)**: the WAS planner (pr-16483) now uses it on every plan. It registers the PodGroup in the simulator with `SchedulerSimulator.AddPodGroup` (pr-17209), links each candidate virtual Pod to it through `spec.schedulingGroup.podGroupName` (pr-17181; only candidate Pods, not Pods of already-placed Workloads, pr-17250), calls `ScheduleWorkload`, and removes the PodGroup again with `RemovePodGroup` (pr-17400). If any Pod cannot be placed, the Workload is `NoFit` with reason `SchedulingSimulationFailed`. Real PodGroups are still ignored. It does not change `WaitForPodsReady` semantics (source: pr-16904.md, pr-16483.md, pr-17397.md, virtual_podgroups.go, was_planner.go).
+
+**Update (2026-10-28): a hierarchy instead of one gang.** The gate is still Alpha, off by default, and registered for 0.21 (main only) (source: kube_features.go). pr-17605 replaced the single Workload-wide PodGroup with `was.BuildVirtualPodGroups(wl)` (builder from pr-17153). The builder produces a tree:
+
+- **Leaf `PodGroup`s** (`scheduling.k8s.io/v1beta1`, `gang.minCount`) are built one per unsliced PodSet, or one per innermost slice of a `podsetSliceRequiredTopologyConstraints` PodSet. The tail slice may be smaller.
+- **`CompositePodGroup`s** (`scheduling.k8s.io/v1alpha3`, `gang.minGroupCount` = number of children) are built for outer slice levels, for a PodSet group that needs an enclosing group, and as a root when several top-level groups exist.
+- Each group may carry the matching required topology key in `schedulingConstraints.topology`.
+
+Each candidate virtual Pod is linked to its leaf PodGroup, and the planner registers all groups with `AddCompositePodGroup`/`AddPodGroup` (pr-17550) before `ScheduleWorkload`, then removes them. So the gang structure that the scheduler library simulates now follows the Workload's slice and PodSet-group hierarchy, not one flat Workload-wide gang. The builder refuses preferred topology (`PreferredTopologyNotSupported`) and trees deeper than 4 (`HierarchyDepthExceeded`), and the Workload webhook rejects new `preferred` requests while the gate is on (pr-17419). Details: [[topology-aware-scheduling]] (sections "Deep integration" and "Virtual PodGroup hierarchy").
 
 ## Related pages
 
@@ -55,4 +63,4 @@ Kubernetes workload-aware scheduling has its own gang object, `scheduling.k8s.io
 - [[admission-check]] — AdmissionChecks and their interaction with the PodsReady timer.
 - [[elastic-jobs]] — dynamic Pod-count changes on admitted Workloads.
 - [[wait-for-pods-ready]] — config, defaults and per-workload override.
-- [[topology-aware-scheduling]] — WAS simulator and virtual PodGroups.
+- [[topology-aware-scheduling]] — WAS simulator and the virtual PodGroup / CompositePodGroup hierarchy.

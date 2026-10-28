@@ -905,3 +905,122 @@ Of these, 255 are merged PRs; 169 of those target release branches or `website`.
 - `fair-sharing`: the cited `fair_sharing_iterator.go` line range.
 - `concurrent-admission`: the KEP's Story 3 timeout.
 - `failure-recovery`: whether the controller acts only on Kueue-managed Pods.
+
+## 2026-10-28 — v0.20.3/v0.19.10 batch: fair-preemption nominal claim at AlmostLCA, UnrecordableResourceUsage, elastic-slice PodsReady/quota pre-credit, TAS rank-offset defaults, DRA/DQO hardening, MultiKueue LWS/Pod/reconnect fixes, kueuectl pass-through, opt-in NetworkPolicies
+
+**Date**: 2026-10-28
+
+**Data-collection commit**: `01b5cb371e33623c5b749c93af6404330b33af6b` (`[data-collection] 377 new,337 updated items from kubernetes-sigs/kueue, kueue@966f00d21`)
+
+**Operator**: Claude Code standing wiki ingest, run as five parallel slices with page ownership:
+- core scheduling
+- TAS/WAS
+- elastic/PodsReady/DRA/DQO/Ray
+- integrations/MultiKueue
+- tooling/security/release/testing
+
+Cross-slice facts were relayed between slices or applied by the coordinator (`job-framework-interface.md` PodsReady signature, `multikueue-orchestrated-preemption.md` rename, Kubeflow/TrainJob offset details).
+
+**Provenance notes**:
+- **Backports**: most merged PR files in this batch are release-branch backports. Their substance came from main-branch originals that merged in this window but are modified files, not new ones: pr-13307, 14142, 14577, 16522, 16578, 16612, 16662, 16684, 16754, 16857, 16982, 17019, 17059, 17101, 17117, 17153, 17161, 17195, 17200, 17207, 17343, 17361, 17382, 17398, 17419, 17420, 17451, 17460, 17523, 17536, 17537, 17543, 17550.
+- **Code checks**: code facts and gate stages were checked at kueue@966f00d21 (`raw/kueue`).
+- **Release attribution**: comes from `CHANGELOG-0.20.md` (v0.20.3) and `CHANGELOG-0.19.md` (v0.19.10), prepared in pr-17614 / pr-17613. Fixes merged to release branches after those cuts are marked "pending next patch".
+- **pr-16175**: `pr-16175.md` still says *open*, but the commit `bd6e48078` (#16175) is on main in kueue@966f00d21. The wiki records it as merged on main plus release-0.20 (pr-17845).
+- **Triage**: open issues/PRs, closed-unmerged PRs, KEP/WIP, CI/flake, dependency bumps and release bookkeeping were triaged by title, labels and description. They were not written as shipped behaviour, except where they change a documented developer workflow.
+
+**Source files analysed** (377 new files):
+- 8 CVE files in `raw/cve/`: CVE-2025-30050, CVE-2026-102649, CVE-2026-113788, CVE-2026-114636, CVE-2026-114638, CVE-2026-114640, CVE-2026-115356, CVE-2026-83938.
+- 86 issues in `raw/github/kubernetes-sigs__kueue/` (`issue-N`): 12633, 12722, 12750, 12757, 12841, 12910, 12913, 12997, 13035, 13036, 13090, 13125, 13129, 13159, 13228, 13238, 13242, 13306, 13424, 13432, 13541, 13589, 13608, 14573, 15211, 17553, 17556, 17557, 17562, 17583, 17586, 17587, 17597, 17601, 17612, 17622, 17628, 17630, 17633, 17635, 17637, 17684, 17697, 17701, 17702, 17705, 17707, 17717, 17726, 17728, 17732, 17735, 17748, 17749, 17750, 17753, 17761, 17762, 17763, 17764, 17767, 17768, 17769, 17773, 17775, 17776, 17777, 17783, 17795, 17796, 17806, 17808, 17813, 17814, 17819, 17837, 17840, 17861, 17863, 17873, 17877, 17878, 17890, 17891, 17892, 17894.
+- 283 PRs (`pr-N`): 17497, 17554, 17555, 17558, 17559, 17560, 17561, 17563, 17564, 17565, 17566, 17567, 17568, 17569, 17570, 17571, 17572, 17573, 17574, 17575, 17576, 17577, 17578, 17579, 17580, 17581, 17582, 17584, 17585, 17588, 17589, 17590, 17591, 17592, 17593, 17594, 17595, 17596, 17598, 17599, 17600, 17602, 17603, 17604, 17605, 17606, 17607, 17608, 17609, 17610, 17611, 17613, 17614, 17615, 17616, 17617, 17618, 17619, 17620, 17621, 17623, 17624, 17625, 17626, 17627, 17629, 17631, 17632, 17634, 17636, 17638, 17639, 17640, 17641, 17642, 17643, 17644, 17645, 17646, 17647, 17648, 17649, 17650, 17651, 17652, 17653, 17654, 17655, 17656, 17657, 17658, 17659, 17660, 17661, 17662, 17663, 17664, 17665, 17666, 17667, 17668, 17669, 17670, 17671, 17672, 17673, 17674, 17675, 17676, 17677, 17678, 17679, 17680, 17681, 17682, 17683, 17685, 17686, 17687, 17688, 17689, 17690, 17691, 17692, 17693, 17694, 17695, 17696, 17698, 17699, 17700, 17703, 17704, 17706, 17708, 17709, 17710, 17711, 17712, 17713, 17714, 17715, 17716, 17718, 17719, 17720, 17721, 17722, 17723, 17724, 17725, 17727, 17729, 17730, 17731, 17733, 17734, 17736, 17737, 17738, 17739, 17740, 17741, 17742, 17743, 17744, 17745, 17746, 17747, 17751, 17752, 17754, 17755, 17756, 17757, 17758, 17759, 17760, 17765, 17766, 17770, 17771, 17772, 17774, 17778, 17779, 17780, 17781, 17782, 17784, 17785, 17786, 17787, 17788, 17789, 17790, 17791, 17792, 17793, 17794, 17797, 17798, 17799, 17800, 17801, 17802, 17803, 17804, 17805, 17807, 17809, 17810, 17811, 17812, 17815, 17816, 17817, 17818, 17820, 17821, 17822, 17823, 17824, 17825, 17826, 17827, 17828, 17829, 17830, 17831, 17832, 17833, 17834, 17835, 17836, 17838, 17839, 17841, 17842, 17843, 17844, 17845, 17846, 17847, 17848, 17849, 17850, 17851, 17852, 17853, 17854, 17855, 17856, 17857, 17858, 17859, 17860, 17862, 17864, 17865, 17866, 17867, 17868, 17869, 17870, 17871, 17872, 17874, 17875, 17876, 17879, 17880, 17881, 17882, 17883, 17884, 17885, 17886, 17887, 17888, 17889, 17893, 17895.
+
+**Created**: none (depth added to existing pages).
+
+**Updated: core scheduling**
+- `fair-sharing.md`: new section on pr-13307. The preemptor's within-nominal claim is now evaluated at the AlmostLCA with each target, so a Cohort's own nominal quota counts. The pr-17034 text is marked superseded and shipped in v0.20.3/v0.19.10.
+- `preemption.md`: pr-13307 bullet; pr-17746 preemption log-level and message changes; release attribution.
+- `borrowing-and-lending.md`, `cohort.md`: what pr-13307 means for a Cohort's nominal quota as a preemption claim.
+- `scheduler-internals.md`: the issue-16486 gap is replaced by the pr-17195 `UnrecordableResourceUsage` mechanism. Also:
+  - pr-17161 `replacementFor` hash key; pr-16662 cross-reference.
+  - pr-17746 logging summary.
+  - TAS cross-references.
+  - `LogLevelForSchedulerMainLoop` exists on release branches only.
+- `debugging-guide.md`: full list of pr-17746 level, message and key changes; pr-17782 `prev*`→`previous*` key renames; a "fixed in v0.20.3 / v0.19.10" table; a refreshed pending table.
+- `metrics.md`: pr-14577 Workload custom labels on `kueue_admitted_workloads_total` / `kueue_admission_wait_time_seconds` (main). pr-17856 late-admission-report bug and the invariant that only the cache writes the custom-label store.
+- `configurable-preemptions.md`: new `PreemptionConfigPriorityClassSelector` section (pr-16684/pr-17019): API fields, `In`/`NotIn` semantics, filter code, YAML. The KEP text and the API disagree on field placement; the page notes this.
+- `unadmitted-workloads-observability.md`, `admission.md`: `UnrecordableResourceUsage` reason and severity order; `DRAResourcesUnresolved` Warning event (pr-16857).
+- `workload.md`: `resourceUsage` semantics after pr-17195; DRA event; `PodSetsCounts` invariants (pr-17573/17727/17810).
+- `cache-architecture.md`: the cache owns Workload entries in the custom-label store (pr-17856); release attribution.
+- `cluster-queue.md`, `workload-priority.md`: release attribution. `cluster-queue.md` also gets the CapacityProvider `observedGeneration` note.
+
+**Updated: TAS / WAS**
+- `topology-aware-scheduling.md`:
+  - Default `pod-index-offset` for grouped Kubeflow v1/MPIJob/TrainJob (pr-17689, pr-17862).
+  - `runLauncherAsWorker` MPIJob regression fix and new webhook rule (pr-17640).
+  - New section "Which PodSet failure is reported" (pr-17579, pr-17398).
+  - Elastic predecessor usage removed once, with the `released` set moved to `ClusterQueueSnapshot` (pr-17460).
+  - Shipped v0.20 topology-spreading semantics (pr-16578), correcting the earlier "rejected" claim.
+  - Brief WAS additions marked Alpha `SchedulerLibraryDeepIntegration`.
+  - Release attribution.
+- `gang-scheduling.md`: WAS virtual PodGroup/CompositePodGroup tree replaces the single Workload-wide virtual gang (Alpha).
+
+**Updated: elastic / PodsReady / DRA / DQO / Ray**
+- `elastic-jobs.md`:
+  - Shrinking-PodSet quota is credited first during slice replacement (pr-16662, shipped).
+  - PodsReady stays on the admitted slice during a pending scale-up (pr-17643, pr-16754).
+  - Replacement slices get their own equivalence-hash class (pr-17161); issue-14230 gap closed.
+  - Shared slice lookup (pr-17690).
+- `wait-for-pods-ready.md`: where `reconcilePodsReadyCondition` writes the condition (pr-17610); elastic-slice PodsReady rules; behaviour with `WorkloadLevelWaitForPodsReady` off (pr-17451).
+- `integration-rayjob.md`: `RayClusterHeadPodReady` (Beta/on on main for 0.21, Alpha/off on 0.20/0.19; needs KubeRay ≥ 1.3.0) with a per-branch table (pr-17591).
+- `dra.md`: CEL availability uses only complete, latest-generation pools (pr-17649, issue-14573); DeviceClass events reach LimitRange-defaulted requests (pr-17803); `DRAResourcesUnresolved` Warning event (pr-16857).
+- `dynamic-quota-orchestration.md`: per-flavor aggregated-resource limit fails discovery (pr-17698); stale CapacityProvider generations rejected via the `ObservedGeneration` contract (pr-17523).
+- `workload-resource-adjustment.md`: DeviceClass changes with LimitRange defaults (pr-17803); release attribution.
+
+**Updated: integrations / MultiKueue**
+- `multikueue.md`: four additions:
+  - Resync after a worker watch reconnects (pr-16175 on main, pr-17845 on 0.20), replacing the old "reconnect does not relist" note.
+  - Shared remote LWS cleanup (pr-16612).
+  - `MultiKueueLocalStatusResetter` manager Pod status reset after requeue (pr-17420).
+  - batch/Job `status.failed` clamp (pr-17059).
+- `integration-batchjob.md`: `mergeJobStatus` clamps `failed` to max(local, remote) (pr-17059; v0.20.3/v0.19.10).
+- `integration-leaderworkerset.md`: new MultiKueue section: adapter interfaces, shared remote LWS kept until its last group leaves, scale-down only shrinks remote replicas.
+- `integration-plain-pod.md`: MultiKueue `SyncJob` status copy, `ResetLocalStatus` / `hasRemoteStatus` rules, why pod groups are excluded.
+- `job-framework-interface.md`:
+  - Table of optional MultiKueue adapter interfaces.
+  - The job is requeued when its Namespace is missing from the cache (pr-16982 root cause of the PaddleJob timeout).
+  - Action-required signature change `PodsReady(ctx, c, ...PodsReadyOption)` with `WithWorkload`/`PodsReadyWorkload` (pr-16754, coordinator).
+- `manage-jobs-selectively.md`: `ManagedJobsNamespaceSelectorAlwaysRespected` is GA and locked on since v0.19.0; Namespace cache-miss retry.
+- `integration-trainjob.md`: dry-run Workload uses `generateName` (pr-17563). Grouped-template `pod-index-offset: "0"` default in `ReplicatedJobPatch` (pr-17862).
+- `integration-kubeflow.md`: the PaddleJob flake's root cause is in the shared framework. Offset defaults for grouped Kubeflow v1/MPIJob and the `runLauncherAsWorker` webhook rule (pr-17689, pr-17640).
+- `integration-spark.md`: fixed PodSet order and length check (pr-17382, refactor only).
+- `integration-statefulset.md`, `integrations.md`: release attribution for v0.20.3/v0.19.10; list of fixes merged 2026-10-21 to 2026-10-27.
+- `multikueue-orchestrated-preemption.md`: `syncPreemptionGateStates` renamed `removeOrphanedPreemptionGateStates` (pr-17343; coordinator).
+
+**Updated: tooling / security / release / testing**
+- `kueuectl.md`: new section on pass-through commands: `kubectl` re-exec and the alias table with `cohort`/`co` and `topology`/`topo` (pr-17708, main only). Aliases need CRD `shortNames`.
+- `dashboard.md`: secondary informers gated on `watch` (pr-17207); `--listen`/`--log-level` flags (pr-16522); NetworkPolicy port coupling; owner-reference and flavor fixes; reviewer scope.
+- `security.md`: corpus is now 803 files; counts recomputed; 2026-10-28 wave section; NetworkPolicy wording corrected.
+- `security-authn-authz.md`: opt-in NetworkPolicies (pr-14142: ports, Helm derivation, ingress-only rationale); long-lived WebSocket session re-checks.
+- `security-code-patterns.md`, `security-best-practices.md`, `security-information-disclosure.md`, `security-injection-and-input-validation.md`: new patterns and checklist items from the 8 CVEs.
+- `security-supply-chain.md`: Dependabot `pull_request_target`→`pull_request` and its remaining guards; SLSA still open; `network-policies.yaml` release artifact.
+- `release-process.md`:
+  - v0.20.3/v0.19.10 rows; the pending list reconciled with the CHANGELOGs.
+  - Cherry-pick script behaviour (pr-17200/17577/17607). The script uses `git commit-tree` and `cherry-pick --no-commit`, not `merge --squash` as the PR text says.
+  - `/set-release-note` parsing; dry runs don't touch the release issue; release-branch README links.
+  - Kubernetes 1.34 dropped (pr-17807).
+- `feature-gates.md`: `RayClusterHeadPodReady` added; `FairSharingPreemptWithinNominal` semantics updated (pr-13307); `LogLevelForSchedulerMainLoop` corrected to release branches only; `PreemptionConfigPriorityClassSelector` is an API type under `ConfigurablePreemptions`, not a gate; stage table checked at kueue@966f00d21.
+- `testing.md`, `testing-e2e.md`, `testing-integration.md`:
+  - Helm built only for the e2e targets that use it (pr-17882); background e2e compile (pr-17822).
+  - `e2e-timing` per-step logs and the `errexit` gotcha (pr-17704); NetworkPolicy e2e suite; upstream secretreader image (pr-17686).
+  - Webhook wait / teardown order; four flake-avoidance rules; verify-workflow changes.
+- `kueue-overview.md`: supported Kubernetes 1.35+; new landing README; uninstall order (delete Kueue objects before uninstalling, pr-17766).
+- `reviewers.md`, `reviewer-mbobrovskyi.md`: kannon92 added as dependency-approver; scoped KueueViz reviewers; `AGENTS.md` contribution workflow (pr-17361); pr-17708 `shortNames` review.
+- `architecture.md`, `performance-and-scale.md`: v0.20.3/v0.19.10 shipping status; log-level gate on release branches.
+- `index.md`: header snapshot now kueue@966f00d21 / 803 CVEs; refreshed blurbs for configurable-preemptions, dynamic-quota-orchestration, multikueue, integration-rayjob, integration-leaderworkerset, kueuectl, security-authn-authz.
+
+**Left open (could not verify)**:
+- `FinalizeTerminatingPodGroups` stage on release-0.19: the v0.19.10 changelog says Beta/on, but the earlier page said Alpha/off. Local release-0.19 refs are too old to check; this is flagged on `feature-gates.md`.
+- pr-17688 (0.19 backport of pr-17161): its description still mentions `SchedulingHashUnknown`, which main reverted before merge. Its code was not checked.
+- Manual backports pr-17835/17839 (pr-17746), pr-17851 (pr-13307 on 0.19) and pr-17647 (pr-16612 on 0.19) were not diffed against main.
+- pr-17621's "scheduler-library#63 enables quota preemption" comes from the description only; the WAS planner still rejects `Preempt`.
+- pr-17649's "too few eligible devices → inadmissible, retried with backoff" comes from the PR description, not the code.
+- The v0.19.10 changelog cites main PRs #16630/#17346 instead of their backports (pr-17582/pr-17407).

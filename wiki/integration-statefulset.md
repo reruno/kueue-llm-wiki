@@ -2,7 +2,7 @@
 
 **Summary**: Kueue can manage `apps/v1 StatefulSet` jobs through queue-based admission, using per-pod scheduling gates rather than a top-level `spec.suspend` field, and supports MultiKueue dispatch.
 
-**Sources**: `raw/kueue/pkg/controller/jobs/statefulset/statefulset_controller.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_webhook.go`, pr-13316.md, pr-16399.md, pr-16401.md, issue-14013.md, pr-16705.md, pr-16710.md, pr-16751.md, pr-16770.md, pr-13775.md, pr-12948.md, pr-16044.md, pr-17540.md, pr-17541.md, issue-16043.md, issue-14266.md, pr-17255.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, pr-15142.md, pr-15412.md, raw/kueue/pkg/controller/jobs/statefulset/statefulset_reconciler.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/kueue/pkg/controller/jobs/statefulset/statefulset_controller.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_webhook.go`, pr-13316.md, pr-16399.md, pr-16401.md, issue-14013.md, pr-16705.md, pr-16710.md, pr-16751.md, pr-16770.md, pr-13775.md, pr-12948.md, pr-16044.md, pr-17540.md, pr-17541.md, issue-16043.md, issue-14266.md, pr-17255.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, pr-15142.md, pr-15412.md, raw/kueue/pkg/controller/jobs/statefulset/statefulset_reconciler.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
 **Last updated**: 2026-10-28
 
@@ -122,7 +122,7 @@ Now `reconcileWorkload` first calls `hasActiveOwnedPods` (source: raw/kueue/pkg/
 - With `AdmissionGatedBy`, the admission-gated condition update returns early for an `OnHold` Workload. The `kueue.x-k8s.io/admission-gated-by` annotation still blocks admission after the hold is cleared.
 - On the legacy path (`UnadmittedWorkloadsObservability` off, the release-0.19 default), the queue-blocker check used to replace `OnHold` with `Inadmissible` when the LocalQueue or ClusterQueue was missing, stopped or inactive. The StatefulSet reconciler then set `OnHold` again, and the two controllers looped. An `IsOnHold` early return now prevents that. The granular path already checked `IsOnHold` first.
 
-Releases: `main` (merged 2026-10-21), release-0.20 ([[pr-17540]]) and release-0.19 ([[pr-17541]]). All merged after v0.20.2 / v0.19.9, so the next patch releases are the first to include it. The 0.19 backport keeps that branch's legacy Workload-name fallback and separate StatefulSet Pod reconciler, and adds the Pod-owner index that branch lacked (source: pr-17541.md).
+Releases: `main` (merged 2026-10-21). Shipped in **v0.20.3** ([[pr-17540]]) and **v0.19.10** ([[pr-17541]]) (source: raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md). The 0.19 backport keeps that branch's legacy Workload-name fallback and separate StatefulSet Pod reconciler, and adds the Pod-owner index that branch lacked (source: pr-17541.md).
 
 ## Default WorkloadPriorityClass is not added on update to a running StatefulSet
 

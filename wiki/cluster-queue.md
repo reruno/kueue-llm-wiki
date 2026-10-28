@@ -2,7 +2,7 @@
 
 **Summary**: A ClusterQueue (CQ) is a cluster-scoped resource that owns a pool of quota. It groups quota into resource groups of flavors, limits how workloads queue up, and optionally joins a [[cohort]] so unused capacity can be lent to peers.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15633.md, pr-16140.md, pr-15949.md, pr-16282.md, pr-15913.md, pr-16168.md, raw/kueue/apis/kueue/v1beta2/clusterqueue_types.go, pr-15371.md, pr-16375.md, pr-16438.md, pr-15040.md, pr-17010.md, pr-16487.md, pr-16488.md, pr-16528.md, pr-16728.md, pr-17479.md, pr-17480.md, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/cache/queue/manager.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15633.md, pr-16140.md, pr-15949.md, pr-16282.md, pr-15913.md, pr-16168.md, raw/kueue/apis/kueue/v1beta2/clusterqueue_types.go, pr-15371.md, pr-16375.md, pr-16438.md, pr-15040.md, pr-17010.md, pr-16487.md, pr-16488.md, pr-16528.md, pr-16728.md, pr-17479.md, pr-17480.md, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/cache/queue/manager.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-17523.md
 
 **Last updated**: 2026-10-28
 
@@ -48,7 +48,7 @@ A CQ becomes inactive if a referenced [[resource-flavor]] is missing or a refere
 ## Fields and annotations added around the ClusterQueue in v0.20
 
 - **`kueue.x-k8s.io/preemption-config-name` annotation** (Alpha, gate `ConfigurablePreemptions`) references a cluster-scoped `PreemptionConfig`; it becomes a real field in Beta ([[configurable-preemptions]]).
-- **`status.effectiveQuotas`** (`orchestratorRef` + `resourceGroups`, max 16 groups): written by a `DynamicQuotaOrchestrator` under gate `DynamicQuotaOrchestration` (Alpha); when set, the scheduler uses it instead of `spec.resourceGroups` (via `resourcegroups.EffectiveResourceGroups`, pr-15040), and an empty list is a complete override. Webhooks still validate only `spec` ([[dynamic-quota-orchestration]]).
+- **`status.effectiveQuotas`** (`orchestratorRef` + `resourceGroups`, max 16 groups): written by a `DynamicQuotaOrchestrator` under gate `DynamicQuotaOrchestration` (Alpha); when set, the scheduler uses it instead of `spec.resourceGroups` (via `resourcegroups.EffectiveResourceGroups`, pr-15040), and an empty list is a complete override. Webhooks still validate only `spec` ([[dynamic-quota-orchestration]]). A CapacityProvider must set `observedGeneration` on its `CapacitySynchronized` condition; otherwise the orchestrators stay `ProviderNotReady` (pr-17523, see [[dynamic-quota-orchestration]]).
 - **`spec.concurrentAdmissionPolicy`** requires a single ResourceGroup with at most **32** flavors (was 16) ([[concurrent-admission]]).
 - The API comments on `resourceGroups[].flavors` now warn that many flavors have performance implications (pr-16282).
 - The manager-side `MultiKueueManagerQuotaAutomation` condition's `observedGeneration` is refreshed even when the condition itself is unchanged (pr-16140; [[multikueue]]).
@@ -62,7 +62,7 @@ A CQ becomes inactive if a referenced [[resource-flavor]] is missing or a refere
 - The Workload reconciler resolved the ClusterQueue through the queue manager, which drops held and deleted LocalQueues, so the lookup returned `""` and `reconcileOnClusterQueueActiveState` never evicted. `Manager.ClusterQueueNameForWorkloadWithoutLock` now returns `status.admission.clusterQueue` for any Workload with a quota reservation.
 - For a **deleted** LocalQueue, the ClusterQueue event handler never enqueued the Workload, because `queueReconcileForWorkloadsOfClusterQueue` found Workloads only through existing LocalQueues. It now also lists Workloads by the `status.admission.clusterQueue` index (`indexer.WorkloadClusterQueueKey`) and enqueues them; a List error is only logged, since it reads the informer cache.
 
-Release note: "Fixed a bug where setting a ClusterQueue's `stopPolicy` to `HoldAndDrain` did not evict admitted Workloads whose LocalQueue was held or deleted." Main merged 2026-10-20; backports pr-17480 (0.20) and pr-17479 (0.19) merged the same day, after v0.20.2 / v0.19.9.
+Release note: "Fixed a bug where setting a ClusterQueue's `stopPolicy` to `HoldAndDrain` did not evict admitted Workloads whose LocalQueue was held or deleted." Main merged 2026-10-20; backports pr-17480 (0.20) and pr-17479 (0.19) merged the same day, after v0.20.2 / v0.19.9, and shipped in **v0.20.3 / v0.19.10**.
 
 ## Finalizer (`kueue.x-k8s.io/resource-in-use`)
 

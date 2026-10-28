@@ -2,7 +2,7 @@
 
 **Summary**: Integration tests run Kueue's controllers and webhooks against a controller-runtime `envtest` (an etcd + kube-apiserver pair; no kubelet, no kube-scheduler). They are Ginkgo + Gomega suites under `test/integration/`. This page covers the suites, the CI variants (main / baseline / extended / multikueue), how to write one, and the flake patterns that recur.
 
-**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/test/integration/`, `raw/kueue/test/util/constants.go`, `raw/kueue/test/util/util.go`, `raw/kueue/site/content/en/community/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[pr-2415]], [[pr-6906]]; pr-16793.md, issue-16789.md, pr-16781.md, pr-16791.md, pr-16723.md; `raw/kueue/test/integration/framework/framework.go`, `raw/kueue/test/util/behavioral/`.; pr-17282.md, issue-16873.md
+**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/test/integration/`, `raw/kueue/test/util/constants.go`, `raw/kueue/test/util/util.go`, `raw/kueue/site/content/en/community/contribution_guidelines/testing.md`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[pr-2415]], [[pr-6906]]; pr-16793.md, issue-16789.md, pr-16781.md, pr-16791.md, pr-16723.md; `raw/kueue/test/integration/framework/framework.go`, `raw/kueue/test/util/behavioral/`.; pr-17282.md, issue-16873.md 2026-10-28 batch: pr-17062.md, pr-17734.md, pr-16893.md, pr-17818.md, pr-17634.md, pr-17602.md.
 
 **Last updated**: 2026-10-28
 
@@ -203,6 +203,22 @@ The [[issue-9952]] Prow logs showed `ResourceFlavor "on-demand" not found` causi
 ### Parallel-spec state bleed
 
 With `INTEGRATION_NPROCS=4`, specs run in parallel within a suite. Cluster-scoped objects (ClusterQueue, Cohort, ResourceFlavor) need unique names per spec (use a `ginkgo.NodeName`-derived suffix or `rand.String(...)`), and namespaces need to be created per spec. The builders in `pkg/util/testing` handle this if you use them consistently.
+
+### A sleep standing in for "the controller has seen it"
+
+`time.Sleep(100 * time.Millisecond)` in the provisioning suite assumed the controller had observed an admission before the test changed the ProvisioningRequest. On a loaded runner the controller had not, and it rejected the admission check. Replace such sleeps with an assertion on the state the controller acts on: `behavioral.ExpectAdmissionCheckState`, then `behavioral.ExpectWorkloadsToBeAdmitted` through a client built from `mgr.GetClient()`, which reads the **manager's cache** (pr-17062, fixes issue-17061). The direct `k8sClient` reads the API server, which can be ahead of the controller's informers.
+
+### Ordering by creation timestamp
+
+`creationTimestamp` has 1 s resolution, so Workloads created in the same second tie, and the FIFO tie-break in the scheduler's classical iterator is arbitrary. A test that needs A admitted before B must wait for A's quota reservation before creating B (pr-17734, fixes issue-17732).
+
+### Cluster-scoped fixtures with fixed names
+
+When a table reuses fixed names for cluster-scoped objects across entries (as the kueuectl pass-through table does), register `ginkgo.DeferCleanup` **right after creating** each object. Delete with `client.IgnoreNotFound` and wait for NotFound. Otherwise one failed assertion leaves the object behind and every later entry fails with `AlreadyExists` (pr-17818; see [[kueuectl#Pass-through commands]]).
+
+### Stale copies inside retry loops
+
+Inside a get/update `Eventually`, build the update from the object you just read, never from the caller's copy. `FinishWorkloads` appended `Finished` to the caller's `w.Status.Conditions` and overwrote conditions the server had added since. It now calls `apimeta.SetStatusCondition` on the fresh object (pr-16893, fixes issue-16782). The StopPolicy helpers (`Set/Unset{Local,Cluster}QueueStopPolicy`) follow the same rule and skip the update when the value already matches (pr-17602, pr-17634; see [[testing#Writing tests]]).
 
 ## Reproducing and stressing
 

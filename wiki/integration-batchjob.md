@@ -2,7 +2,7 @@
 
 **Summary**: The integration for Kubernetes' built-in `batch/v1.Job`. It's the simplest and most mature — a Job has one PodSet (or one plus a `parallelism`/`completions` count). Kueue suspends the Job at creation and unsuspends on admission.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-17059.md, pr-17569.md, pr-17574.md, issue-17047.md, raw/kueue/pkg/controller/jobs/job/job_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
 **Last updated**: 2026-10-28
 
@@ -23,6 +23,8 @@ With the `ElasticJobsViaWorkloadSlices` feature gate (see [[elastic-jobs]]), `pa
 ## MultiKueue
 
 The batch/v1 Job adapter is the canonical MultiKueue adapter: the manager creates a mirror Job on the worker; status is mirrored back. See [[multikueue]].
+
+**Re-dispatch keeps `status.failed` from decreasing.** A re-dispatched worker Job starts at `status.failed=0`. On Kubernetes 1.35+ the API server rejects a status update that lowers `failed` on a `managedBy` Job. The rejected sync left the manager Job without the new worker's active and ready Pods, so the Workload hit the `PodsReady` timeout and was evicted again, in a loop ([[issue-17047]]). Since [[pr-17059]], `determineStatusUpdate` builds the status with `mergeJobStatus`. It copies the worker status but keeps `Failed = max(local, remote)`. `succeeded` is still copied verbatim. Shipped in **v0.20.3** and **v0.19.10** (source: pr-17059.md, raw/kueue/pkg/controller/jobs/job/job_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md). Details: [[multikueue#batch/Job: the manager's `status.failed` never decreases]].
 
 ## MultiKueue does not copy `spec.ttlSecondsAfterFinished`
 

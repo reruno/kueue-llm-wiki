@@ -1,8 +1,8 @@
 # Security in Kueue
 
-**Summary**: Landing page for code-security guidance applied to Kueue. Synthesizes 795 Kubernetes-ecosystem CVEs (`raw/cve/`) into the vulnerability classes and review patterns that matter for a Kueue contributor or reviewer.
+**Summary**: Landing page for code-security guidance applied to Kueue. Synthesizes 803 Kubernetes-ecosystem CVEs (`raw/cve/`) into the vulnerability classes and review patterns that matter for a Kueue contributor or reviewer.
 
-**Sources**: `raw/cve/CVE-*.md` (795 entries spanning 2018–2026, vendors include `kubernetes`, `kubernetes-sigs`, `fluxcd`, `argoproj`, `jenkins`, `redhat`, `fedoraproject`); 2026-10 batch: CVE-2026-101919.md, CVE-2026-103413.md, CVE-2026-103546.md, CVE-2026-105216.md, CVE-2026-105223.md, CVE-2026-105985.md, CVE-2026-106487.md, CVE-2026-106561.md, CVE-2026-106563.md, CVE-2026-107446.md, CVE-2026-108546.md, CVE-2026-108570.md, CVE-2026-109358.md, CVE-2026-18517.md, CVE-2026-18529.md, CVE-2026-18533.md, CVE-2026-18537.md, CVE-2026-26287.md, CVE-2026-55252.md, CVE-2026-55797.md, CVE-2026-71895.md, CVE-2026-7767.md, CVE-2026-86671.md, CVE-2026-92393.md, CVE-2026-95837.md, CVE-2026-95838.md; Kueue code `pkg/controller/admissionchecks/multikueue/multikueuecluster.go`, `pkg/controller/jobframework/validation.go`; 2026-10-21 batch: CVE-2026-103314.md, CVE-2026-105311.md, CVE-2026-105312.md, CVE-2026-110248.md, CVE-2026-112778.md, CVE-2026-113672.md, CVE-2026-113708.md, CVE-2026-113709.md, CVE-2026-113727.md, CVE-2026-47218.md, CVE-2026-53999.md, CVE-2026-65162.md, CVE-2026-65172.md, CVE-2026-77459.md, CVE-2026-77524.md, CVE-2026-77564.md, CVE-2026-77934.md, CVE-2026-87354.md, CVE-2026-92982.md, CVE-2026-94197.md; raw/kueue/go.mod; KueueViz fixes pr-17088.md, pr-17143.md, pr-17246.md, pr-17249.md; pr-16035.md; raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md.
+**Sources**: `raw/cve/CVE-*.md` (803 entries spanning 2018–2026, vendors include `kubernetes`, `kubernetes-sigs`, `fluxcd`, `argoproj`, `jenkins`, `redhat`, `fedoraproject`); 2026-10 batch: CVE-2026-101919.md, CVE-2026-103413.md, CVE-2026-103546.md, CVE-2026-105216.md, CVE-2026-105223.md, CVE-2026-105985.md, CVE-2026-106487.md, CVE-2026-106561.md, CVE-2026-106563.md, CVE-2026-107446.md, CVE-2026-108546.md, CVE-2026-108570.md, CVE-2026-109358.md, CVE-2026-18517.md, CVE-2026-18529.md, CVE-2026-18533.md, CVE-2026-18537.md, CVE-2026-26287.md, CVE-2026-55252.md, CVE-2026-55797.md, CVE-2026-71895.md, CVE-2026-7767.md, CVE-2026-86671.md, CVE-2026-92393.md, CVE-2026-95837.md, CVE-2026-95838.md; Kueue code `pkg/controller/admissionchecks/multikueue/multikueuecluster.go`, `pkg/controller/jobframework/validation.go`; 2026-10-21 batch: CVE-2026-103314.md, CVE-2026-105311.md, CVE-2026-105312.md, CVE-2026-110248.md, CVE-2026-112778.md, CVE-2026-113672.md, CVE-2026-113708.md, CVE-2026-113709.md, CVE-2026-113727.md, CVE-2026-47218.md, CVE-2026-53999.md, CVE-2026-65162.md, CVE-2026-65172.md, CVE-2026-77459.md, CVE-2026-77524.md, CVE-2026-77564.md, CVE-2026-77934.md, CVE-2026-87354.md, CVE-2026-92982.md, CVE-2026-94197.md; raw/kueue/go.mod; KueueViz fixes pr-17088.md, pr-17143.md, pr-17246.md, pr-17249.md; pr-16035.md; raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md; 2026-10-28 batch: CVE-2025-30050.md, CVE-2026-102649.md, CVE-2026-113788.md, CVE-2026-114636.md, CVE-2026-114638.md, CVE-2026-114640.md, CVE-2026-115356.md, CVE-2026-83938.md; pr-14142.md, pr-17207.md, pr-17736.md, pr-17729.md, issue-17728.md; `raw/kueue/cmd/kueueviz/backend/handlers/websocket_handler.go`, `raw/kueue/config/components/networkpolicy/`.
 
 **Last updated**: 2026-10-28
 
@@ -17,7 +17,7 @@ Kueue is a privileged in-cluster controller. It runs with a ServiceAccount that 
 - Let a low-privileged tenant escape their [[cluster-queue|ClusterQueue]] or [[cohort]] quota ([[security-authn-authz|authn/authz]])
 - Be exploited by a malicious workload spec that the [[admission|admission flow]] doesn't validate ([[security-injection-and-input-validation|injection]])
 
-The CVE corpus in `raw/cve/` is not a list of *Kueue* CVEs — Kueue has not had a published CVE as of 2026-10-21 (none of the 795 entries is a Kueue advisory). The corpus is a curated set of vulnerabilities from the broader Kubernetes ecosystem that teach the *patterns* a reviewer should flag in Kueue code. Every CVE file shares the same structure and ends with a `Security Code Patterns` checklist scoped by `Category`.
+The CVE corpus in `raw/cve/` is not a list of *Kueue* CVEs — Kueue has not had a published CVE as of 2026-10-28 (none of the 803 entries is a Kueue advisory). The corpus is a curated set of vulnerabilities from the broader Kubernetes ecosystem that teach the *patterns* a reviewer should flag in Kueue code. Every CVE file shares the same structure and ends with a `Security Code Patterns` checklist scoped by `Category`.
 
 ## Threat model for Kueue
 
@@ -34,20 +34,20 @@ External attackers without cluster credentials are *not* a direct Kueue threat: 
 | Category | Count | Primary CWEs |
 | --- | --- | --- |
 | Code Execution | 236 | CWE-94, CWE-78, CWE-502 |
-| Information Disclosure | 162 | CWE-200, CWE-532, CWE-522, CWE-552 |
+| Information Disclosure | 163 | CWE-200, CWE-532, CWE-522, CWE-552 |
 | Denial of Service | 101 | CWE-400, CWE-770, CWE-476 |
-| Privilege Escalation | 73 | CWE-269, CWE-266, CWE-276 |
-| Other | 78 | mixed |
-| Unauthorized Write Access | 40 | CWE-863, CWE-285 |
-| Authentication Bypass | 42 | CWE-287, CWE-306, CWE-352 |
-| Injection | 27 | CWE-74, CWE-77, CWE-89, CWE-918 |
+| Other | 79 | mixed |
+| Privilege Escalation | 75 | CWE-269, CWE-266, CWE-276 |
+| Authentication Bypass | 44 | CWE-287, CWE-306, CWE-352 |
+| Unauthorized Write Access | 41 | CWE-863, CWE-285 |
+| Injection | 28 | CWE-74, CWE-77, CWE-89, CWE-918 |
 | RBAC Misconfiguration | 15 | CWE-284, CWE-862, CWE-863 |
 | Path Traversal | 13 | CWE-22, CWE-61, CWE-363 |
 | Supply Chain | 8 | CWE-295, CWE-494 |
 
-Recomputed 2026-10-28 from the `**Category**` field of `raw/cve/` (795 files). The previous recount (2026-09-29) covered 749 files, 67 of them added by the 2026-09-29 data-collection. The 2026-10 data-collection added 26 more (775 total): 11 Code Execution, 9 Information Disclosure, 2 Other, and one each of Authentication Bypass, Privilege Escalation, Supply Chain and Unauthorized Write Access; 14 High, 7 Medium, 1 Low, 4 Unknown. The 2026-10-21 data-collection added 20 (795 total): 7 Code Execution, 5 Information Disclosure, 2 Other, 2 Privilege Escalation, and one each of Authentication Bypass, Denial of Service, Path Traversal and Unauthorized Write Access; 7 Critical, 8 High, 2 Medium, 1 Low, 2 Unknown. Publication years skew recent (counts as of 2026-09-29): 320 entries published in 2026, 103 in 2025, and 326 across 2018–2024. The `Category` label is assigned by the data collector and is often wrong for the real bug class (for example Traefik authz bypasses and Envoy Gateway DoS bugs are tagged `Code Execution`); read the CWE and description, not the category.
+Recomputed 2026-10-28 from the `**Category**` field of `raw/cve/` (803 files). The 2026-10-28 data-collection added 8 files: 2 Authentication Bypass, 2 Privilege Escalation, and one each of Information Disclosure, Injection, Other and Unauthorized Write Access. By severity they are 2 Critical, 3 High, 1 Medium and 2 Unknown. The previous recount (2026-09-29) covered 749 files, 67 of them added by the 2026-09-29 data-collection. The 2026-10 data-collection added 26 more (775 total): 11 Code Execution, 9 Information Disclosure, 2 Other, and one each of Authentication Bypass, Privilege Escalation, Supply Chain and Unauthorized Write Access; 14 High, 7 Medium, 1 Low, 4 Unknown. The 2026-10-21 data-collection added 20 (795 total): 7 Code Execution, 5 Information Disclosure, 2 Other, 2 Privilege Escalation, and one each of Authentication Bypass, Denial of Service, Path Traversal and Unauthorized Write Access; 7 Critical, 8 High, 2 Medium, 1 Low, 2 Unknown. Publication years skew recent (counts as of 2026-09-29): 320 entries published in 2026, 103 in 2025, and 326 across 2018–2024. The `Category` label is assigned by the data collector and is often wrong for the real bug class (for example Traefik authz bypasses and Envoy Gateway DoS bugs are tagged `Code Execution`); read the CWE and description, not the category.
 
-Severity skews Medium (297) and High (293); Critical (117); Low (30); plus 55 Unknown and 3 None (795 files; the 749-file baseline before the two October waves was Medium 288, High 271, Critical 110, Low 28, Unknown 49, None 3). Kueue's direct exposure is concentrated in **DoS**, **info disclosure**, and **unauthorized write access** — categories where the controller-pattern code patterns map almost one-for-one onto Kueue's reconciler, scheduler, and webhook code.
+Severity skews Medium (298) and High (297); Critical (119); Low (30); plus 56 Unknown and 3 None (803 files, recounted 2026-10-28; the 795-file count was Medium 297, High 293, Critical 117, Low 30, Unknown 55, None 3. The same collection rescored the earlier Traefik entry CVE-2026-112778 from Unknown to High 8.8, which is why High rose by 4 and Unknown by only 1; the 749-file baseline before the two October waves was Medium 288, High 271, Critical 110, Low 28, Unknown 49, None 3). Kueue's direct exposure is concentrated in **DoS**, **info disclosure**, and **unauthorized write access** — categories where the controller-pattern code patterns map almost one-for-one onto Kueue's reconciler, scheduler, and webhook code.
 
 ## Where each topic lives
 
@@ -106,7 +106,7 @@ The batch is again dominated by operators and portals that act on tenant input w
 6. **Masking and filtering applied in one endpoint but not in a deprecated or sibling one** (Backstage CVE-2026-106561, CVE-2026-106563), and kubeconfigs readable by non-admins (DolphinScheduler CVE-2026-71895). See [[security-information-disclosure]].
 7. **TLS verification off by default, or off when no CA is given** (CVE-2026-105216, CVE-2026-105223), and world-writable files written by a privileged installer (Contrast CVE-2026-109358). See [[security-supply-chain]].
 
-Eight entries are outside Kueue's surface and are recorded only as reinforcing examples: Craft CMS (CVE-2026-105985) and Furion (CVE-2026-108570) template injection, Spotweb (CVE-2026-108546) shell injection, OpenRun open redirect (CVE-2026-55252), the IBM Maximo NetworkPolicy egress gap (CVE-2026-18517; Kueue ships no NetworkPolicy), and the containerd runtime bugs above.
+Eight entries are outside Kueue's surface and are recorded only as reinforcing examples: Craft CMS (CVE-2026-105985) and Furion (CVE-2026-108570) template injection, Spotweb (CVE-2026-108546) shell injection, OpenRun open redirect (CVE-2026-55252), the IBM Maximo NetworkPolicy egress gap (CVE-2026-18517; Kueue shipped no NetworkPolicy then, and since pr-14142 ships **opt-in, ingress-only** policies, see below), and the containerd runtime bugs above.
 
 ## 2026-10-21 wave: what the 20 new CVEs add
 
@@ -123,6 +123,24 @@ The batch is again about operators acting on tenant input with their own credent
 7. **Bytes from untrusted input must not take the trusted-cache path** (runwasi CVE-2026-47218). See [[security-supply-chain]].
 
 Kueue's own fixes in the same window teach more than the corpus does: four KueueViz authorization bugs (fail-open auth mode, delimiter-joined SAR cache keys, unauthorized secondary fields in `/ws/cohorts`, live updates without `watch` in `/ws/namespaces`) and the new opt-in, loopback-only `metrics.accessControlMode: None` (Alpha, main). See [[security-authn-authz#KueueViz fixes in this window: in-repo examples]] and [[security-code-patterns]].
+
+## 2026-10-28 wave: what the 8 new CVEs add
+
+> **Direct impact on Kueue: none.** No entry is a Kueue advisory. The products are Traefik's Kubernetes Ingress-NGINX provider (3 entries), Burrito (a Terraform operator), OpenBao, Lagoon, Azure Kubernetes Configuration Service and CGM CLININET. None of them appears in `raw/kueue/go.mod`, `cmd/kueueviz/backend/go.mod` or `hack/tools/go.mod` (checked for traefik, openbao, vault, burrito, `go-playground/webhooks` and lagoon; the only Azure module is the unrelated `Azure/go-ansiterm`) (source: raw/kueue/go.mod).
+
+The new rules and reinforcements, each recorded on the page named:
+
+1. **An empty or optional secret must not turn verification off** (Burrito CVE-2026-102649, Critical 9.9). With `webhookSecret` unset, the webhook library skipped signature checks, so anyone who could reach the endpoint could forge events. Forged fields were also never cross-checked against the object they named: the payload's branch was not compared with the real pull request. Kueue's in-repo analogue is the fail-closed `KUEUEVIZ_AUTH_MODE` validation (pr-17143). See [[security-authn-authz]].
+2. **Keys derived by lossy normalization collide like delimiter-joined keys** (Traefik CVE-2026-114638). Two `auth-tls-secret` names that were equal after dot-to-dash normalization merged their client CAs. This is the same class as the KueueViz SubjectAccessReview cache-key collision (pr-17249). See [[security-code-patterns]].
+3. **A generated sibling path that skips the access-control annotations** (Traefik CVE-2026-114636: the HTTP router built for ssl-passthrough Ingresses ignored `auth-*` and `whitelist-source-range`), and **client-supplied identity headers trusted on a plaintext path** (CVE-2026-114640: `Ssl-Client-Verify: SUCCESS`). Both reinforce existing rules. KueueViz's matching surface is the secondary-informer gap closed by pr-17207, and Gin's `SetTrustedProxies(nil)` in `SetupGinEngine`, which keeps forwarded headers untrusted. See [[security-authn-authz]].
+4. **Renewing a session without re-checking the credential it came from** (OpenBao CVE-2026-115356). KueueViz long-lived WebSockets re-run a live TokenReview every 30 s (`tokenRevalidationInterval`). On an invalid token **or an error** they close with `ClosePolicyViolation`. See [[security-authn-authz#Long-lived sessions must re-check the original credential]].
+5. Outside Kueue's surface, recorded only as reinforcing examples: a module name imported from a query parameter (CVE-2025-30050), shell argument injection in Lagoon's `ssh` service (CVE-2026-113788; see the option-injection rule in [[security-injection-and-input-validation]]) and a missing-authentication cloud endpoint (CVE-2026-83938).
+
+**Kueue's own changes in this window teach more than the corpus**:
+
+- **Opt-in ingress NetworkPolicies** for the controller-manager and KueueViz (pr-14142, main). They are off by default because NetworkPolicies are additive, and turning them on by default would widen a stricter policy a user already has. See [[security-authn-authz#Opt-in NetworkPolicies (pr-14142)]].
+- **KueueViz secondary informers gated on cluster-wide `watch`** (pr-17207). See [[dashboard#Secondary informers need cluster-wide `watch` (pr-17207)]].
+- **The Dependabot sync workflow moved from `pull_request_target` to `pull_request`** (pr-17736). See [[security-supply-chain]].
 
 ## Related pages
 

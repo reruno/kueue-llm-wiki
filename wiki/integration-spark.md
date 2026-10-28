@@ -2,9 +2,9 @@
 
 **Summary**: Kueue integrates with the Kubeflow Spark Operator v2 to gate SparkApplication jobs through queue-based admission, managing driver and executor pods as separate PodSets.
 
-**Sources**: `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_controller.go`, `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_podset.go`, `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_webhook.go`, pr-16364.md, issue-16363.md, pr-16976.md, pr-16967.md, pr-16968.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
+**Sources**: `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_controller.go`, `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_podset.go`, `raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_webhook.go`, pr-16364.md, issue-16363.md, pr-16976.md, pr-16967.md, pr-16968.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-17382.md, pr-17787.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -22,6 +22,8 @@
 | `executor` | `spec.executor.instances` (unset counts as 0) | Executor pods |
 
 Kueue reads resource requests (CPU, memory, GPU, etc.) from `spec.driver` and `spec.executor` fields, mapping them into the `kueue.PodSet` format. (source: pkg/controller/jobs/sparkapplication/sparkapplication_podset.go)
+
+The order is fixed: the driver is PodSet 0 and the executor is PodSet 1. The constants are `driverPodSetIndex`, `executorPodSetIndex` and `podSetsCount = 2`. `RunWithPodSetsInfo` returns `BadPodSetsInfoLenError` when it gets a number of PodSetInfos other than 2. With a wrong count, `RestorePodSetsInfo` logs at V(2) and returns `false`. [[pr-17382]] (release-0.20: pr-17787) only replaced the hard-coded indexes with these constants. Behaviour did not change (source: pr-17382.md, raw/kueue/pkg/controller/jobs/sparkapplication/sparkapplication_controller.go).
 
 ## Suspend / resume
 

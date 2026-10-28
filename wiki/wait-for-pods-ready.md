@@ -2,9 +2,9 @@
 
 **Summary**: Reference for the `waitForPodsReady` Configuration block and the four v0.19/v0.20 knobs around it: enabled-by-default with a 30 minute timeout, per-Workload overrides, a separate unscheduled-Pods timeout, and a not-ready Pod budget for Pod groups. Complements the conceptual description in [[gang-scheduling]].
 
-**Sources**: pr-15503.md, pr-15672.md, pr-15734.md, pr-16059.md, pr-15531.md, pr-15627.md, pr-16217.md, issue-13502.md, raw/kueue/apis/config/v1beta2/configuration_types.go, raw/kueue/apis/config/v1beta2/defaults.go, raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/config/validation.go, raw/kueue/pkg/features/kube_features.go, pr-15372.md, pr-15402.md, issue-16366.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, issue-14811.md, pr-17147.md
+**Sources**: pr-15503.md, pr-15672.md, pr-15734.md, pr-16059.md, pr-15531.md, pr-15627.md, pr-16217.md, issue-13502.md, raw/kueue/apis/config/v1beta2/configuration_types.go, raw/kueue/apis/config/v1beta2/defaults.go, raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/config/validation.go, raw/kueue/pkg/features/kube_features.go, pr-15372.md, pr-15402.md, issue-16366.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, issue-14811.md, pr-17147.md, pr-17643.md, pr-17765.md, pr-17772.md, pr-16754.md, pr-17816.md, pr-17874.md, pr-17591.md, pr-17603.md, pr-17604.md, pr-17451.md, pr-17576.md, pr-17610.md, pr-17618.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobframework/interface.go, raw/kueue/pkg/controller/jobs/job/job_controller.go, raw/kueue/pkg/controller/jobs/raycluster/raycluster_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -29,7 +29,7 @@ The kubelet flips a Pod's `PodReady` to `False` once it completes, so the Pod in
 
 Rules (source: raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/core/workload_controller.go):
 
-- `NewWorkload` copies the annotation onto the Workload only when the gate is enabled and the feature is not disabled. For Deployments the webhook mirrors the annotation into the Pod template (and deletes it there when removed from the Deployment).
+- `NewWorkload` copies the annotation onto the Workload only when the gate is enabled and the feature is not disabled. For Deployments the webhook mirrors the annotation into the Pod template (and deletes it there when removed from the Deployment). Unit tests added by pr-17451 (backport pr-17576/0.20; tests only) check that with the gate **off** the annotation is not propagated to the Workload on create or update, for batch Job, elastic Jobs, LeaderWorkerSet and StatefulSet (source: pr-17451.md).
 - Webhook validation (create, and update only when the annotation changed): must be valid JSON; `timeoutSeconds > 0`; `recoveryTimeoutSeconds > 0` when present; both `<= waitForPodsReady.maxTimeoutOnWorkload` (default 2h). An unparsable annotation on the Workload at reconcile time is logged and the cluster-level values are used.
 - `determineTimeouts`: an annotation replaces the cluster `timeout`; `recoveryTimeoutSeconds` present and >0 replaces `recoveryTimeout`; absent falls back to the cluster value. (An explicit `0` cannot arrive through the webhook.)
 - Config validation refuses enabling the gate together with `DisableWaitForPodsReady`.
@@ -57,6 +57,27 @@ Rules (source: raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueu
 - Admission and quota reservation still use the full `pod-group-total-count`.
 - Works for StatefulSet and LeaderWorkerSet only if the annotation is in their Pod template(s); Kueue does not copy it from the parent object. Other integrations, MultiKueue and a descriptive `PodsReady=False` message are out of scope for Alpha; the generic message `Not all pods are ready or succeeded` is kept.
 
+## Where the job reconciler writes `PodsReady`
+
+The `PodsReady` block of `JobReconciler.Reconcile` (`pkg/controller/jobframework/reconciler.go`) is the helper `reconcilePodsReadyCondition(ctx, job, wl) (updated bool, err error)`. It was extracted by pr-17610 (cleanup, release note NONE; backport pr-17618/0.20) (source: pr-17610.md). The helper:
+
+1. picks the target Workload with `podsReadyWorkload` (see next section; added by pr-17643);
+2. builds the condition with `generatePodsReadyCondition`, which calls `job.PodsReady(ctx, c, WithWorkload(target))` (option added by pr-16754);
+3. returns without writing when the condition already has the same type and reason (V(3) `No update for PodsReady condition`);
+4. writes with `workload.SetConditionAndUpdate` (manager prefix `constants.JobControllerName`);
+5. records ready-wait metrics only on `PodsReady=True`. Reason `Started` records `ReadyWaitTime` and `AdmittedUntilReadyWaitTime`, plus their LocalQueue variants when LocalQueue metrics are exposed for the Workload. Reason `Recovered` records `WorkloadRecoveryWaitTime`, only when the previous reason was `WaitForRecovery`.
+
+## Elastic jobs: PodsReady stays on the admitted slice
+
+Applies with `ElasticJobsViaWorkloadSlices` and the `kueue.x-k8s.io/elastic-job` annotation. During a scale-up the replacement slice may wait for quota while the new Pods stay scheduling-gated. The job reconciler's selected Workload is then the pending replacement, but the workload controller runs the `PodsReady` timeout on the **admitted** slice. Before these fixes, the admitted slice could be evicted with `PodsReadyTimeout` even after its Pods became ready. The job was suspended; for a RayCluster used as a devbox, the head the user was working on was deleted (source: pr-17643.md, pr-17591.md).
+
+- **Target slice (pr-17643; backports pr-17765/0.20, pr-17772/0.19).** `podsReadyWorkload(ctx, job, wl)` returns `wl` unchanged when slicing is not enabled for the job or `wl` is admitted. Otherwise it returns `workloadslicing.FindLatestAdmittedWorkload(ctx, c, wl, true)`: the newest admitted, non-finished, non-evicted slice of the chain, excluding ConcurrentAdmission variants. If there is none, it falls back to `wl`. A lookup error is returned as `finding the admitted workload slice for PodsReady: ...`. The timeout is **not** suspended during a scale-up: if the Pods never become ready, the admitted slice is evicted as before. An earlier revision of the PR skipped the timeout while a replacement was pending; review reverted it because that removed PodsReady protection during scale-up (source: pr-17643.md, reconciler.go).
+- **Contract for integrations.** The `GenericJob.PodsReady` doc comment now says that, for an elastic job, it should consider only the Pods admitted by the latest admitted slice and ignore the Pods of a pending scale-up, such as scheduling-gated Pods. An integration whose `PodsReady` waits for gated Pods still reports `PodsReady=False` on the admitted slice and can be evicted (source: interface.go).
+- **batch/v1 Job (pr-16754; backports pr-17816/0.20, pr-17874/0.19).** The interface method is now `PodsReady(ctx, c, options ...PodsReadyOption) bool`, with `WithWorkload(wl)` and the reader `PodsReadyWorkload(options...)` (the last option wins). When slicing is enabled and the passed Workload is admitted, `Job.PodsReady` uses `min(podsCount(), granted)` as its target, where `granted` is the `main` PodSet count from `workload.ExtractGrantedPodSetCounts` and `podsCount()` is `min(parallelism, completions)`. Ready means `succeeded + ready + len(uncountedTerminatedPods.succeeded) >= target`. Only the Job integration reads the option; the others accept it and ignore it (source: pr-16754.md, job_controller.go). Out-of-tree `GenericJob` implementations must adopt the new variadic signature.
+- **RayCluster (pr-17591).** `RayCluster.PodsReady` uses the `HeadPodReady` condition behind `RayClusterHeadPodReady` (Beta, on, on main; Alpha, off, on release-0.20 and release-0.19). See [[integration-rayjob#RayCluster PodsReady uses the head Pod (`RayClusterHeadPodReady`)]]. pr-17591 alone did not cover the case where the pending replacement is the reconciler's target; pr-17643 covers it.
+
+Release status: all of the above merged on main and was backported to release-0.20 and release-0.19 after v0.20.3 / v0.19.10 were prepared, so it is pending the next patch releases (source: CHANGELOG-0.20.md, CHANGELOG-0.19.md). See also [[elastic-jobs#PodsReady while a scale-up slice is pending]].
+
 ## Interactions found in the v0.20 line
 
 - **Pod groups with an oversized Pod.** With `PodIntegrationVerifyRoleRequests`, a group member that requests more than its role's PodSet stays gated. The group can then never become `PodsReady`, and `waitForPodsReady` evicts and requeues the Workload up to the requeue limit. See [[integration-plain-pod#Role-hash forgery: requests are verified before ungating]].
@@ -72,3 +93,6 @@ Rules (source: raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueu
 - [[feature-gates]]
 - [[workload]]
 - [[integration-spark]]
+- [[elastic-jobs]] — slice selection for `PodsReady` during a scale-up.
+- [[integration-rayjob]] — `RayClusterHeadPodReady`.
+- [[job-framework-interface]] — `GenericJob.PodsReady` signature.

@@ -2,7 +2,7 @@
 
 **Summary**: Kueue follows the Kubernetes feature-gate convention: new features land alpha → beta → GA, with a named gate (`--feature-gates=Foo=true|false`) controlling the on/off switch. Each graduation updates the default (alpha defaults off, beta defaults on, GA locked on).
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, `raw/kueue/site/data/featuregates/versioned_feature_list.yaml`, `raw/kueue/site/data/featuregates/removed_feature_list.yaml`, `raw/kueue/pkg/features/kube_features.go`, pr-15889.md, pr-15562.md, pr-15623.md, pr-16235.md, pr-15000.md, pr-15503.md, pr-15734.md, pr-16059.md, pr-13063.md, pr-13706.md, pr-13719.md, pr-16347.md, pr-16362.md, pr-16436.md, pr-17167.md, pr-17285.md, pr-16035.md, pr-16340.md, pr-17295.md, pr-17296.md, pr-17370.md (open), raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-16460.md, pr-16493.md, pr-15280.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md (kube_features.go read at kueue@8922c563e), pr-13316.md, pr-16470.md, pr-16343.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, `raw/kueue/site/data/featuregates/versioned_feature_list.yaml`, `raw/kueue/site/data/featuregates/removed_feature_list.yaml`, `raw/kueue/pkg/features/kube_features.go`, pr-15889.md, pr-15562.md, pr-15623.md, pr-16235.md, pr-15000.md, pr-15503.md, pr-15734.md, pr-16059.md, pr-13063.md, pr-13706.md, pr-13719.md, pr-16347.md, pr-16362.md, pr-16436.md, pr-17167.md, pr-17285.md, pr-16035.md, pr-16340.md, pr-17295.md, pr-17296.md, pr-17370.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-16460.md, pr-16493.md, pr-15280.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md (kube_features.go read at kueue@8922c563e), pr-13316.md, pr-16470.md, pr-16343.md; 2026-10-28 batch: pr-17591.md, pr-17603.md, pr-17604.md, pr-13307.md, pr-17370.md, pr-17371.md, pr-16684.md, pr-14577.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md (v0.20.3), CHANGELOG-0.19.md (v0.19.10); `git -C raw/kueue diff 3bbb8cce4 966f00d21 -- pkg/features/`
 
 **Last updated**: 2026-10-28
 
@@ -205,11 +205,29 @@ Stages verified against `kube_features.go` at kueue@8922c563e (main, v0.21 dev) 
 | `ClassicalPreemptionCandidateOrderCache` | **new, 0.21 Beta/on** on main (pr-16340); **Alpha/off** in the release-0.20 / release-0.19 backports (pr-17296, pr-17295, merged after v0.20.2 / v0.19.9) | reuses each ClusterQueue's candidate ordering across preemptors in one cycle and generates candidates lazily instead of re-sorting per preemptor ([[preemption]]) |
 | `PodIntegrationVerifyRoleRequests` | release branches: shipped in **v0.20.2 / v0.19.9 as Alpha/off** (backports #17123 / #17124); main stays 0.21 Beta/on | on those releases the role-hash quota-bypass check runs only if you enable the gate ([[integration-plain-pod]]) |
 
-Not merged at this snapshot: an Alpha `LogLevelForSchedulerMainLoop` gate proposed only for the release-branch backports of the scheduler V(2)→V(3) log change (pr-17370, pr-17371 open); on main the change is unconditional (pr-17227).
+**Correction (2026-10-28):** this page earlier said the `LogLevelForSchedulerMainLoop` backports were still open. They merged on 2026-10-21 (pr-17370 to release-0.20, pr-17371 to release-0.19) and shipped in v0.20.3 / v0.19.10 (see below). On main the V(2)→V(3) change is unconditional (pr-17227), and main has no such gate.
 
-### Full stage table at kueue@3bbb8cce4 (main, v0.21 development)
+### Gate changes in the 2026-10-28 batch (kueue@966f00d21)
 
-Read from `defaultVersionedFeatureGates` in `pkg/features/kube_features.go` at the snapshot (re-verified 2026-10-21; the previous table was at kueue@8922c563e). Entries with a `0.21` spec exist only on main; v0.20.x carries the gate (if at all) with a branch-specific spec (see below).
+`git diff 3bbb8cce4 966f00d21 -- pkg/features/` adds one gate and changes one gate comment. No gate graduated or was removed on main in this window.
+
+| Gate | Change | Effect / notes |
+|---|---|---|
+| `RayClusterHeadPodReady` | **new, 0.21 Beta/on** on main (pr-17591, merged 2026-10-22). Backports are **Alpha/off**, with the introduction version rewritten to the branch: `0.20` on release-0.20 (pr-17603) and `0.19` on release-0.19 (pr-17604). Both merged 2026-10-22 after the v0.20.3 / v0.19.10 cut and are **not** in those releases | when on, `RayCluster.PodsReady()` (`pkg/controller/jobs/raycluster/raycluster_controller.go`) uses the `HeadPodReady` condition for every RayCluster, elastic or not, instead of `status.state == ready`. A missing, `False` or `Unknown` condition is unready even if the state says `ready`. Fixes an elastic RayCluster whose usable head was evicted by `PodsReadyTimeout` while scale-up workers waited for quota. **ACTION REQUIRED (main):** needs KubeRay **v1.3.0+**; with an older KubeRay set `RayClusterHeadPodReady=false` ([[integration-rayjob]], [[wait-for-pods-ready]]) |
+| `FairSharingPreemptWithinNominal` | stage unchanged (0.17 Beta/on); **semantics changed** by pr-13307 (merged 2026-10-27, main) | the "within nominal quota" claim that bypasses the DRS check is now evaluated at the preemptor's **almostLCA with each target**, over every flavor-resource the incoming Workload requests. Before, it was the preemptor ClusterQueue's own quota. Descendants of a Cohort get priority access to that Cohort's nominal quota. A ClusterQueue within its own nominal quota **no longer** preempts across a borrowing parent Cohort. The same check is used in final-target verification (`FairSharingVerifyFinalTargets`) ([[fair-sharing]]) |
+
+**Shipped on release branches in v0.20.3 / v0.19.10** (prepared 2026-10-22; source: CHANGELOG-0.20.md, CHANGELOG-0.19.md):
+
+- `ClassicalPreemptionCandidateOrderCache`: **Alpha/off** (#17296 / #17295). On main it is 0.21 Beta/on.
+- `LogLevelForSchedulerMainLoop`: **new Alpha/off, release branches only** (#17370 / #17371). When on, it moves the eight scheduler progress messages from V(2) to V(3), the behaviour main has unconditionally. If you enable it and alert on these lines, run at `-v=3`.
+- `FinalizeTerminatingPodGroups` is the gate behind the pod-group terminating-Pod fix in both releases (#17501 / #17454). The v0.19.10 changelog calls it Beta/on, which contradicts this page's earlier note that release-0.19 carries it as Alpha/off. Check `kube_features.go` on release-0.19 before relying on either. The local release-branch refs at kueue@966f00d21 are too old to settle it.
+- `MultiKueueRayInTreeAutoscaling` (0.20 Alpha/off) gained RayService in-tree autoscaling support in v0.20.3 (#17466, #17513).
+
+Not a gate: **`PreemptionConfigPriorityClassSelector`** (pr-16684, pr-17019) is a `kueue.x-k8s.io/v1alpha1` API type, a priority-class filter in a PreemptionConfig. It is covered by the existing `ConfigurablePreemptions` gate (0.20 Alpha/off) and has no gate of its own (raw/kueue/pkg/scheduler/preemption/config/filters/priority_filters.go). `CustomMetricLabels` is unchanged at 0.17 Alpha/off. On main it now also covers Workload labels on `kueue_admitted_workloads_total` and `kueue_admission_wait_time_seconds` (pr-14577; see [[metrics]]). `SchedulerLibraryDeepIntegration` is unchanged at 0.21 Alpha/off, main only.
+
+### Full stage table at kueue@966f00d21 (main, v0.21 development)
+
+Read from `defaultVersionedFeatureGates` in `pkg/features/kube_features.go` at the snapshot (re-verified 2026-10-28 against kueue@966f00d21: the only change since kueue@3bbb8cce4 is the new `RayClusterHeadPodReady`; earlier tables were at kueue@3bbb8cce4 and kueue@8922c563e). Entries with a `0.21` spec exist only on main; v0.20.x carries the gate (if at all) with a branch-specific spec (see below).
 
 | Gate | Stage history (Kueue version, stage, default) |
 |---|---|
@@ -281,6 +299,7 @@ Read from `defaultVersionedFeatureGates` in `pkg/features/kube_features.go` at t
 | `PriorityBoost` | 0.17 Alpha off |
 | `PrioritySortingWithinCohort` | 0.6 Beta on |
 | `QuotaCheckStrategy` | 0.18 Alpha off → 0.19 Beta on |
+| `RayClusterHeadPodReady` | 0.21 Beta on (release-0.20/0.19 backports: Alpha off) |
 | `RayServiceValidateUpgradeStrategy` | 0.20 Beta on |
 | `ReclaimablePods` | 0.15 Beta on |
 | `RecomputeAssignmentUponPreemptionTargetsOverlap` | 0.20 Beta on |
@@ -340,7 +359,7 @@ Read from `defaultVersionedFeatureGates` in `pkg/features/kube_features.go` at t
 
 Kueue never sets an emulation version, so the effective version used by `featureSpecAtEmulationAndMinCompatVersion` is Kubernetes' `DefaultKubeBinaryVersion` (1.36 at the time of writing), **not** the Kueue version. `featureSpecAtEmulationAndMinCompatVersion` selects the highest spec at or below that version, so a spec written as `{0.20, Default: true, Beta}` is still selected on a release-0.19 build and the gate lands **enabled by default there too**. A cherry-pick that wants the gate off on the branch must therefore rewrite the spec as `{0.19, Default: false, Alpha}` rather than reuse the main spec. ([[pr-14804]])
 
-Examples: `ClassicalPreemptionCandidateOrderCache` is `{0.21, Beta, on}` on main and Alpha/off in its 0.20/0.19 backports (pr-17295, pr-17296); `PodIntegrationVerifyRoleRequests` shipped Alpha/off in v0.20.2 / v0.19.9. Earlier: `SkipChildJobSuspension` is `{0.20, Alpha, off}` on main but its 0.19/0.18 backports (pr-16460, pr-16461) rewrite the introduction version to `0.19`; `KubeRayServiceUsingTopLevelSuspend` is `{0.21, Beta, on}` on main but shipped in v0.20.1 as Alpha/off (source: pr-16460.md, CHANGELOG-0.20.md). Always read the gate stage from the branch you run, not from main.
+Examples: `RayClusterHeadPodReady` is `{0.21, Beta, on}` on main and `{0.20, Alpha, off}` / `{0.19, Alpha, off}` in pr-17603 / pr-17604; `ClassicalPreemptionCandidateOrderCache` is `{0.21, Beta, on}` on main and Alpha/off in its 0.20/0.19 backports (pr-17295, pr-17296); `PodIntegrationVerifyRoleRequests` shipped Alpha/off in v0.20.2 / v0.19.9. Earlier: `SkipChildJobSuspension` is `{0.20, Alpha, off}` on main but its 0.19/0.18 backports (pr-16460, pr-16461) rewrite the introduction version to `0.19`; `KubeRayServiceUsingTopLevelSuspend` is `{0.21, Beta, on}` on main but shipped in v0.20.1 as Alpha/off (source: pr-16460.md, CHANGELOG-0.20.md). Always read the gate stage from the branch you run, not from main.
 
 Gate *dependencies* are also tracked differently per branch: `main` uses the `defaultFeatureGateDependencies` map in `pkg/features`, while release branches use `validateFeatureGateDependency` in `pkg/config/validation.go`. Both surface as a startup configuration error. ([[pr-14804]], [[pr-14256]])
 

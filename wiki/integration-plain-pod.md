@@ -2,9 +2,9 @@
 
 **Summary**: The plain-Pod integration lets Kueue govern Pods that aren't owned by a supported higher-level controller. Kueue attaches a scheduling gate at Pod admission-webhook time, creates a Workload, and removes the gate once the Workload is admitted. Groups of related Pods can be treated as a gang using the `kueue.x-k8s.io/pod-group-name` label — a "PodGroup."
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13014.md, pr-13945.md, pr-17123.md, pr-17124.md, pr-16358.md, pr-16365.md, pr-16385.md, pr-17077.md, pr-17087.md, issue-16517.md, pr-17053.md, pr-17173.md, pr-17204.md, issue-16901.md, pr-17454.md, pr-17501.md, pr-17505.md, pr-16044.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobs/pod/pod_controller.go, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13014.md, pr-13945.md, pr-17123.md, pr-17124.md, pr-16358.md, pr-16365.md, pr-16385.md, pr-17077.md, pr-17087.md, issue-16517.md, pr-17053.md, pr-17173.md, pr-17204.md, issue-16901.md, pr-17454.md, pr-17501.md, pr-17505.md, pr-16044.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobs/pod/pod_controller.go, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-17420.md, pr-17738.md, raw/kueue/pkg/controller/jobs/pod/pod_multikueue_adapter.go
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -38,6 +38,12 @@ Some workflows (including custom controllers) create plain Pods with owner refer
 ## MultiKueue
 
 "Support MultiKueue for Plain Pod Integration" ([[issue-2341]]) and PodGroup-specific MultiKueue ([[issue-4719]] — Support PodGroups for MultiKueue, including e2e testing & docs) extended the mechanism cross-cluster, but with caveats because mirroring gated Pods cross-cluster is non-trivial.
+
+How the single-Pod adapter works (source: raw/kueue/pkg/controller/jobs/pod/pod_multikueue_adapter.go):
+
+- `SyncJob` creates the remote Pod from the local metadata and spec, with the prebuilt-workload and origin metadata (`SetMultiKueueMeta`). Once the remote Pod exists, it patches the local Pod status to the remote one. While the local Pod is gated and the remote Pod is not yet `PodScheduled=True`, the local `PodScheduled=False/SchedulingGated` condition is kept, so the manager's cluster-autoscaler does not see an `Unschedulable` Pod and scale up for it. Pod groups go through `syncPodGroup` instead.
+
+**The copied status is reset after a requeue ([[pr-17420]]).** When the Workload was evicted on the worker and requeued, the worker Pod was deleted, but the gated manager Pod kept the copied status (phase `Running`, Pod IP, container statuses) until the next dispatch. The adapter now implements `MultiKueueLocalStatusResetter`. `ResetLocalStatus` does nothing if the Pod is missing, belongs to a pod group, is not gated, is terminated, is being deleted, or carries no remote status. `hasRemoteStatus` is true if the phase is not `Pending`, `PodScheduled` is not `False/SchedulingGated`, or any of `podIP`, `hostIP`, `startTime`, container statuses or init-container statuses is set. Otherwise it replaces the status with phase `Pending`, the existing `QOSClass` and one `PodScheduled=False/SchedulingGated` condition, reusing the existing one so its `lastTransitionTime` is preserved. Pod groups are excluded on purpose: a gated group with a copied `Running` phase still counts as active, so its evicted Workload keeps the quota reservation and the reset path is never reached. When the reconciler calls it is described in [[multikueue#Manager-side status reset after a requeue (`MultiKueueLocalStatusResetter`)]]. Releases: `main` (merged 2026-10-26) and release-0.20 ([[pr-17738]]). There is no release-0.19 backport in the raw data, and it is not in v0.20.3 (source: pr-17420.md, pr-17738.md).
 
 ## When to disable
 

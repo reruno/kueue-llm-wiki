@@ -2,7 +2,7 @@
 
 **Summary**: A [[workload]]'s priority is the integer used by the [[queueing-strategy]] heap and by [[preemption]]. It comes from either a stock `scheduling.k8s.io/PriorityClass` (via the Pod template) or, more commonly for Kueue, a `kueue.x-k8s.io/WorkloadPriorityClass` — the latter decouples "how does this job queue?" from "how does the Pod preempt other Pods on the node?"
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13775.md, pr-13719.md, pr-16422.md, pr-14411.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/jobs/deployment/deployment_webhook.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13775.md, pr-13719.md, pr-16422.md, pr-14411.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/jobs/deployment/deployment_webhook.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
 **Last updated**: 2026-10-28
 
@@ -101,7 +101,7 @@ Consequences:
 - A running object created before the `default` class keeps no priority label. By the predicate, the next update after it has no Ready replicas (for example scaled to zero) adds the default. It still cannot have a class added while running, and a class cannot be removed once set.
 - A suspended object (no Ready replicas) still gets the default on update.
 
-Releases: `main` (merged 2026-10-16), release-0.20 ([[pr-17309]]) and release-0.19 ([[pr-17313]]). All merged after v0.20.2 / v0.19.9, so the next patch releases are the first to include it. On release-0.19 the gate is Alpha and off by default, so the bug only appears there if you enabled it. That backport calls `jobframework.ApplyDefaultWorkloadPriorityClassWithManagedJobsNamespaceSelector` instead of the `integrationManager` method (source: pr-17313.md). **Correction (2026-10-21)**: this page listed issue-16333 as an open bug.
+Releases: `main` (merged 2026-10-16), release-0.20 ([[pr-17309]]) and release-0.19 ([[pr-17313]]). All merged after v0.20.2 / v0.19.9; shipped in **v0.20.3 (#17309) and v0.19.10 (#17313)**. On release-0.19 the gate is Alpha and off by default, so the bug only appears there if you enabled it. That backport calls `jobframework.ApplyDefaultWorkloadPriorityClassWithManagedJobsNamespaceSelector` instead of the `integrationManager` method (source: pr-17313.md). **Correction (2026-10-21)**: this page listed issue-16333 as an open bug.
 
 See also [[integration-statefulset]] and [[integration-leaderworkerset]].
 

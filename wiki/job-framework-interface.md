@@ -2,7 +2,7 @@
 
 **Summary**: The Kueue job framework defines the `GenericJob` interface and base reconciler that any new job type must implement to get full Kueue integration — suspend/resume lifecycle, quota accounting, condition propagation, and webhook scaffolding — for free.
 
-**Sources**: `raw/kueue/keps/369-job-interface/README.md`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`, pr-16370.md, pr-16436.md, pr-16460.md, pr-16461.md, pr-16470.md, pr-13375.md, pr-16773.md, pr-16774.md, pr-16779.md, pr-16881.md, pr-16972.md, pr-16973.md, pr-13775.md, pr-12948.md, pr-16994.md, pr-17529.md, pr-17530.md, issue-16736.md, pr-15412.md, issue-15400.md, pr-17053.md, raw/kueue/pkg/controller/jobframework/defaults.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
+**Sources**: `raw/kueue/keps/369-job-interface/README.md`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`, pr-16370.md, pr-16436.md, pr-16460.md, pr-16461.md, pr-16470.md, pr-13375.md, pr-16773.md, pr-16774.md, pr-16779.md, pr-16881.md, pr-16972.md, pr-16973.md, pr-13775.md, pr-12948.md, pr-16994.md, pr-17529.md, pr-17530.md, issue-16736.md, pr-15412.md, issue-15400.md, pr-17053.md, raw/kueue/pkg/controller/jobframework/defaults.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/controller/jobframework/multikueue.go, pr-17420.md, pr-17738.md, pr-16612.md, pr-16982.md, pr-17843.md, pr-17869.md, issue-16974.md, pr-16754.md, pr-17816.md
 
 **Last updated**: 2026-10-28
 
@@ -28,12 +28,14 @@ Every integration must implement `GenericJob` (defined in `pkg/controller/jobfra
 | `Finished(ctx)` | Reports whether the job has completed and what condition to set |
 | `PodSets(ctx)` | Returns `[]kueue.PodSet` describing how many pods the job needs per role |
 | `IsActive()` | Returns true if any pods are running |
-| `PodsReady(ctx)` | Returns true when all pods are in Ready state |
+| `PodsReady(ctx, c, options ...PodsReadyOption)` | Returns true when all pods are in Ready state; for elastic jobs only the Pods admitted by the Workload slice passed via `WithWorkload` count (see below) |
 | `GVK()` | Returns the GroupVersionKind of the job type |
 
 (source: pkg/controller/jobframework/interface.go)
 
 > **Signature change (action-required, [[pr-11310]]).** Removing global state from the TrainJob reconciler required passing the controller-runtime `client.Client` explicitly into several `GenericJob` methods rather than capturing it in package-level state. As of this change, `RunWithPodSetsInfo`, `PodSets`, `PodsReady`, and `ReclaimablePods` (the last on `JobWithReclaimablePods`) all take the client as an argument. This is a job-framework interface change that affects **every** integration, not just TrainJob — in-house/out-of-tree integrations must update their method signatures when upgrading.
+
+> **Signature change (action-required, [[pr-16754]], merged on main 2026-10-27; backport pr-17816 to release-0.20 pending next patch).** `GenericJob.PodsReady` is now `PodsReady(ctx context.Context, c client.Client, options ...PodsReadyOption) bool`. The reconciler calls it as `job.PodsReady(ctx, c, WithWorkload(wl))`. Implementations read the slice with `PodsReadyWorkload(options...)`, which returns the last Workload set and `nil` if none was. Per the doc comment, an elastic job must count only the Pods admitted by the latest admitted Workload slice. It must ignore the Pods of a pending scale-up, such as scheduling-gated Pods. While a replacement slice is pending, Kueue records `PodsReady` on the admitted slice and evaluates the PodsReady timeout there. Out-of-tree integrations must add the variadic parameter (source: raw/kueue/pkg/controller/jobframework/interface.go, raw/kueue/pkg/controller/jobframework/reconciler.go, pr-16754.md). See [[wait-for-pods-ready]] and [[elastic-jobs]].
 
 ## Optional interfaces
 
@@ -67,6 +69,19 @@ Added in [[pr-11191]] (documented in [[pr-11215]]). The base reconciler normally
 
 `IsOnHold() bool`. In `ReconcileGenericJob` the on-hold check runs right after the Workload-deletion branch and **before** the finished check. If the job is on hold and its Workload holds quota, the reconciler sets `QuotaReserved=False` with reason **`OnHold`** (`kueue.WorkloadOnHold`) and returns. The quota is released and the Workload is not requeued. `RayJob` implements it as `status.jobDeploymentStatus == ValidationFailed`. StatefulSet uses the same reason for scale-to-zero from its own reconciler (source: raw/kueue/pkg/controller/jobframework/interface.go, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobs/rayjob/rayjob_controller.go). A *pending* Workload that turns `OnHold` is removed from the scheduling queue (`DeleteWorkload`), so it does not leave a stale queue entry. This fix (#12929) shipped in v0.19.0 and v0.18.3, with a release-0.17 backport ([[pr-12948]]) (source: pr-12948.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md).
 
+### MultiKueue adapter interfaces
+
+A MultiKueue adapter (`IntegrationCallbacks.MultiKueueAdapter`) implements `MultiKueueAdapter`: `SyncJob` (returns `deferred bool, err`), `DeleteRemoteObject`, `IsJobManagedByKueue` and `GVK`. Optional interfaces, all in `pkg/controller/jobframework/multikueue.go`:
+
+| Interface | Purpose |
+|---|---|
+| `MultiKueueWatcher` | `GetEmptyList`, `WorkloadKeysFor`: watch remote objects and map them to manager Workloads |
+| `MultiKueueLocalJobWatcher` | `NewEmptyLocalJob`: watch the manager job so spec edits sync promptly (see [[multikueue#Manager-side gate `MultiKueueRemoteSpecSync`]]) |
+| `MultiKueueLocalStatusResetter` | `ResetLocalStatus`: clear the status copied from a remote object off a local object that stays in place while its Workload is requeued. It may run on every reconcile, so it must not write when there is nothing to reset, and a missing object is not an error. Only the single-Pod adapter implements it ([[pr-17420]]; see [[multikueue#Manager-side status reset after a requeue (`MultiKueueLocalStatusResetter`)]]) |
+| `MultiKueueMultiWorkloadAdapter` | `GetExpectedWorkloadCount`, `GetWorkloadIndex`: the job creates one Workload per component and they share one remote object. The reconciler then keeps that remote object until the last component Workload leaves the cluster ([[pr-16612]]; see [[multikueue#Remote cleanup for jobs with several Workloads (LeaderWorkerSet)]]). Only LeaderWorkerSet implements it |
+
+(source: raw/kueue/pkg/controller/jobframework/multikueue.go)
+
 ## The base reconciler
 
 `JobReconciler` (`pkg/controller/jobframework/reconciler.go`) wraps a `GenericJob` and handles:
@@ -78,6 +93,10 @@ Added in [[pr-11191]] (documented in [[pr-11215]]). The base reconciler normally
 5. **Deactivation**: sets `spec.active=false` on the workload when the job exceeds its backoff limit.
 
 (source: pkg/controller/jobframework/reconciler.go)
+
+### A Namespace missing from the cache requeues the job
+
+After the finalize branch, `ReconcileGenericJob` reads the job's Namespace to apply `managedJobsNamespaceSelector`. On `NotFound` it used to log "Namespace not found; skipping selector check" and return `ctrl.Result{}, nil`. Nothing requeued the job, so a job seen by the job informer before the Namespace informer had seen its namespace stayed suspended with **no Workload** until another event or the next informer resync. This affects every jobframework integration, not only PaddleJob. The PaddleJob integration test hit it when a job was created right after its namespace ([[issue-16974]]). The early return dates from #7493, the Beta graduation of `ManagedJobsNamespaceSelectorAlwaysRespected`. #13021 made the check unconditional when it graduated the gate to GA. Since [[pr-16982]] the `NotFound` error is returned, so controller-runtime requeues with backoff. `ignoreUnretryableError` does not swallow it. The API server does not create objects in a namespace that does not exist, so a missing Namespace means the cache is behind. A namespace that is really being deleted deletes its jobs first, and their reconcile takes the finalize path, which runs before this read (source: pr-16982.md, raw/kueue/pkg/controller/jobframework/reconciler.go). Releases: `main` (merged 2026-10-27), release-0.20 ([[pr-17843]]) and release-0.19 ([[pr-17869]]). Neither is in v0.20.3 / v0.19.10 (source: pr-17843.md, pr-17869.md).
 
 ## Webhook scaffolding
 

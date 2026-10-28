@@ -2,7 +2,7 @@
 
 **Summary**: LeaderWorkerSet is a SIG-Apps API for running groups of Pods where each group has a designated leader and a number of followers. It targets inference serving (disaggregated prefill/decode) and training with tightly-coupled worker groups. Kueue integrates per-group, treating a leader+workers as one gang.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-14405.md, pr-16402.md, pr-16423.md, pr-13316.md, pr-16401.md, pr-13775.md, pr-17255.md, pr-17307.md, pr-17310.md, issue-17251.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, pr-17504.md, pr-15142.md, pr-15412.md, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_reconciler.go, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_webhook.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-14405.md, pr-16402.md, pr-16423.md, pr-13316.md, pr-16401.md, pr-13775.md, pr-17255.md, pr-17307.md, pr-17310.md, issue-17251.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, pr-17504.md, pr-15142.md, pr-15412.md, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_reconciler.go, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_webhook.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16612.md, pr-17644.md, pr-17647.md, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_multikueue_adapter.go, raw/kueue/pkg/controller/admissionchecks/multikueue/workload.go
 
 **Last updated**: 2026-10-28
 
@@ -132,7 +132,17 @@ The LWS mutating webhook also runs on update. With `WorkloadPriorityClassDefault
 
 LWS resolves `kueue.x-k8s.io/priority-class` **once per component** (`PrepareWorkloadPriority` per group Workload). A label naming a missing class therefore emits one `WorkloadPriorityClassNotFound` Warning per component. The events are identical on the same object, so they fold into one event with a count. #13820 tracks resolving the class once per reconcile (source: pr-13775.md). See [[workload-priority#Missing WorkloadPriorityClass: Warning event]].
 
+## MultiKueue
+
+The LWS adapter (`leaderworkerset_multikueue_adapter.go`) implements `MultiKueueAdapter`, `MultiKueueWatcher` and `MultiKueueMultiWorkloadAdapter`. Every group Workload dispatches to the **same** remote LWS. `SyncJob` creates it with `IgnoreAlreadyExists`, because several group Workloads may try to create it at the same time. It carries the `MultiKueueOriginLabel` and the `MultiKueueOriginUIDAnnotation`, and `WorkloadKeysFor` uses that UID to map a remote LWS back to its `replicas` group Workload names. Status is not synced back: LWS has no `managedBy`, so the local LWS controller would overwrite it (source: raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_multikueue_adapter.go).
+
+**The shared remote LWS outlives individual groups ([[pr-16612]]).** Removing the remote objects of one group used to delete the shared remote LWS. Finishing, preempting or scaling down one group therefore stopped every other group on that worker until the LWS was recreated. Now the MultiKueue Workload reconciler deletes only that group's remote Workload while another group Workload of the same LWS is still on the cluster. That means a Workload that is not deleting, not finished, holds quota, and has the cluster as `status.clusterName` or in `status.nominatedClusterNames`. The remote LWS is deleted with the last group. The check reads manager Workloads only. Details: [[multikueue#Remote cleanup for jobs with several Workloads (LeaderWorkerSet)]] (source: pr-16612.md, raw/kueue/pkg/controller/admissionchecks/multikueue/workload.go).
+
+**Scale-down shrinks the remote LWS.** The remote LWS is no longer recreated on a scale-down, so `SyncJob` now patches the remote `spec.replicas` to the local value when the local count (default 1 if unset) is **lower**. It never raises the remote count. When a group Workload is deleted, the reconciler enqueues the LWS's other group Workloads so this sync runs right away. Releases: `main` (merged 2026-10-22), release-0.20 ([[pr-17644]]) and release-0.19 ([[pr-17647]]). Neither is in v0.20.3 / v0.19.10 (source: pr-16612.md, pr-17644.md, pr-17647.md).
+
 ## Related pages
+
+- [[multikueue]]
 
 - [[integrations]] — integration mechanics.
 - [[workload]] — leader + workers PodSet shape.

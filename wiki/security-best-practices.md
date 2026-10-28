@@ -2,7 +2,7 @@
 
 **Summary**: Actionable checklist a Kueue contributor or reviewer can apply to a PR. Distilled from the `Mitigation` sections of `raw/cve/` and adapted to Kueue's code shape (controller-runtime, webhooks, scheduler cache).
 
-**Sources**: `raw/cve/CVE-*.md` mitigation blocks (which repeat per category); the category pages [[security-denial-of-service]], [[security-authn-authz]], [[security-information-disclosure]], [[security-injection-and-input-validation]], [[security-supply-chain]]; [[code-quality]] for the project's existing review bar; 2026-10 CVE additions (`CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-26287.md`, `CVE-2026-7767.md`, `CVE-2026-86671.md`, `CVE-2026-109358.md`). 2026-10-21 additions: pr-17143.md, pr-17249.md, pr-17246.md, pr-17088.md, pr-16035.md, `CVE-2026-113727.md`, `CVE-2026-113708.md`, `CVE-2026-77524.md`.
+**Sources**: `raw/cve/CVE-*.md` mitigation blocks (which repeat per category); the category pages [[security-denial-of-service]], [[security-authn-authz]], [[security-information-disclosure]], [[security-injection-and-input-validation]], [[security-supply-chain]]; [[code-quality]] for the project's existing review bar; 2026-10 CVE additions (`CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-26287.md`, `CVE-2026-7767.md`, `CVE-2026-86671.md`, `CVE-2026-109358.md`). 2026-10-21 additions: pr-17143.md, pr-17249.md, pr-17246.md, pr-17088.md, pr-16035.md; 2026-10-28 additions: pr-17207.md, pr-14142.md, pr-17736.md, `CVE-2026-102649.md`, `CVE-2026-114638.md`, `CVE-2026-115356.md`; `CVE-2026-113727.md`, `CVE-2026-113708.md`, `CVE-2026-77524.md`.
 
 **Last updated**: 2026-10-28
 
@@ -79,12 +79,21 @@
 - [ ] No CR or config field can direct Kueue's own ServiceAccount token to an endpoint (CVE-2026-77524).
 - [ ] An "authentication off" option is feature-gated, limited to loopback, keeps TLS and logs a warning, as `metrics.accessControlMode: None` does (pr-16035).
 
+### Streams, derived keys and deploy-time controls (added 2026-10-28)
+
+- [ ] Every informer or watch whose events reach a caller is authorized with `watch` for that resource, separately from the route's primary check; an authorizer error closes the stream (Kueue pr-17207).
+- [ ] Long-lived sessions re-validate the original credential on a bounded interval and treat an error as revoked. KueueViz WebSockets re-run TokenReview every 30 s (CVE-2026-115356).
+- [ ] An empty or unset secret or security field never means "skip the check" (CVE-2026-102649).
+- [ ] Names or keys derived by normalization (dot-to-dash, lower-casing, truncation, short hashes) are checked for collisions before they carry permissions, quota or config (CVE-2026-114638).
+- [ ] Additive deploy-time controls (NetworkPolicy rules, aggregated RBAC) ship opt-in unless they are proven not to widen existing policy. A new or moved listener port updates `config/components/networkpolicy` and the Helm port helper (Kueue pr-14142).
+
 ### Supply chain
 
 - [ ] No new direct dependency without a one-line justification in the PR body.
 - [ ] No `replace` directive in `go.mod` without a tracked issue and target removal version.
 - [ ] No `curl | sh` in any added script or Dockerfile.
 - [ ] CI workflow additions pin actions to a SHA.
+- [ ] A workflow that runs repository code with a write token uses `pull_request` (not `pull_request_target`), keeps actor/author checks, and never serves forks (Kueue pr-17736; see [[security-supply-chain#CI workflows that write to PR branches (2026-10)]]).
 
 ## Kueue-specific guardrails
 

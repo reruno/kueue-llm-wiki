@@ -2,7 +2,7 @@
 
 **Summary**: Table of contents for the Kueue knowledge base. Each entry is one link and a one-line blurb.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-10-21), `raw/kueue/` (source snapshot, kueue@3bbb8cce4) and `raw/cve/` (Kubernetes-ecosystem CVE corpus, 795 entries).
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-10-28), `raw/kueue/` (source snapshot, kueue@966f00d21) and `raw/cve/` (Kubernetes-ecosystem CVE corpus, 803 entries).
 
 **Last updated**: 2026-10-28
 
@@ -37,8 +37,8 @@
 - [[workload-priority]] — PriorityClass vs WorkloadPriorityClass, priority-sorting within cohort.
 - [[preemption-cost]] — **[Alpha]** External controllers dynamically boost a workload's effective priority via annotation.
 - [[wait-for-pods-ready]] — WaitForPodsReady config, defaults, per-workload override, unscheduled timeout, succeeded pods counted as ready.
-- [[configurable-preemptions]] — PreemptionConfig API, evaluator, candidate filters, eviction reasons, RBAC (Alpha, 0.20).
-- [[dynamic-quota-orchestration]] — DQO / CapacityProvider: externally orchestrated flavor quota (Alpha).
+- [[configurable-preemptions]] — PreemptionConfig API, evaluator, candidate filters including `priorityClassSelector`, eviction reasons, RBAC (Alpha, 0.20).
+- [[dynamic-quota-orchestration]] — DQO / CapacityProvider: externally orchestrated flavor quota, per-flavor resource limit, `ObservedGeneration` contract (Alpha).
 - [[unadmitted-workloads-observability]] — Tiered QuotaReserved reasons and pending-workload gauges.
 - [[gang-scheduling]] — All-or-nothing admission via WaitForPodsReady and scheduler ordering.
 - [[elastic-jobs]] — Dynamic scale-up/scale-down of admitted jobs via WorkloadSlices.
@@ -48,7 +48,7 @@
 ## Advanced scheduling
 
 - [[topology-aware-scheduling]] — Pack pods within a topology domain (rack/block/zone) to reduce cross-node latency.
-- [[multikueue]] — Dispatch Workloads across multiple worker clusters from a manager cluster.
+- [[multikueue]] — Dispatch Workloads across multiple worker clusters from a manager cluster; resync on watch reconnect, local status reset on requeue.
 - [[multikueue-orchestrated-preemption]] — **[Beta]** Serialize preemption across MultiKueue worker clusters to avoid unnecessary disruptions; a missing gate state means closed.
 - [[dra]] — **[Beta]** Quota management for DRA-based devices (GPUs via ResourceClaimTemplates or extended resources).
 - [[resource-transformer]] — **[Stable]** Rewrite workload resource requests into quota units (MIG GPU slicing, budget credits).
@@ -61,8 +61,8 @@
 - [[integration-jobset]] — JobSet (the recommended multi-template gang-scheduled primitive).
 - [[integration-kubeflow]] — PyTorchJob, TFJob, MPIJob, PaddleJob, JAXJob, XGBoostJob (Training Operator v1).
 - [[integration-trainjob]] — **[Alpha]** TrainJob (Kubernetes Training Operator v2).
-- [[integration-rayjob]] — RayJob, RayCluster and RayService.
-- [[integration-leaderworkerset]] — LeaderWorkerSet (LWS).
+- [[integration-rayjob]] — RayJob, RayCluster and RayService; `RayClusterHeadPodReady` head-based PodsReady.
+- [[integration-leaderworkerset]] — LeaderWorkerSet (LWS), including the MultiKueue adapter and shared remote LWS cleanup.
 - [[integration-appwrapper]] — AppWrapper (Project CodeFlare).
 - [[integration-argo-workflow]] — Argo Workflows.
 - [[integration-plain-pod]] — Plain Pods and PodGroups.
@@ -71,7 +71,7 @@
 
 ## Operator tooling
 
-- [[kueuectl]] — The `kubectl-kueue` CLI.
+- [[kueuectl]] — The `kubectl-kueue` CLI, including pass-through commands and their aliases (`cohort`, `topology`).
 - [[visibility-api]] — Pending-workload visibility per ClusterQueue and LocalQueue.
 - [[metrics]] — Prometheus metrics surface; custom metric labels, execution-time histograms, gauge-staleness fixes, **[Alpha]** `MetricsAccessControl` for loopback scraping.
 - [[dashboard]] — KueueViz web UI; per-user SubjectAccessReview authz on WebSockets, auth-mode validation, shutdown behaviour.
@@ -113,7 +113,7 @@
 - [[security]] — Threat model for Kueue and how the 795-CVE corpus in `raw/cve/` (none a Kueue advisory) maps to its code surface.
 - [[security-code-patterns]] — Master checklist of patterns to flag in review, grouped by category and CWE.
 - [[security-denial-of-service]] — DoS patterns: unbounded loops, missing timeouts, nil-pointer crashes, invalid-spec wedges.
-- [[security-authn-authz]] — Authentication bypass, RBAC misconfiguration, privilege escalation, MultiKueue credential boundary.
+- [[security-authn-authz]] — Authentication bypass, RBAC misconfiguration, privilege escalation, MultiKueue credential boundary, opt-in NetworkPolicies.
 - [[security-information-disclosure]] — Log hygiene, metrics label cardinality, visibility-api scoping, credential handling.
 - [[security-injection-and-input-validation]] — Injection, input validation, path traversal, code execution, dashboard XSS/CSRF.
 - [[security-supply-chain]] — Image pinning, signature verification, `go.mod` and CI-workflow hygiene.

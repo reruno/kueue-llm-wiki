@@ -1,8 +1,8 @@
 # kueuectl
 
-**Summary**: `kueuectl` (installable as the `kubectl-kueue` plugin) is Kueue's CLI for day-to-day operator and user tasks: creating ClusterQueues and LocalQueues, listing/stopping/resuming workloads, draining queues, and passing through to underlying jobs.
+**Summary**: `kueuectl` (installable as the `kubectl-kueue` plugin) is Kueue's CLI for day-to-day operator and user tasks: creating ClusterQueues and LocalQueues, listing/stopping/resuming workloads, draining queues, and passing `get`/`describe`/`edit`/`patch`/`delete` on Kueue resource types through to `kubectl`.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-15376.md, pr-16040.md, pr-16510.md, pr-16531.md, pr-16609.md, pr-16633.md, pr-16667.md, pr-16850.md, pr-16981.md, pr-17055.md, issue-17054.md; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-15376.md, pr-16040.md, pr-16510.md, pr-16531.md, pr-16609.md, pr-16633.md, pr-16667.md, pr-16850.md, pr-16981.md, pr-17055.md, issue-17054.md; 2026-10-28 batch: pr-17708.md, issue-17707.md, pr-17818.md, pr-17829.md, pr-17830.md, `raw/kueue/cmd/kueuectl/app/passthrough/passthrough.go`, `raw/kueue/test/integration/singlecluster/kueuectl/passthrough_test.go`; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`.
 
 **Last updated**: 2026-10-28
 
@@ -19,8 +19,25 @@ The CLI grew incrementally during v0.6–v0.7. Representative tracking issues:
 - **Create**: `kueuectl create clusterqueue`, `kueuectl create localqueue` ([[issue-2113]] — Allow create ClusterQueue).
 - **List**: `kueuectl list workload`, `kueuectl list clusterqueue` ([[issue-2135]], [[issue-2114]]).
 - **Stop / Resume**: `kueuectl stop workload`, `kueuectl stop clusterqueue`, `kueuectl stop localqueue`, and matching `resume` ([[issue-2132]], [[issue-2133]], [[issue-2137]], [[issue-2138]], [[issue-2139]]). Stop on a CQ can either drain (evict admitted) or just hold (let admitted finish); there's separate flaky-test coverage for both ([[issue-2247]], [[issue-2245]]).
-- **Pass-through**: "Add Pass-through commands" ([[issue-2180]]) — `kueuectl` can proxy operations on the underlying job.
+- **Pass-through**: "Add Pass-through commands" ([[issue-2180]]) — `get`, `describe`, `edit`, `patch` and `delete` on Kueue resource types are handed to `kubectl`. See [Pass-through commands](#pass-through-commands) below for the mechanism and the supported types.
 - **List pods for a job**: a convenience over `kubectl get pods -l` ([[issue-2204]]).
+
+## Pass-through commands
+
+`cmd/kueuectl/app/passthrough/passthrough.go` registers one cobra subcommand per (verb, type) pair. The verbs are `get`, `delete`, `edit`, `describe` and `patch`. The `RunE` does not call the API itself. It looks up `kubectl` on `$PATH`, replaces `os.Args[0]` with that path and `syscall.Exec`s it, so `kueuectl get cq foo -o yaml` runs as `kubectl get cq foo -o yaml` with every flag unchanged. Unknown flags are whitelisted for that reason (`FParseErrWhitelist{UnknownFlags: true}`). Without `kubectl` on `$PATH`, the command fails with `pass-through command are not available: ..., PATH=...`. The one exception is `delete workload`, which is Kueue's own command (`delete.NewWorkloadCmd`, which also deletes the owner; see below).
+
+| Type | Aliases |
+|---|---|
+| `workload` | `kwl`, `kueueworkload`, `kueueworkloads` |
+| `clusterqueue` | `cq` |
+| `localqueue` | `lq` |
+| `resourceflavor` | `rf` |
+| `cohort` | `co` (new) |
+| `topology` | `topo` (new) |
+
+**Cohort and Topology were added in this window** (source: pr-17708.md, fixes issue-17707.md). Before, `kueuectl get cohort` failed with `unknown command "cohort" for "kueuectl get"`. This is on main only: pr-17708 was not cherry-picked, so v0.20.x and v0.19.x still reject both types. Because the arguments go to `kubectl` unchanged, **an alias only works if the CRD declares it as a `shortName`**. The issue and PR first proposed `ch` for Cohort, and the reviewer had it changed to `co` to match `+kubebuilder:resource:scope=Cluster,shortName={co}` in `apis/kueue/v1beta2/cohort_types.go`. Topology declares `shortName={topo}` (source: pr-17708.md review; raw/kueue/config/components/crd/bases/). The generated CLI reference docs are rebuilt with `make generate-kueuectl-docs`.
+
+**Test pattern** (`test/integration/singlecluster/kueuectl/passthrough_test.go`). The table runs every verb and alias against a real `kubectl` binary. ClusterQueue, ResourceFlavor, Cohort and Topology are cluster-scoped and reuse fixed names across entries and reruns. Cleanup used to rely on the CLI `delete` at the end of each entry, so a failed `get` or `patch` assertion left the object behind, and the next alias entry failed with `AlreadyExists`. Each entry now registers `ginkgo.DeferCleanup` right after `MustCreate`. The cleanup deletes with `client.IgnoreNotFound` and waits until the object is NotFound, so it is harmless once the CLI delete has already run (source: pr-17818.md; backported to release-0.19/0.20 as pr-17829/pr-17830). The PR text names `behavioral.ExpectObjectToBeDeleted`, but the merged code uses the inline `DeferCleanup` shown here (raw/kueue at kueue@966f00d21). General rule: register cleanup for cluster-scoped fixtures **immediately after creating them**, not at the end of the test body.
 
 ## Validation
 

@@ -2,9 +2,9 @@
 
 **Summary**: Master checklist of code patterns reviewers should flag, distilled from the `Security Code Patterns` section of every CVE in `raw/cve/`. Grouped by category and mapped to CWE.
 
-**Sources**: `raw/cve/CVE-*.md` (795 entries); 2026-10 additions `CVE-2026-26287.md`, `CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-106563.md`, `CVE-2026-7767.md`, `CVE-2026-86671.md`, `CVE-2026-105216.md`, `CVE-2026-105223.md`, `CVE-2026-109358.md`, `CVE-2026-107446.md`; 2026-10-21 additions `CVE-2026-113727.md`, `CVE-2026-113708.md`, `CVE-2026-77524.md`, `CVE-2026-53999.md`, `CVE-2026-110248.md`, `CVE-2026-47218.md`; Kueue fixes pr-17143.md, pr-17249.md, pr-17246.md, pr-17088.md, pr-16035.md; Kueue `pr-16379.md`. Pattern text is taken verbatim from the CVE files where the same checklist repeats per category.
+**Sources**: `raw/cve/CVE-*.md` (803 entries); 2026-10-28 additions `CVE-2026-102649.md`, `CVE-2026-114636.md`, `CVE-2026-114638.md`, `CVE-2026-114640.md`, `CVE-2026-115356.md`, pr-17207.md, pr-14142.md; 2026-10 additions `CVE-2026-26287.md`, `CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-106563.md`, `CVE-2026-7767.md`, `CVE-2026-86671.md`, `CVE-2026-105216.md`, `CVE-2026-105223.md`, `CVE-2026-109358.md`, `CVE-2026-107446.md`; 2026-10-21 additions `CVE-2026-113727.md`, `CVE-2026-113708.md`, `CVE-2026-77524.md`, `CVE-2026-53999.md`, `CVE-2026-110248.md`, `CVE-2026-47218.md`; Kueue fixes pr-17143.md, pr-17249.md, pr-17246.md, pr-17088.md, pr-16035.md; Kueue `pr-16379.md`. Pattern text is taken verbatim from the CVE files where the same checklist repeats per category.
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-28
 
 ---
 
@@ -204,6 +204,19 @@ The 20 CVEs added by the 2026-10-21 data-collection are non-Kueue and none affec
 | Credentials in subprocess or client error text are logged verbatim | `CVE-2026-110248` (SageMaker git clone error) | errors that may contain URLs with userinfo or tokens are wrapped or redacted before logging |
 | Untrusted input read through the component's trusted-cache path | `CVE-2026-47218` (runwasi precompiled Wasm from an image layer) | annotations Kueue normally writes are validated on read, since tenants can set them too |
 | An authentication opt-out is not confined to a safe listener | Kueue `metrics.accessControlMode: None` (pr-16035) is the positive model: Alpha gate, literal loopback IP and port required, HTTPS kept, startup warning | any new "auth off" switch is gated, validated against the bind address, and logged |
+
+## Normalization, renewal and output-channel patterns (2026-10-28 additions)
+
+The 8 CVEs added on 2026-10-28 are non-Kueue ([[security#2026-10-28 wave: what the 8 new CVEs add]]). Two rows below come from Kueue's own changes in the same window.
+
+| Pattern | Example | What to check in Kueue code |
+|---|---|---|
+| Distinct names collapse to one key after **lossy normalization** (dot-to-dash, case-folding, truncation, hashing to a short suffix), and the merged key carries security config | `CVE-2026-114638` (Traefik merged client CAs of two `auth-tls-secret` names equal after dot-to-dash) | treat any derived name or key like a delimiter-joined key (pr-17249 above). When two inputs can map to one output, the consumer must not merge their permissions or quota. Typical places: generated Workload names, label-value sanitisation, metric label values |
+| An optional secret or config value whose **empty value skips verification** | `CVE-2026-102649` (Burrito accepted unsigned webhooks when `webhookSecret` was empty) | an empty security setting is a validation error or means "deny". Compare with `KUEUEVIZ_AUTH_MODE` (pr-17143) and `metrics.accessControlMode` (pr-16035) |
+| A renewal or refresh path that never re-checks the original credential | `CVE-2026-115356` (OpenBao renewed Kubernetes-auth tokens after the ServiceAccount was deleted) | long-lived KueueViz WebSockets re-run TokenReview every 30 s and close on error; new streaming endpoints must do the same. Authorization decided at connect time is not re-evaluated ([[security-authn-authz#Long-lived sessions must re-check the original credential]]) |
+| An **informer or watch registered on behalf of a caller** without checking `watch` on that resource | Kueue KueueViz secondary informers (pr-17207, issue-17177) | every informer whose events reach a caller is authorized separately from the route's primary resource; an authorizer error drops the socket |
+| A deploy-time control that is **additive** turned on by default | Kueue NetworkPolicies kept opt-in (pr-14142): default-on would widen users' stricter policies | additive controls (NetworkPolicy rules, aggregated RBAC, extra webhook rules) ship opt-in or are proven not to widen existing policy. Port-scoped rules are documented as defence in depth, not isolation |
+| Client-supplied identity headers forwarded on an unauthenticated path | `CVE-2026-114640` (Traefik `Ssl-Client-Verify: SUCCESS` on the HTTP router) | KueueViz identity comes only from the bearer token's TokenReview; Gin `SetTrustedProxies(nil)` keeps `X-Forwarded-*` untrusted |
 
 ## Related pages
 

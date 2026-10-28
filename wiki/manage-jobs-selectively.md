@@ -2,7 +2,7 @@
 
 **Summary**: Kueue provides two configuration knobs — `manageJobsWithoutQueueName` and `managedJobsNamespaceSelector` — that together let cluster admins precisely control which jobs Kueue manages, scoped to namespaces rather than individual jobs.
 
-**Sources**: `raw/kueue/keps/3589-manage-jobs-selectively/README.md`, `raw/kueue/keps/3589-manage-jobs-selectively/kep.yaml`, pr-13375.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/kueue/keps/3589-manage-jobs-selectively/README.md`, `raw/kueue/keps/3589-manage-jobs-selectively/kep.yaml`, pr-13375.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16982.md, pr-17843.md, pr-17869.md, issue-16974.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
 
 **Last updated**: 2026-10-28
 
@@ -77,7 +77,11 @@ A job is not managed by Kueue if:
 1. It has no `kueue.x-k8s.io/queue-name` label, AND
 2. `manageJobsWithoutQueueName` is `false` OR the namespace doesn't match the selector.
 
-The job starts immediately without any quota check. Use `ManagedJobsNamespaceSelectorAlwaysRespected` (and enable the feature gate) to ensure that jobs in non-opted-in namespaces are never managed, even if someone manually labels them.
+The job starts immediately without any quota check. `ManagedJobsNamespaceSelectorAlwaysRespected` makes sure jobs in non-opted-in namespaces are never managed, even if someone labels them by hand. It was Alpha in 0.13 and Beta (on) in 0.15. It is **GA and locked on since v0.19.0** (#13021), so the reconciler always checks the selector (source: raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md). **Correction (2026-10-28)**: this paragraph said the gate has to be enabled.
+
+## The reconciler's Namespace read retries on a cache miss
+
+To apply the selector, `ReconcileGenericJob` reads the job's Namespace from the informer cache. On `NotFound` it used to return without error, so a job seen before its Namespace reached the cache stayed suspended with no Workload until a later event or informer resync. Since [[pr-16982]] the error is returned and the job is requeued with backoff. Releases: `main`, release-0.20 (pr-17843) and release-0.19 (pr-17869). None is in the v0.20.3 / v0.19.10 notes. Details: [[job-framework-interface#A Namespace missing from the cache requeues the job]] (source: pr-16982.md, issue-16974.md, raw/kueue/pkg/controller/jobframework/reconciler.go).
 
 ## Interaction with LocalQueue defaulting
 

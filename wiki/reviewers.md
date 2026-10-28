@@ -2,7 +2,7 @@
 
 **Summary**: Overview of Kueue's reviewer roster, OWNERS structure, Prow approval workflow, and how individual reviewers divide responsibility. Use this page as the entry point when navigating to a specific reviewer profile or to [[code-quality|the project's shared code quality bar]].
 
-**Sources**: `raw/kueue/OWNERS`, `raw/kueue/OWNERS_ALIASES`, `raw/kueue/CONTRIBUTING.md`, `raw/kueue/AGENTS.md`, and analysis of PR review comments across `raw/github/kubernetes-sigs__kueue/`; pr-16505.md, pr-16850.md, pr-16739.md, pr-17055.md, pr-14150.md; pr-17326.md, pr-17284.md, pr-17348.md, pr-17162.md, pr-17487.md, `raw/kueue/cmd/experimental/skills/OWNERS`, `raw/kueue/cmd/experimental/skills/reviewer/multikueue/SKILL.md` (OWNERS state re-read at kueue@3bbb8cce4).
+**Sources**: `raw/kueue/OWNERS`, `raw/kueue/OWNERS_ALIASES`, `raw/kueue/CONTRIBUTING.md`, `raw/kueue/AGENTS.md`, and analysis of PR review comments across `raw/github/kubernetes-sigs__kueue/`; pr-16505.md, pr-16850.md, pr-16739.md, pr-17055.md, pr-14150.md; pr-17326.md, pr-17284.md, pr-17348.md, pr-17162.md, pr-17487.md, `raw/kueue/cmd/experimental/skills/OWNERS`, `raw/kueue/cmd/experimental/skills/reviewer/multikueue/SKILL.md` (OWNERS state re-read at kueue@966f00d21); 2026-10-28 batch: pr-17712.md, pr-17791.md, pr-17101.md, pr-17606.md, pr-17361.md, `raw/kueue/cmd/kueueviz/OWNERS`, `raw/kueue/test/e2e/kueueviz/OWNERS`.
 
 **Last updated**: 2026-10-28
 
@@ -30,7 +30,7 @@ Approval requires one approver from `kueue-approvers`. `/lgtm` can come from any
 
 | Path pattern | Approver alias | Notes |
 |---|---|---|
-| `go.(mod\|sum)`, `vendor/...`, `hack/make/deps.mk` | `dependency-approvers` (mbobrovskyi, pbundyra) | Dependency bumps |
+| `go.(mod\|sum)`, `vendor/...`, `hack/make/deps.mk` | `dependency-approvers` (mbobrovskyi, pbundyra, kannon92) | Dependency bumps. kannon92 self-nominated and was added on 2026-10-26, citing work tracking upstream dependencies such as the Kubernetes 1.37 APIs (pr-17712) |
 | `package(-lock)?.json` | `dependency-approvers` or `release-team` | npm dependencies (KueueViz, site) |
 | `*_test.go`, `hack/make/(verify\|test).mk`, `.golangci*.yaml` | `test-approvers` (mbobrovskyi, olekzabl, pbundyra) | Test infrastructure and lint config |
 | `AGENTS.md`, `cmd/experimental/skills/` (own OWNERS file) | `agent-approvers` / `agent-reviewers` (amy, kannon92, pbundyra) | Agent instructions, skills and the skillsaw config (`cmd/experimental/skills/.skillsaw.yaml`, moved there by pr-17487) |
@@ -38,6 +38,10 @@ Approval requires one approver from `kueue-approvers`. `/lgtm` can come from any
 | `Dockerfile`, `.dockerignore` / `netlify.toml` | `infra-approvers` / `hugo-approvers` (mbobrovskyi) | Images / website build |
 
 This is why dependency-bump and test-infrastructure PRs route to mbobrovskyi or PBundyra first, even when the rest of the diff is in core scheduler code.
+
+### Scoped OWNERS files
+
+Some directories have their own `OWNERS` with extra **reviewers** only. Approval still comes from the root aliases. `cmd/kueueviz/OWNERS` and `test/e2e/kueueviz/OWNERS` list `akram` (since #5248) and `danylott` (added 2026-10-27 by pr-17791). danylott's nomination used the reviewer checklist (org member; primary reviewer on 18 KueueViz PRs; 36 KueueViz PRs reviewed) and was discussed beforehand with mimowo and tenzen-y, who asked for a **scoped** reviewer role rather than a `kueue-reviewers` entry (source: pr-17791.md). `cmd/experimental/skills/` has its own file too (see the table above). Scoped self-nomination follows the same checklist as `kueue-reviewers`, limited to the area.
 
 ### Emeritus approvers
 
@@ -79,7 +83,11 @@ Other active reviewers without dedicated profile pages:
 
 ## Agent instructions and review skills
 
-- `AGENTS.md` is the single agent-instruction file; `CLAUDE.md`, which only referenced it, was removed (pr-17284). The PR text and AI summary describe a contribution workflow added to `AGENTS.md`, but the merged commit only deletes `CLAUDE.md`; the workflow is in the `kueue-pr-issue-workflow` skill that `AGENTS.md` links, and a separate PR to add it to `AGENTS.md` is still open (pr-17361) (source: `git show` of the merge commit in raw/kueue).
+- `AGENTS.md` is the single agent-instruction file; `CLAUDE.md`, which only referenced it, was removed (pr-17284). The PR text and AI summary describe a contribution workflow added to `AGENTS.md`, but the merged commit only deletes `CLAUDE.md`; that PR's workflow text lived only in the `kueue-pr-issue-workflow` skill (source: `git show` of the merge commit in raw/kueue). pr-17361 (merged 2026-10-25) then added a **Contribution Workflow** section to `AGENTS.md`. It has four steps:
+  1. Search open and closed PRs for the same issue or objective before implementing, and again before opening a PR. Check the diff and outcome of any match, report overlaps, and do not duplicate work. If search is unavailable, say so instead of claiming there is no duplicate.
+  2. Before coding, establish the issue or objective and its acceptance criteria, the components that may change and the APIs, config and data formats that must stay compatible, and the required checks, tests and real-cluster validation. Ask about missing answers and wait for them. A clear task does not need a new issue.
+  3. Implement the agreed scope, run the relevant checks, and follow the `kueue-verify` skill before pushing or opening or updating a PR. Report commands and results, including failures and checks that could not run.
+  4. Write PR titles, descriptions and commits in English, and follow the `kueue-pr-issue-workflow` skill and the AI contribution policy (source: pr-17361.md; raw/kueue/AGENTS.md).
 - Agents must start each reply with `_Kueue Development (context canary, see AGENTS.md)_`; if it disappears, the agent has probably lost `AGENTS.md` from its context (pr-17348).
 - Reviewer skills live in `cmd/experimental/skills/reviewer/`. New in this window: `multikueue` — minimise reads from remote worker clusters, e.g. requeue from manager-cluster Workloads instead of listing on workers, keeping only reads needed for correctness (pr-17162). See [[code-quality]].
 
@@ -104,7 +112,7 @@ Kueue uses [Prow](https://prow.k8s.io/) for PR automation. The standard sequence
 | `/release-note-edit` | Approver | Tightens user-facing release-note text inline |
 | `/retest` | Author or reviewer | Re-runs failing CI jobs |
 | `/lifecycle frozen` | Approver | Prevents the bot from staling out a long-running PR |
-| `/set-release-note` | `release-team` or `kueue-approvers` (since pr-16505.md) | Replaces the release note. It takes **everything after the command** in that comment as the note, so put `/kind`, `/cherrypick` and other commands in a separate comment (source: pr-16850.md) |
+| `/set-release-note` | `release-team` or `kueue-approvers` (since pr-16505.md) | Replaces the release note. Put the command alone on its line and the note on the following lines. Since pr-17101 the note ends at the next Prow command line (`/kind`, `/lgtm`, `/cherrypick`, any `/remove-*`), so other commands may share the comment; the last `/set-release-note` wins; it is refused alongside `/release-note-edit` or `/release-note-none`. The bot's reply quotes the note it set (pr-17606). Before pr-17101 everything after the command became the note (pr-16850) |
 | `/hold cancel` or `/unhold` | Hold owner | Both release a hold; `/remove hold` does nothing (source: pr-14150.md) |
 
 ### Conditional approvals
