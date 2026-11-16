@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8249
 
-**Last updated**: 2026-10-17T22:29:06Z
+**Last updated**: 2026-11-13T01:42:19Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@dominikgrewe](https://github.com/dominikgrewe)
 - **Created**: 2025-12-15T17:16:19Z
-- **Updated**: 2026-10-17T22:29:06Z
+- **Updated**: 2026-11-13T01:42:19Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `priority/important-soon`, `lifecycle/rotten`
+- **Labels**: `kind/feature`, `priority/important-soon`
 - **Assignees**: _none_
-- **Comments**: 15
+- **Comments**: 16
 
 ## Description
 
@@ -163,3 +163,13 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@prash2512](https://github.com/prash2512) — 2026-11-13T01:40:21Z
+
+/remove-lifecycle rotten
+
+We'd like to see this land, mainly `priority_class` on `kueue_pending_workloads`,`kueue_reserving_active_workloads` and `kueue_admitted_active_workloads`, so we can see per ClusterQueue grouped by priority of what's waiting and what's running.. The LocalQueue ones seem fine to leave for later given the cardinality.
+
+On the perf concern from #10323, I wonder if the pending trackers added in #13469 could help here, with priority class as one more key. Happy to help with this if that direction makes sense.
+
+cc @mimowo @mbobrovskyi

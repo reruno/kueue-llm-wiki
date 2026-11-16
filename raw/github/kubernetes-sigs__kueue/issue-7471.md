@@ -1,10 +1,10 @@
-# Issue #7471: ☂️ Fix the most common flakes
+# Issue #7471: ☂️ Fix the most common flakes (wave 1.5)
 
-**Summary**: ☂️ Fix the most common flakes
+**Summary**: ☂️ Fix the most common flakes (wave 1.5)
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7471
 
-**Last updated**: 2026-05-29T05:12:58Z
+**Last updated**: 2026-10-30T11:34:42Z
 
 ---
 
@@ -13,7 +13,7 @@
 - **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-10-31T08:02:32Z
-- **Updated**: 2026-05-29T05:12:58Z
+- **Updated**: 2026-10-30T11:34:42Z
 - **Closed**: 2025-11-14T18:26:14Z
 - **Labels**: `kind/bug`, `kind/flake`
 - **Assignees**: _none_

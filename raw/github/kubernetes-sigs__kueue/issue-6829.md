@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/6829
 
-**Last updated**: 2026-09-24T16:55:15Z
+**Last updated**: 2026-11-06T10:49:10Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-09-15T09:02:50Z
-- **Updated**: 2026-09-24T16:55:15Z
-- **Closed**: —
+- **Updated**: 2026-11-06T10:49:10Z
+- **Closed**: 2026-11-06T10:49:09Z
 - **Labels**: `kind/feature`
 - **Assignees**: _none_
-- **Comments**: 12
+- **Comments**: 15
 
 ## Description
 
@@ -164,3 +164,31 @@ The KEP: https://github.com/kubernetes-sigs/kueue/pull/14616
 ### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-09-24T16:55:15Z
 
 Implementations: https://github.com/kubernetes-sigs/kueue/pull/14316
+
+### Comment by [@MichalZylinski](https://github.com/MichalZylinski) — 2026-11-06T10:49:03Z
+
+Support for ProvisioningRequests with elastic workloads was implemented and merged via PR #14316 (following KEP #14616) behind the ElasticJobsViaWorkloadSlicesForProvisioningRequests feature gate.
+
+/close
+
+### Comment by [@MichalZylinski](https://github.com/MichalZylinski) — 2026-11-06T10:49:10Z
+
+Support for ProvisioningRequests with elastic workloads was implemented and merged via PR #14316 (following KEP #14616) behind the `ElasticJobsViaWorkloadSlicesForProvisioningRequests` feature gate.
+
+/close
+
+### Comment by [@kubernetes-prow[bot]](https://github.com/apps/kubernetes-prow) — 2026-11-06T10:49:10Z
+
+@MichalZylinski: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/6829#issuecomment-6683085453):
+
+>Support for ProvisioningRequests with elastic workloads was implemented and merged via PR #14316 (following KEP #14616) behind the ElasticJobsViaWorkloadSlicesForProvisioningRequests feature gate.
+>
+>/close
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

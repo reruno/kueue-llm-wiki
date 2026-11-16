@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9992
 
-**Last updated**: 2026-05-01T22:25:54Z
+**Last updated**: 2026-10-28T23:14:41Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@SeungjinYang](https://github.com/SeungjinYang)
 - **Created**: 2026-03-19T00:48:47Z
-- **Updated**: 2026-05-01T22:25:54Z
+- **Updated**: 2026-10-28T23:14:41Z
 - **Closed**: —
-- **Labels**: `kind/feature`
-- **Assignees**: [@amy](https://github.com/amy)
-- **Comments**: 16
+- **Labels**: `kind/feature`, `lifecycle/stale`
+- **Assignees**: _none_
+- **Comments**: 17
 
 ## Description
 
@@ -203,12 +203,30 @@ Yup, I think it works - similar like the idea of "a custom annotation" in (1), b
 
 cc @jzhaojieh
 
-### Comment by [@amy](https://github.com/amy) — 2026-05-01T21:33:32Z
+### Comment by [@amy](https://github.com/amy) — 2026-07-19T01:54:58Z
 
-Happy to pick option 2 up for 0.19: `when scheduling a TAS workload and accounting for non-TAS Pods, then only account for those which have >= priority than the preempting Pod`
+/unassign
 
-if we decide that we want this longer term even with the workaround. Let me know @Huang-Wei @islewis
+### Comment by [@amy](https://github.com/amy) — 2026-07-30T23:11:11Z
 
-### Comment by [@amy](https://github.com/amy) — 2026-05-01T22:25:52Z
+To close gap here, created this issue addressing why we needed to create this workaround in the first place: https://github.com/kubernetes-sigs/kueue/issues/13683
 
-/assign
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-10-28T23:14:38Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

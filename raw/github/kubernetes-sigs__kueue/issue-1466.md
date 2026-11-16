@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/1466
 
-**Last updated**: 2026-10-27T05:52:37Z
+**Last updated**: 2026-11-12T13:32:32Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@sec-jeff](https://github.com/sec-jeff)
 - **Created**: 2023-12-15T18:25:30Z
-- **Updated**: 2026-10-27T05:52:37Z
+- **Updated**: 2026-11-12T13:32:32Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `good first issue`, `help wanted`, `sig/release`, `kind/umbrella`
 - **Assignees**: [@lmilbaum](https://github.com/lmilbaum), [@OMNARAYANYU](https://github.com/OMNARAYANYU)
-- **Comments**: 18
+- **Comments**: 19
 
 ## Description
 
@@ -179,3 +179,9 @@ I linked your tasks as sub-issues, does it work well?
 ### Comment by [@lmilbaum](https://github.com/lmilbaum) — 2026-10-27T05:52:37Z
 
 @mimowo Thank you. It works well.
+
+### Comment by [@lmilbaum](https://github.com/lmilbaum) — 2026-11-12T13:32:32Z
+
+@mimowo Could you link #18665 as a sub-issue here too? It tracks the build identity rollout from KEP-1466: running the staging build as `kueue-sa`, which the attestation step depends on. I couldn't add it myself because I don't have write access to this issue.
+
+_Drafted with AI assistance (Claude Code)._

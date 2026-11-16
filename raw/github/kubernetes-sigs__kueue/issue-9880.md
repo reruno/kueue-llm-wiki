@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9880
 
-**Last updated**: 2026-10-23T07:31:22Z
+**Last updated**: 2026-11-04T14:43:58Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-03-16T08:38:54Z
-- **Updated**: 2026-10-23T07:31:22Z
+- **Updated**: 2026-11-04T14:43:58Z
 - **Closed**: —
 - **Labels**: `kind/cleanup`
-- **Assignees**: [@Paramesh324](https://github.com/Paramesh324)
-- **Comments**: 9
+- **Assignees**: [@unaimeds](https://github.com/unaimeds), [@Paramesh324](https://github.com/Paramesh324)
+- **Comments**: 10
 
 ## Description
 
@@ -104,3 +104,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-10-23T07:31:20Z
 
 /remove-lifecycle stale
+
+### Comment by [@unaimeds](https://github.com/unaimeds) — 2026-11-04T14:43:58Z
+
+/assign

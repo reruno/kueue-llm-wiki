@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9030
 
-**Last updated**: 2026-06-08T09:31:50Z
+**Last updated**: 2026-11-14T02:39:53Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@Singularity23x0](https://github.com/Singularity23x0)
 - **Created**: 2026-02-06T13:48:29Z
-- **Updated**: 2026-06-08T09:31:50Z
+- **Updated**: 2026-11-14T02:39:53Z
 - **Closed**: —
-- **Labels**: `kind/bug`
-- **Assignees**: _none_
-- **Comments**: 3
+- **Labels**: `kind/bug`, `lifecycle/stale`
+- **Assignees**: [@Dasmat13](https://github.com/Dasmat13)
+- **Comments**: 7
 
 ## Description
 
@@ -95,3 +95,48 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@mimowo](https://github.com/mimowo) — 2026-06-08T09:31:47Z
 
 /remove-lifecycle rotten
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-08-15T12:26:28Z
+
+/assign @Dasmat13
+
+### Comment by [@kubernetes-prow[bot]](https://github.com/apps/kubernetes-prow) — 2026-08-15T12:26:30Z
+
+@tenzen-y: GitHub didn't allow me to assign the following users: Dasmat13.
+
+Note that only [kubernetes-sigs members](https://github.com/orgs/kubernetes-sigs/people) with read permissions, repo collaborators and people who have commented on this issue/PR can be assigned. Additionally, issues/PRs can only have 10 assignees at the same time.
+For more information please see [the contributor guide](https://git.k8s.io/community/contributors/guide/first-contribution.md#issue-assignment-in-github)
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/9030#issuecomment-5302214774):
+
+>/assign @Dasmat13 
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
+
+### Comment by [@Dasmat13](https://github.com/Dasmat13) — 2026-08-16T02:01:37Z
+
+/assign
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-11-14T02:39:50Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

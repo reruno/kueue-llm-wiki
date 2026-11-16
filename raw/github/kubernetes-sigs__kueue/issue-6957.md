@@ -4,17 +4,17 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/6957
 
-**Last updated**: 2026-10-20T05:02:29Z
+**Last updated**: 2026-10-29T21:01:39Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2025-09-23T11:44:25Z
-- **Updated**: 2026-10-20T05:02:29Z
-- **Closed**: —
+- **Updated**: 2026-10-29T21:01:39Z
+- **Closed**: 2026-10-29T21:01:39Z
 - **Labels**: `kind/bug`
 - **Assignees**: [@Narwhal-fish](https://github.com/Narwhal-fish)
 - **Comments**: 12

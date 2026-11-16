@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5646
 
-**Last updated**: 2026-05-02T18:38:44Z
+**Last updated**: 2026-11-09T15:01:51Z
 
 ---
 
 ## Metadata
 
-- **State**: closed (not_planned)
+- **State**: open (reopened)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-06-13T16:45:09Z
-- **Updated**: 2026-05-02T18:38:44Z
-- **Closed**: 2026-05-02T18:38:43Z
-- **Labels**: `kind/feature`, `lifecycle/rotten`
+- **Updated**: 2026-11-09T15:01:51Z
+- **Closed**: —
+- **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 15
+- **Comments**: 20
 
 ## Description
 
@@ -273,3 +273,51 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/5646#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-08-11T14:20:48Z
+
+/remove-lifecycle rotten
+/reopen
+
+### Comment by [@kubernetes-prow[bot]](https://github.com/apps/kubernetes-prow) — 2026-08-11T14:20:55Z
+
+@kannon92: Reopened this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/5646#issuecomment-5254424010):
+
+>/remove-lifecycle rotten
+>/reopen
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-08-11T14:36:33Z
+
+cc @sohankunkerkar @MaysaMacedo @PannagaRao
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-08-11T14:38:41Z
+
+I think this could help us phase away some of our operator work and put the configuration for these configs to a dedicated CRD.
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-11-09T15:01:47Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/

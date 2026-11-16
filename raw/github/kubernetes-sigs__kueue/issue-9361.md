@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9361
 
-**Last updated**: 2026-10-07T20:59:00Z
+**Last updated**: 2026-11-03T18:45:23Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@varunsyal](https://github.com/varunsyal)
 - **Created**: 2026-02-19T08:54:08Z
-- **Updated**: 2026-10-07T20:59:00Z
+- **Updated**: 2026-11-03T18:45:23Z
 - **Closed**: —
 - **Labels**: `kind/feature`
 - **Assignees**: _none_
-- **Comments**: 11
+- **Comments**: 12
 
 ## Description
 
@@ -143,3 +143,7 @@ Yeah, I can't tell what the original intent was, because the issue doesn't say w
 ### Comment by [@kannon92](https://github.com/kannon92) — 2026-10-07T20:59:00Z
 
 forgot to tag @alaypatel07
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-11-03T18:45:23Z
+
+@alaypatel07 Any update on this? As we discussed in the community meeting, can you share concrete user stories to evaluate your requirements?

@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9662
 
-**Last updated**: 2026-10-23T18:58:48Z
+**Last updated**: 2026-10-28T16:41:04Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: closed (completed)
 - **Author**: [@DerekFrank](https://github.com/DerekFrank)
 - **Created**: 2026-03-03T22:04:32Z
-- **Updated**: 2026-10-23T18:58:48Z
+- **Updated**: 2026-10-28T16:41:04Z
 - **Closed**: 2026-10-23T17:30:08Z
 - **Labels**: `kind/feature`, `lifecycle/stale`
 - **Assignees**: _none_
-- **Comments**: 15
+- **Comments**: 17
 
 ## Description
 
@@ -177,3 +177,11 @@ Instructions for interacting with me using PR comments are available [here](http
 Capacity buffer integration seems to be a requirement for Karpenter so I think its implictly tracked there. 
 
 I am not sure if/when CAS would support Capacity buffers.
+
+### Comment by [@DerekFrank](https://github.com/DerekFrank) — 2026-10-28T16:15:20Z
+
+CAS already supports buffers
+
+### Comment by [@jbtk](https://github.com/jbtk) — 2026-10-28T16:41:04Z
+
+CAS supports buffers, but the GKE CAS provisioning requests still have some features that are not supported by the buffers (and not sure whether they will be supported in the near future).

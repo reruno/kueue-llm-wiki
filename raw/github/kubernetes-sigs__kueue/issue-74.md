@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/74
 
-**Last updated**: 2026-10-17T02:19:06Z
+**Last updated**: 2026-11-16T03:01:56Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ahg-g](https://github.com/ahg-g)
 - **Created**: 2022-02-25T21:09:20Z
-- **Updated**: 2026-10-17T02:19:06Z
+- **Updated**: 2026-11-16T03:01:56Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `lifecycle/stale`, `size/L`, `priority/important-longterm`
+- **Labels**: `kind/feature`, `size/L`, `priority/important-longterm`, `lifecycle/rotten`
 - **Assignees**: _none_
-- **Comments**: 71
+- **Comments**: 72
 
 ## Description
 
@@ -723,5 +723,25 @@ You can:
 Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
 
 /lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-11-16T03:01:53Z
+
+The Kubernetes project currently lacks enough active contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle rotten`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/

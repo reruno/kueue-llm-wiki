@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7874
 
-**Last updated**: 2026-10-17T21:28:06Z
+**Last updated**: 2026-11-11T17:33:59Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-11-25T10:13:19Z
-- **Updated**: 2026-10-17T21:28:06Z
+- **Updated**: 2026-11-11T17:33:59Z
 - **Closed**: —
-- **Labels**: `priority/important-longterm`, `lifecycle/rotten`, `kind/documentation`
-- **Assignees**: _none_
-- **Comments**: 7
+- **Labels**: `priority/important-longterm`, `kind/documentation`
+- **Assignees**: [@YevheniiOrlovEngineering](https://github.com/YevheniiOrlovEngineering)
+- **Comments**: 8
 
 ## Description
 
@@ -103,3 +103,8 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@YevheniiOrlovEngineering](https://github.com/YevheniiOrlovEngineering) — 2026-11-11T17:33:56Z
+
+/assign
+/remove-lifecycle rotten

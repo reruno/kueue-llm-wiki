@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/975
 
-**Last updated**: 2026-09-29T07:57:04Z
+**Last updated**: 2026-11-15T18:26:58Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: open (reopened)
 - **Author**: [@ahg-g](https://github.com/ahg-g)
 - **Created**: 2023-07-11T17:25:03Z
-- **Updated**: 2026-09-29T07:57:04Z
+- **Updated**: 2026-11-15T18:26:58Z
 - **Closed**: —
 - **Labels**: `kind/feature`
-- **Assignees**: _none_
-- **Comments**: 25
+- **Assignees**: [@zhengchenyu](https://github.com/zhengchenyu)
+- **Comments**: 27
 
 ## Description
 
@@ -35,7 +35,7 @@ To limit disruptions caused by preemption.
 
 This enhancement requires the following artifacts:
 
-- [x] Design doc
+- [x] Design doc: https://github.com/kubernetes-sigs/kueue/pull/14589
 - [x] API change
 - [x] Docs update
 
@@ -295,3 +295,21 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 This is now umbrella issue for (x-referencing) :
 - https://github.com/kubernetes-sigs/kueue/issues/12146
 - https://github.com/kubernetes-sigs/kueue/issues/16233
+
+### Comment by [@sohankunkerkar](https://github.com/sohankunkerkar) — 2026-11-15T18:26:02Z
+
+/reopen
+
+### Comment by [@kubernetes-prow[bot]](https://github.com/apps/kubernetes-prow) — 2026-11-15T18:26:08Z
+
+@sohankunkerkar: Reopened this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/975#issuecomment-6899156185):
+
+>/reopen
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>

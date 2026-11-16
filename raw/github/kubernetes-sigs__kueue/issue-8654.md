@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8654
 
-**Last updated**: 2026-10-22T05:10:31Z
+**Last updated**: 2026-11-10T20:16:58Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@saza-ku](https://github.com/saza-ku)
 - **Created**: 2026-01-19T10:01:13Z
-- **Updated**: 2026-10-22T05:10:31Z
+- **Updated**: 2026-11-10T20:16:58Z
 - **Closed**: —
 - **Labels**: `kind/feature`, `lifecycle/stale`, `priority/important-longterm`
 - **Assignees**: _none_
-- **Comments**: 25
+- **Comments**: 26
 
 ## Description
 
@@ -324,3 +324,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle stale
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@7xuanlu](https://github.com/7xuanlu) — 2026-11-10T20:16:58Z
+
+@saza-ku @utam0k #18111 adds an end time (`validUntil`) to DQO effective quota. After it passes, Kueue goes back to the spec quota. Would that work for your temporary quota case?

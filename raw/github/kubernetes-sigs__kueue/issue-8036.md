@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8036
 
-**Last updated**: 2026-10-17T18:25:07Z
+**Last updated**: 2026-11-13T20:32:37Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@PBundyra](https://github.com/PBundyra)
 - **Created**: 2025-12-02T11:01:30Z
-- **Updated**: 2026-10-17T18:25:07Z
+- **Updated**: 2026-11-13T20:32:37Z
 - **Closed**: —
 - **Labels**: `kind/cleanup`, `priority/important-longterm`, `lifecycle/rotten`
 - **Assignees**: [@ShaanveerS](https://github.com/ShaanveerS)
-- **Comments**: 11
+- **Comments**: 12
 
 ## Description
 
@@ -145,3 +145,7 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@abdelrahmanmagdii](https://github.com/abdelrahmanmagdii) — 2026-11-13T20:32:36Z
+
+happy to work on this if still relevant

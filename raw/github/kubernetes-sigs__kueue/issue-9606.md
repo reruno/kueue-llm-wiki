@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9606
 
-**Last updated**: 2026-10-17T02:50:06Z
+**Last updated**: 2026-10-29T09:15:07Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: closed (not_planned)
 - **Author**: [@kannon92](https://github.com/kannon92)
 - **Created**: 2026-03-01T19:54:25Z
-- **Updated**: 2026-10-17T02:50:06Z
+- **Updated**: 2026-10-29T09:15:07Z
 - **Closed**: 2026-10-17T02:50:05Z
 - **Labels**: `kind/feature`, `lifecycle/rotten`
 - **Assignees**: _none_
-- **Comments**: 7
+- **Comments**: 8
 
 ## Description
 
@@ -140,3 +140,8 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/9606#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@danylott](https://github.com/danylott) — 2026-10-29T09:15:07Z
+
+There is already one btw:
+https://github.com/headlamp-k8s/plugins/tree/main/kueue

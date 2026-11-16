@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7222
 
-**Last updated**: 2026-06-26T15:46:34Z
+**Last updated**: 2026-11-16T07:05:17Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2025-10-10T11:04:16Z
-- **Updated**: 2026-06-26T15:46:34Z
+- **Updated**: 2026-11-16T07:05:17Z
 - **Closed**: —
-- **Labels**: `kind/bug`, `priority/important-longterm`, `lifecycle/rotten`
+- **Labels**: `kind/bug`, `priority/important-longterm`
 - **Assignees**: _none_
-- **Comments**: 13
+- **Comments**: 17
 
 ## Description
 
@@ -254,3 +254,43 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-08-08T15:01:42Z
+
+/remove-lifecycle rotten
+
+### Comment by [@k8s-triage-robot](https://github.com/k8s-triage-robot) — 2026-11-06T15:35:45Z
+
+The Kubernetes project currently lacks enough contributors to adequately respond to all issues.
+
+This bot triages un-triaged issues according to the following rules:
+- After 90d of inactivity, `lifecycle/stale` is applied
+- After 30d of inactivity since `lifecycle/stale` was applied, `lifecycle/rotten` is applied
+- After 30d of inactivity since `lifecycle/rotten` was applied, the issue is closed
+
+You can:
+- Mark this issue as fresh with `/remove-lifecycle stale`
+- Close this issue with `/close`
+- Offer to help out with [Issue Triage][1]
+
+Please send feedback to sig-contributor-experience at [kubernetes/community](https://github.com/kubernetes/community).
+
+/lifecycle stale
+
+[1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@zouyee](https://github.com/zouyee) — 2026-11-11T02:03:59Z
+
+/lifecycle stale
+
+### Comment by [@lkhun9311](https://github.com/lkhun9311) — 2026-11-16T07:01:12Z
+
+/remove-lifecycle stale
+
+I looked into this on current main. Since controller-runtime v0.23 (Kueue v0.17+), controllers use the priority queue, which passes its own metrics provider, so controller `workqueue_*` metrics already appear on the manager endpoint.
+
+What is still missing is the client-go REST metrics (`rest_client_*`), as zouyee noted. The blank import of `k8s.io/component-base/metrics/prometheus/restclient` in `pkg/visibility/server.go` registers the legacy-registry adapter first, and `clientmetrics.Register` keeps only its first caller, so controller-runtime's adapter is never installed.
+
+I'd propose removing that import, opting in to controller-runtime's REST client metrics in `cmd/kueue/main.go`, and adding a unit test in `cmd/kueue` that checks the manager registry under the binary's real import graph. Removing the import drops most `rest_client_*` families from the visibility server's endpoint, so I would note that in the release note.
+
+Would it be OK if I take this?

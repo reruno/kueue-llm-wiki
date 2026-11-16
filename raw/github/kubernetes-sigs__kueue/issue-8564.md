@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8564
 
-**Last updated**: 2026-09-21T10:15:37Z
+**Last updated**: 2026-11-12T16:52:22Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-01-13T16:35:01Z
-- **Updated**: 2026-09-21T10:15:37Z
-- **Closed**: —
+- **Updated**: 2026-11-12T16:52:22Z
+- **Closed**: 2026-11-12T16:52:21Z
 - **Labels**: `kind/feature`, `priority/important-soon`, `area/multikueue`
 - **Assignees**: [@YQ-Wang](https://github.com/YQ-Wang)
-- **Comments**: 11
+- **Comments**: 14
 
 ## Description
 
@@ -281,3 +281,27 @@ I hope with this change "production-default mode, = high-budget diagnostic mode"
 If nothing more in ToDo then I think we can close the issue, and open dedicated issues. I will open one for the flakes here: https://testgrid.k8s.io/sig-scheduling#periodic-kueue-test-multikueue-perf-main
 
 Opened: https://github.com/kubernetes-sigs/kueue/issues/15891
+
+### Comment by [@mbobrovskyi](https://github.com/mbobrovskyi) — 2026-11-12T16:50:12Z
+
+@mimowo should we close this?
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-11-12T16:52:12Z
+
+/close
+yes, we already have framework
+
+### Comment by [@kubernetes-prow[bot]](https://github.com/apps/kubernetes-prow) — 2026-11-12T16:52:22Z
+
+@mimowo: Closing this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/8564#issuecomment-6830038233):
+
+>/close
+>yes, we already have framework
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
