@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7569
 
-**Last updated**: 2026-10-17T10:18:00Z
+**Last updated**: 2026-11-20T13:40:11Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@zhenyu](https://github.com/zhenyu)
 - **Created**: 2025-11-06T18:34:59Z
-- **Updated**: 2026-10-17T10:18:00Z
+- **Updated**: 2026-11-20T13:40:11Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `priority/important-longterm`, `lifecycle/rotten`
+- **Labels**: `kind/feature`, `priority/important-longterm`
 - **Assignees**: _none_
-- **Comments**: 15
+- **Comments**: 16
 
 ## Description
 
@@ -164,3 +164,9 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-11-20T13:40:08Z
+
+This issue is being fixed in 0.21 by the partial preemption mechanism, we are working on delivering solution for KubeRay, Spark and batch/Job. The umbrella issue: https://github.com/kubernetes-sigs/kueue/issues/975.
+
+/remove-lifecycle rotten

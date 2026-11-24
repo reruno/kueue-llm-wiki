@@ -4,20 +4,20 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/5133
 
-**Last updated**: 2026-04-13T05:28:50Z
+**Last updated**: 2026-11-20T16:53:47Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: open (reopened)
 - **Author**: [@kannon92](https://github.com/kannon92)
 - **Created**: 2025-04-26T14:31:05Z
-- **Updated**: 2026-04-13T05:28:50Z
+- **Updated**: 2026-11-20T16:53:47Z
 - **Closed**: —
-- **Labels**: `kind/feature`
+- **Labels**: `kind/feature`, `lifecycle/frozen`
 - **Assignees**: _none_
-- **Comments**: 20
+- **Comments**: 26
 
 ## Description
 
@@ -227,3 +227,37 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-04-13T05:28:47Z
 
 /remove-lifecycle rotten
+
+### Comment by [@DerekFrank](https://github.com/DerekFrank) — 2026-06-30T23:51:44Z
+
+/lifecycle frozen
+
+### Comment by [@jigisha620](https://github.com/jigisha620) — 2026-08-07T20:35:16Z
+
+Hey @kannon92, Karpenter now supports the CapacityBuffer API. I would like to contribute an admission check controller for it, similar to the existing ProvisioningRequest support. Do you need a KEP for this, or given the existing pattern is a PR sufficient?
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-08-08T04:01:16Z
+
+A KEP would be good.
+
+### Comment by [@kannon92](https://github.com/kannon92) — 2026-11-20T16:21:07Z
+
+/reopen
+
+### Comment by [@kubernetes-prow[bot]](https://github.com/apps/kubernetes-prow) — 2026-11-20T16:21:16Z
+
+@kannon92: Reopened this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/5133#issuecomment-7044635186):
+
+>/reopen
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-11-20T16:53:47Z
+
+FYI we just merged the KEP and the impl will follow soon, so I expect the functionality to land in 0.21. I would love to follow up with the TAS support.

@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9801
 
-**Last updated**: 2026-10-08T16:54:21Z
+**Last updated**: 2026-11-20T16:54:38Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open (reopened)
 - **Author**: [@gabesaba](https://github.com/gabesaba)
 - **Created**: 2026-03-11T10:49:30Z
-- **Updated**: 2026-10-08T16:54:21Z
+- **Updated**: 2026-11-20T16:54:38Z
 - **Closed**: —
 - **Labels**: `kind/feature`
-- **Assignees**: [@mimowo](https://github.com/mimowo)
-- **Comments**: 5
+- **Assignees**: [@mimowo](https://github.com/mimowo), [@JanKaczmarski](https://github.com/JanKaczmarski)
+- **Comments**: 10
 
 ## Description
 
@@ -87,3 +87,37 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/9801#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-11-17T11:31:32Z
+
+/assign @JanKaczmarski 
+Who is going to align the remaining controllers
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-11-20T12:54:09Z
+
+@JanKaczmarski I also noticed two things requiring fixes here:
+1. the logging policy is not referenced currently from the Contribution Guidelines and https://github.com/kubernetes-sigs/kueue/blob/main/CONTRIBUTING.md
+2. the coding guide still references inconsistent logging levels
+
+Could you please handle those issues?
+
+### Comment by [@JanKaczmarski](https://github.com/JanKaczmarski) — 2026-11-20T13:11:28Z
+
+> [@JanKaczmarski](https://github.com/JanKaczmarski) I also noticed two things requiring fixes here:
+> 
+> 1. the logging policy is not referenced currently from the Contribution Guidelines and https://github.com/kubernetes-sigs/kueue/blob/main/CONTRIBUTING.md
+> 2. the coding guide still references inconsistent logging levels
+> 
+> Could you please handle those issues?
+
+Yep, its on my TODO list
+
+### Comment by [@JanKaczmarski](https://github.com/JanKaczmarski) — 2026-11-20T16:15:29Z
+
+I covered 125 files and 2,399 (`+1,427` / `-972`) lines with my PRs for alligning with the logging policy. I also updated agent skills and user facing docs to enforce new policy (#19212).
+
+I think we are on good way to close this issue when https://github.com/kubernetes-sigs/kueue/issues/18101 is merged.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-11-20T16:54:38Z
+
+sgtm

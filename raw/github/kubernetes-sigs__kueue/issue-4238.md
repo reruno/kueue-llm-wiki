@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/4238
 
-**Last updated**: 2026-01-16T20:18:22Z
+**Last updated**: 2026-11-21T14:03:30Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: closed (not_planned)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2025-02-12T09:32:32Z
-- **Updated**: 2026-01-16T20:18:22Z
+- **Updated**: 2026-11-21T14:03:30Z
 - **Closed**: 2026-01-16T20:18:21Z
 - **Labels**: `kind/feature`, `lifecycle/rotten`
-- **Assignees**: _none_
-- **Comments**: 13
+- **Assignees**: [@YevheniiOrlovEngineering](https://github.com/YevheniiOrlovEngineering)
+- **Comments**: 14
 
 ## Description
 
@@ -231,3 +231,13 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/4238#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@YevheniiOrlovEngineering](https://github.com/YevheniiOrlovEngineering) — 2026-11-21T14:03:28Z
+
+@mimowo @tenzen-y @gabesaba I'd like to pick this up. The two blockers above look resolved: #3948 is fixed, and HierarchicalCohorts has graduated.
+
+I'd do it in two PRs: first fill in the KEP's graduation criteria and history, then lock the gate and remove the old code path.
+
+Could one of you reopen this? Happy to start with the KEP update if that works for you.
+
+/assign

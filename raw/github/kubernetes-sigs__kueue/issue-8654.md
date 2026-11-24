@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8654
 
-**Last updated**: 2026-11-10T20:16:58Z
+**Last updated**: 2026-11-23T15:14:10Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@saza-ku](https://github.com/saza-ku)
 - **Created**: 2026-01-19T10:01:13Z
-- **Updated**: 2026-11-10T20:16:58Z
+- **Updated**: 2026-11-23T15:14:10Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `lifecycle/stale`, `priority/important-longterm`
+- **Labels**: `kind/feature`, `priority/important-longterm`
 - **Assignees**: _none_
-- **Comments**: 26
+- **Comments**: 31
 
 ## Description
 
@@ -328,3 +328,35 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 ### Comment by [@7xuanlu](https://github.com/7xuanlu) — 2026-11-10T20:16:58Z
 
 @saza-ku @utam0k #18111 adds an end time (`validUntil`) to DQO effective quota. After it passes, Kueue goes back to the spec quota. Would that work for your temporary quota case?
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-11-20T16:15:51Z
+
+> [@saza-ku](https://github.com/saza-ku) [@utam0k](https://github.com/utam0k) [#18111](https://github.com/kubernetes-sigs/kueue/pull/18111) adds an end time (`validUntil`) to DQO effective quota. After it passes, Kueue goes back to the spec quota. Would that work for your temporary quota case?
+
+We discussed it in KEP PR, and decided #18111 is not proper approach for this requirement. This use case needs to provide calendar-based capacity report and update mechanism.
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-11-20T17:31:06Z
+
+Yes, that approach wouldn't allow for composing capacity from multiple CapacityProviders, so we need the solution at the CapacityProvider level
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-11-20T18:49:22Z
+
+In the upcoming v0.21 version, we finally get LocalCapacityProvider and MultiKueueCapacityProvider implementations. So, we can revisit here and move it forward in the next v0.22 release cycle I believe.
+
+### Comment by [@tenzen-y](https://github.com/tenzen-y) — 2026-11-20T18:49:33Z
+
+/remove-lifecycle stale
+
+### Comment by [@nikhilred2619](https://github.com/nikhilred2619) — 2026-11-23T15:14:10Z
+
+Hi @saza-ku, @tenzen-y, and Kueue maintainers,
+
+I'm interested in contributing to temporary quota overrides for ClusterQueues, particularly calendar-based capacity management, CapacityProvider integration, and safe quota transitions.
+
+I noticed the discussion about revisiting this feature for the v0.22 release cycle.
+
+I'd be happy to work on the design, implementation, comprehensive integration tests, and documentation.
+
+Is there a substantial component available for external contribution? I'd be glad to collaborate and align with the maintainers' preferred approach.
+
+Thanks!

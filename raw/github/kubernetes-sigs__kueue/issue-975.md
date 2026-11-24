@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/975
 
-**Last updated**: 2026-11-15T18:26:58Z
+**Last updated**: 2026-11-23T20:00:41Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open (reopened)
 - **Author**: [@ahg-g](https://github.com/ahg-g)
 - **Created**: 2023-07-11T17:25:03Z
-- **Updated**: 2026-11-15T18:26:58Z
+- **Updated**: 2026-11-23T20:00:41Z
 - **Closed**: —
 - **Labels**: `kind/feature`
 - **Assignees**: [@zhengchenyu](https://github.com/zhengchenyu)
-- **Comments**: 27
+- **Comments**: 29
 
 ## Description
 
@@ -309,6 +309,34 @@ This is now umbrella issue for (x-referencing) :
 In response to [this](https://github.com/kubernetes-sigs/kueue/issues/975#issuecomment-6899156185):
 
 >/reopen
+
+
+Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
+</details>
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-11-20T13:12:12Z
+
+/reopen
+We still need to do some follow ups as mentioned in https://github.com/kubernetes-sigs/kueue/pull/14590#pullrequestreview-5993198325. They are not blocking for Alpha1, but really nice to have them:
+- [ ] Algorithm fixes for Fair Sharing  (@mimowo)
+- [ ] Algorithm for Classical Preemption should do bucketing per priority, cc @zhengchenyu 
+- [x] Spark integration, cc @reruno 
+- [x] KubeRay integration, cc @sweinberg-netflix
+
+### Comment by [@kubernetes-prow[bot]](https://github.com/apps/kubernetes-prow) — 2026-11-20T13:12:18Z
+
+@mimowo: Reopened this issue.
+
+<details>
+
+In response to [this](https://github.com/kubernetes-sigs/kueue/issues/975#issuecomment-7040409182):
+
+>/reopen
+>We still need to do some follow ups as mentioned in https://github.com/kubernetes-sigs/kueue/pull/14590#pullrequestreview-5993198325. They are not blocking for Alpha1, but really nice to have them:
+>- [ ] Algorithm fixes for Fair Sharing  (@mimowo)
+>- [ ] Algorithm for Classical Preemption should do bucketing per priority, cc @zhengchenyu 
+>- [ ] Spark integration, cc @reruno 
+>- [x] KubeRay integration, cc @sweinberg-netflix 
 
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.

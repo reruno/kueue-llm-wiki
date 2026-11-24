@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/6334
 
-**Last updated**: 2026-05-13T17:19:18Z
+**Last updated**: 2026-11-19T18:56:04Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@ichekrygin](https://github.com/ichekrygin)
 - **Created**: 2025-07-31T16:23:50Z
-- **Updated**: 2026-05-13T17:19:18Z
+- **Updated**: 2026-11-19T18:56:04Z
 - **Closed**: —
-- **Labels**: `kind/feature`, `priority/important-longterm`, `lifecycle/rotten`
+- **Labels**: `kind/feature`, `priority/important-longterm`
 - **Assignees**: [@ichekrygin](https://github.com/ichekrygin)
-- **Comments**: 30
+- **Comments**: 35
 
 ## Description
 
@@ -1104,3 +1104,51 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /lifecycle rotten
 
 [1]: https://www.kubernetes.dev/docs/guide/issue-triage/
+
+### Comment by [@mrajashree](https://github.com/mrajashree) — 2026-11-19T18:23:25Z
+
+Hi folks, I'd like to help move this forward. Below are the use cases that come from running long-running services in shared cohorts. The Pod-based Deployment integration works well for certain cases but there are gaps around rollouts and preemption.
+
+  **1. Rollouts that keep the quota the Deployment already holds**
+
+As a service owner, I want a rolling update in a fully used ClusterQueue to finish without my Deployment losing quota it already holds, or preempting other workloads to win it back.
+
+With one Workload per Pod, each new Pod in a rollout is admitted on its own. When an old replica terminates, its quota returns to the queue, and another pending workload may be admitted into it first, so a rollout can end with fewer replicas than it started with. The [Deployment docs](https://github.com/kubernetes-sigs/kueue/blob/main/site/content/en/docs/tasks/run/deployment.md#a-queue-selection) mention related cases, such as rollouts waiting for spare quota.
+
+  **2. A replica floor under preemption**
+
+As a service owner, I want my Deployment to keep at least N replicas when Kueue preempts it, so that preemption reduces capacity without causing an outage.
+
+Today each replica is its own Workload, so preemption chooses among Pods rather than Deployments, and a single cycle may remove every replica. Partial preemption (KEP-975) provides exactly this kind of floor (`minRetainedCount`) within a Workload, so a Deployment-level Workload could use it directly.
+
+  **3. Preemption that respects PodDisruptionBudgets**
+
+As a service owner, I want Kueue preemption to honor my PDB.
+
+Today the Pod integration stops a preempted Pod by deleting it, which doesn't go through the Eviction API, so PDBs don't apply. KEP-975 uses the Eviction API, with the preemptor waiting while a PDB refuses an eviction. It would be great for Deployments to get the same behavior.
+
+  **4. Large scale-ups admitted as one decision**
+
+As a service owner, I want a scale-up of many replicas to be admitted as one decision, without one Workload object per replica.
+
+The scheduler considers one pending Workload per ClusterQueue per cycle, so scaling out by 500 replicas means 500 Workloads admitted over at least 500 cycles. Partial admission can also be considered here via partial scale-up for elastic workloads as long as the scale-up is one slice.
+
+I'm happy to write the KEP and prototype @mimowo @mwysokin @tenzen-y @Amy
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-11-19T18:31:48Z
+
+/remove-lifecycle rotten
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-11-19T18:37:16Z
+
+@mrajashree thank you for the use cases. I think all are reasonable. I think i'm ok with you taking the prototype work. 
+
+One decision is - is the workload at the Deployment or ReplicaSet slice level. I used to advocate for Deployment which could provide more stability for the allocated quota when the rollout is changing only the image, but I'm happy to see your evaluations of the two options.
+
+### Comment by [@mrajashree](https://github.com/mrajashree) — 2026-11-19T18:45:13Z
+
+Thank you @mimowo for such a prompt response! Yes deployment vs replicaSet level workload support would be a big decision. Should I present evaluations of the two as comments on this issue, or would a KEP work better?
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-11-19T18:56:04Z
+
+i think KEP is fine. We know we need it, so KEP is good place to discuss technical details

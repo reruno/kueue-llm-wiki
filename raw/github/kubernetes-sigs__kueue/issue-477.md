@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/477
 
-**Last updated**: 2026-04-12T03:59:47Z
+**Last updated**: 2026-11-18T15:03:37Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@alculquicondor](https://github.com/alculquicondor)
 - **Created**: 2022-12-14T16:11:14Z
-- **Updated**: 2026-04-12T03:59:47Z
+- **Updated**: 2026-11-18T15:03:37Z
 - **Closed**: —
 - **Labels**: `lifecycle/frozen`
 - **Assignees**: _none_
-- **Comments**: 11
+- **Comments**: 12
 
 ## Description
 
@@ -115,3 +115,7 @@ This also connects to #3758. If we know a workload's checkpoint state, the decis
 I'm planning to follow both the WG Checkpoint/Restore and SIG Scheduling WAS discussions for this.
 
 cc @mimowo
+
+### Comment by [@andreyvelich](https://github.com/andreyvelich) — 2026-11-18T15:03:36Z
+
+As @sohankunkerkar mentioned in this issue, we can explore how Kueue can read information from the TrainJob's `trainerStatus` to detect last checkpoint time and optimize preemption: https://github.com/kubernetes-sigs/kueue/issues/18825

@@ -4,17 +4,17 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/9880
 
-**Last updated**: 2026-11-04T14:43:58Z
+**Last updated**: 2026-11-16T18:04:25Z
 
 ---
 
 ## Metadata
 
-- **State**: open
+- **State**: closed (completed)
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2026-03-16T08:38:54Z
-- **Updated**: 2026-11-04T14:43:58Z
-- **Closed**: —
+- **Updated**: 2026-11-16T18:04:25Z
+- **Closed**: 2026-11-16T18:04:25Z
 - **Labels**: `kind/cleanup`
 - **Assignees**: [@unaimeds](https://github.com/unaimeds), [@Paramesh324](https://github.com/Paramesh324)
 - **Comments**: 10

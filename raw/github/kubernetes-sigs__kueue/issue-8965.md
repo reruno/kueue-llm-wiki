@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/8965
 
-**Last updated**: 2026-10-17T10:53:59Z
+**Last updated**: 2026-11-17T09:07:00Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: closed (not_planned)
 - **Author**: [@j-skiba](https://github.com/j-skiba)
 - **Created**: 2026-02-03T14:55:47Z
-- **Updated**: 2026-10-17T10:53:59Z
+- **Updated**: 2026-11-17T09:07:00Z
 - **Closed**: 2026-10-17T10:53:58Z
-- **Labels**: `kind/cleanup`, `lifecycle/rotten`
+- **Labels**: `kind/cleanup`
 - **Assignees**: [@laxmi-333](https://github.com/laxmi-333)
-- **Comments**: 6
+- **Comments**: 7
 
 ## Description
 
@@ -130,3 +130,7 @@ In response to [this](https://github.com/kubernetes-sigs/kueue/issues/8965#issue
 
 Instructions for interacting with me using PR comments are available [here](https://git.k8s.io/community/contributors/guide/pull-requests.md).  If you have questions or suggestions related to my behavior, please file an issue against the [kubernetes-sigs/prow](https://github.com/kubernetes-sigs/prow/issues/new?title=Prow%20issue:) repository.
 </details>
+
+### Comment by [@laxmi-333](https://github.com/laxmi-333) — 2026-11-17T09:06:58Z
+
+/remove-lifecycle rotten
