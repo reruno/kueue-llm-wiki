@@ -338,6 +338,10 @@ If a pending Workload is deleted while the cycle holds it (e.g. its gated Pod wa
 
 When candidate evaluation finds no eligible victims but skipped candidates may become eligible at a known time (time-based `PreemptionConfig` filters), the scheduler arms a delayed inadmissible retry: `Preemptor.TakeRetryAt()` accumulates the earliest retry timestamp across exhausted strategies (including `PreemptionOracle` flavor probes, `nativePlanner`, `wasPlanner`), and `Scheduler.requeueAndUpdate` calls `Manager.NotifyRetryInadmissibleAfter` (`workqueueRequeuer.AddAfter(max(delay, batchPeriod))`) when the entry is requeued with `PreemptionNoCandidates` or `NoFit`. The timestamp is recorded only when all strategies are exhausted without the caller stopping early, so successful preemptions leave no stale value; `getAssignments` always drains it. Details in [[configurable-preemptions]] (source: pr-18271.md).
 
+## `retryAt` survives assignment recomputation (pr-19167)
+
+During nomination `FlavorAssigner` can probe a flavor whose preemption candidates are not yet eligible and learn a `retryAt` deadline, then pick an alternate flavor with spare quota. If TAS placement fails on that flavor, `updateAssignmentIfNeeded` recomputes the assignment with `NominationMapping` pinned to the nominated flavor; that pass skips the earlier flavor and returns `retryAt = nil`, and `recordAssignment` used to overwrite the stored value with nil. The Workload was then requeued with `PreemptionNoCandidates` but no timed retry armed, and stayed inadmissible until an unrelated event. `recordAssignment` now keeps the **earliest non-nil** `retryAt` across in-cycle recomputations (source: pr-19167.md).
+
 ## Related graduations on main (0.21)
 
 `AssignQueueLabelsForPods` (Beta since v0.17) is GA; default unchanged (source: pr-18180.md).

@@ -70,6 +70,9 @@ The manager reads one Configuration object (`config.kueue.x-k8s.io/v1beta2`) fro
 
 **Null inputs (pr-18139, merged 2026-11-13, fixes #17717):** `mode`, `controllerManagerConfigYaml` and `structuredOverrides` set to `null` are treated as absent in both the Kueue and Populator charts (schemas, config selection, tests and migration docs updated). Before, migrating from the old chart's `controllerManagerConfigYaml: null` with `--reuse-values` worked once, but Helm saved the null and the next upgrade failed schema validation. An explicit empty string keeps its legacy meaning, and wrong non-null types and unknown keys are still rejected. Docs now explain what `--reuse-values`, `--reset-then-reuse-values` and `--reset-values` do with inherited defaults and saved overrides. Related: the KueueViz auth mode is validated in the values schema ([[dashboard]]).
 
+
+**Install notes (pr-19275, v0.21).** The chart now ships `NOTES.txt`: every `helm install`/`upgrade` prints commands to check the controller-manager rollout and view the manager configuration, plus a warning only when part of the configuration is ignored — `structuredOverrides` ignored because `controllerManagerConfigYaml` takes precedence when `managerConfig.mode` is unset (even an empty string, and including YAML kept from an older chart by `--reuse-values`) or because `mode: yaml`; or a note that `mode: structured` ignores YAML, so settings not copied into `structuredOverrides` do not apply. A `kueue.managerConfigSource` helper (`yaml`, `structured` or `defaults`) is shared by `kueue.managerConfig` and the notes, so the notes match the rendered configuration; rendered output is unchanged (source: pr-19275.md).
+
 ## Shipping status of fixes (patch releases, 2026-10-29 to 2026-11-12)
 
 Details per release are in [[release-process]]. Architecture-relevant items and where they shipped (source: CHANGELOG-0.20.md, CHANGELOG-0.19.md):

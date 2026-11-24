@@ -1052,3 +1052,29 @@ Cross-slice facts were relayed between slices or applied by the coordinator (`jo
 - `index.md`: snapshot header (2026-11-24, 855 CVEs), feature-gates blurb.
 
 **Left open / unverified**: gate stages for `PartialPreemption` and `KueueDRAExcludeDeviceClasses` come from release notes only; `/convert` fix on release-0.19 not checked; LimitRange `maxLimitRequestRatio` (issue-18800) has no fix; the `PreemptionConfig` preemptor-hash-field set (pr-18492) is not merged.
+
+## 2026-11-24 — Ingest of data-collection 864538906803cee5ad05183d8917c495b4afafd8 (kueue@243782aff): 20 CVEs, ~670 issues/PRs
+
+- **Date**: 2026-11-24
+- **Data-collection commit**: 864538906803cee5ad05183d8917c495b4afafd8 (`[data-collection] 692 new,628 updated items from kubernetes-sigs/kueue, kueue@243782aff`)
+- **Method**: of the 692 new files, 20 are CVEs, 446 are merged PRs and 39 are closed-completed issues; 74 open issues, 96 open PRs and 17 closed-unmerged PRs were excluded. About 300 of the merged PRs are release-branch cherry-picks, test-table refactors (`Use maps for test cases`, `Remove redundant ... gate enabling`), logging-policy alignment, dependency bumps, release prep or CI/flake fixes; they were skimmed by title and not used. Many substantive fixes (kueuectl flags, importer, status guard, MultiKueue removal cleanup, LimitRange `max`) were already in the wiki from the previous ingest, so only the genuinely new details were added. Alpha/unreleased work (PreemptionLimit CRD and gate, time-based preemption filters API, `spec.priorityBoost`, WAS planner routing, CapacityBufferConfig backoff validation, PartialPreemption internals) was left out except for a short flagged note on partial preemption in [[integration-spark]].
+- **Source files analysed**: the 692 new files of that commit (`git show --name-only --diff-filter=A 86453890 -- raw`). Files read in full or by description: CVE files (all 20); pr-15237, 15484, 15490, 15565, 15299, 15336, 15433, 15514, 15248, 15348, 18895, 18921, 18931, 18949, 18959, 18977, 18984, 18997, 19001, 19011, 19014, 19026, 19048-19055, 19063, 19078, 19088, 19158, 19167, 19169, 19172, 19173, 19177, 19208, 19224, 19249, 19250, 19251, 19254, 19259, 19270, 19275, 19296, 19306, 19321, 19338, 19370, 19393, 19394, 19412; issue-14611, 14991, 15171, 18938, 18996, 19161, 19324, 19516. Full list: 692 files, `raw/cve/CVE-2026-100975` … `CVE-2026-97187`, issue-13416 … issue-19524, pr-15237 … pr-19523.
+
+**Pages updated (no new pages created)**
+- `dra.md`: new section on the CEL device check (backtracking search with 1,000,000-visit limit, `allowMultipleAllocations` input, `allocationMode: All` needs a match, `KueueDRAIntegrationPrioritizedList` Beta with its `KueueDRAIntegration` dependency), duplicate counter/capacity sources, DeviceClass create/delete requeue.
+- `feature-gates.md`: `KueueDRAIntegrationPrioritizedList` Beta/on in v0.21; new `AnnotationKeysToCopy` row (Beta/on).
+- `job-framework-interface.md`: `integrations.annotationKeysToCopy` semantics; `ApplyDefaultForSuspend` / `ApplyDefaultForManagedBy` respect `managedJobsNamespaceSelector`.
+- `elastic-jobs.md`, `integration-spark.md`: pending scale-up slice follows scale-down below `minCount`; Spark first slice all-or-nothing; flagged Alpha partial-preemption note (Spark, Ray).
+- `workload-resource-adjustment.md`: `maxLimitRequestRatio` now validated (replaces the "gap" note).
+- `scheduler-internals.md`: earliest `retryAt` preserved across assignment recomputation.
+- `metrics.md`: LocalQueue pending metrics with a missing ClusterQueue; LocalQueue gauge resync on combined label and `stopPolicy` update.
+- `importer.md`: flavor chosen by fit (nodeLabels, affinity, taints).
+- `multikueue.md`: JAXJob prebuilt-Workload allowlist.
+- `cluster-queue.md`: status-update guard fix (no writes when unchanged).
+- `architecture.md`: Helm `NOTES.txt` and `kueue.managerConfigSource`.
+- `dashboard.md`: LocalQueues without reservation data stay visible.
+- `release-process.md`: v0.20.7 and v0.19.14 rows.
+- `security.md`: second 2026-11-24 CVE wave (20 entries), corpus 855 → 875, severity recount.
+- `index.md`: CVE count, DRA blurb.
+
+**Left open / unverified**: the multikueue-Secret namespace rule in the new security section is not checked against code; `PartialPreemption` and PreemptionLimit remain Alpha/unreleased; the v0.19.14 row's "as far as release-0.19 has the code" is inferred from the cherry-pick PRs, not from CHANGELOG-0.19 line by line; DRA issue-19258 (search ignores other requests' device needs) is open.

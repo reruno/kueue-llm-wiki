@@ -171,6 +171,10 @@ Still open (issues with open PRs): pages show the previous object's data after s
 
 `cmd/kueueviz/OWNERS` and `test/e2e/kueueviz/OWNERS` list scoped **reviewers** `akram` (since #5248) and `danylott` (added by pr-17791, 2026-10-27). Approval still comes from the root aliases. danylott's nomination cites 18 KueueViz PRs as assigned reviewer, including the authorization fixes above (pr-17088, pr-17143, pr-17207, pr-17246, pr-17249) (source: pr-17791.md; raw/kueue/cmd/kueueviz/OWNERS). See [[reviewers]].
 
+## ClusterQueue detail: LocalQueues without reservation data (pr-19063)
+
+The ClusterQueue detail page rendered each LocalQueue link inside its reservation resource rows, so a LocalQueue with no reservation resources vanished from the table, and if its first flavor had no resources the remaining rows lost the link. It now shows a fallback row with the namespace-qualified link and "No reservation data"; with data, the link is attached to the first populated flavor and spans its rows (backports pr-19507, pr-19508). Cohorts in a parent cycle are also kept in the tree view (pr-18917, pr-18918) (source: pr-19063.md).
+
 ## Related pages
 
 - [[visibility-api]] — the separate pending-workload API (not used by KueueViz).

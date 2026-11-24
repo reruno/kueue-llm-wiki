@@ -111,6 +111,10 @@ While a CQ is being deleted and admitted Workloads hold the `kueue.x-k8s.io/reso
 
 `status.effectiveQuotas.expirationTime` and the `EffectiveQuotaActive` condition (`Issued`/`Renewed`/`Expired`) exist on ClusterQueue and Cohort when a DQO sets `effectiveQuotasTTLSeconds`; consumers fall back to `spec.resourceGroups` when the condition is `False` (source: pr-18314.md; see [[cohort]]).
 
+## Status writes are skipped when unchanged (pr-15237; v0.20.0, backports pr-15592, pr-15593)
+
+The ClusterQueue, Cohort and LocalQueue reconcilers guarded `Status().Update` by comparing the status value against the pointer returned by `DeepCopy()`. `equality.Semantic.DeepEqual` returns false for differing types, so the guard never held and **every reconcile wrote status** even when nothing changed. The guard now compares pointer to pointer; unit tests count `Status().Update` calls (0 when unchanged, 1 when changed) (source: pr-15237.md).
+
 ## Related pages
 
 - [[local-queue]] — the namespace-scoped handle users actually target.

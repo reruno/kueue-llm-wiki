@@ -258,6 +258,10 @@ issue-11843 asked for a `reason` label on `kueue_pending_workloads`. It was clos
 - **Pending counts with ConcurrentAdmission** count each Parent once for ClusterQueue and LocalQueue (`variantParentCounts`); the custom-label breakdown and Visibility API still list Variants (source: pr-18748.md, pr-18806.md).
 - **Fair-sharing gauges.** A CQ with usage on a flavor it has no quota for now has non-zero weighted share (source: pr-18827.md).
 
+## LocalQueue pending metrics when the ClusterQueue is missing (v0.21 main; v0.20.7/v0.19.14)
+
+`reportLQPendingWorkloads` only counted inadmissible Workloads when the ClusterQueue existed, so a LocalQueue pointing at a deleted or non-existent ClusterQueue reported **zero** pending after a resync although it still held Workloads. Now all its pending Workloads are reported as **inadmissible** in that case, and `DeleteClusterQueue` refreshes the LocalQueue pending metrics immediately (part of issue-16840; source: pr-19001.md, backports pr-19017, pr-19018). Separately, one LocalQueue update that changed a custom metric label value (or a label matched by `localQueueSelector`) *and* `spec.stopPolicy` cleared the gauges but skipped the resync, so `kueue_local_queue_admitted_active_workloads` / `_reserving_active_workloads` went missing and the admitted gauge later went to -1; the controller now always resyncs after clearing and refreshes the cached LocalQueue on every update (pr-19026, fixes issue-17356; backports pr-19089, pr-19092).
+
 ## Related pages
 
 - [[cluster-queue]] — where per-CQ labels come from.

@@ -186,7 +186,19 @@ Some Kueue labels and annotations are read by controllers that **trust** them. A
 
 What the keys protect: `multikueue-origin` marks a Workload as MultiKueue-placed for the worker watch, the GC and `ValidateRemoteObjectOwnership`. `priority-boost` feeds effective priority. `job-owner-*` are read by MultiKueue ahead of the owner reference. MultiKueue's remote copy is built by `cloneForCreate`, not from these options, so it is unaffected. `job-uid` is filtered too, but integrations write the real owner UID right after building the Workload. Shipped in **v0.20.1 (pr-16773) and v0.19.8 (pr-16774)**.
 
-The configuration is still **accepted**, because refusing it would break existing setups. Instead, since #16779 the manager logs any `labelKeysToCopy` entries that `NonInheritableLabelsIn` reports, once at startup at Info level (v0.20.1 pr-16874, v0.19.8 pr-16878). #16881 removed the log mention from the API field comment and added a "keep in sync" note on the two lists. Workload-scoped custom metric sources are not checked, because a metric naming an internal key reports the Workload's own value (source: pr-16779.md, pr-16881.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md). Copying annotations generally (`integrations.annotationKeysToCopy`) is an open feature request (issue-16471).
+The configuration is still **accepted**, because refusing it would break existing setups. Instead, since #16779 the manager logs any `labelKeysToCopy` entries that `NonInheritableLabelsIn` reports, once at startup at Info level (v0.20.1 pr-16874, v0.19.8 pr-16878). #16881 removed the log mention from the API field comment and added a "keep in sync" note on the two lists. Workload-scoped custom metric sources are not checked, because a metric naming an internal key reports the Workload's own value (source: pr-16779.md, pr-16881.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md). Copying annotations generally is now supported by `integrations.annotationKeysToCopy` (see below).
+
+### `integrations.annotationKeysToCopy` (Beta, gate `AnnotationKeysToCopy`, v0.21; pr-19088, fixes issue-16471)
+
+A list of annotation keys that Kueue copies from the job into the Workload **at creation**, for every integration; it mirrors `labelKeysToCopy`. Validation rejects keys that are not qualified names and keys in the `kueue.x-k8s.io` domain or its subdomains. The set builder lives in `jobframework.KeysToCopy`: with `CustomMetricLabels` on it adds the Workload-sourced metric sources, then removes reserved keys and logs them once at startup. `NewWorkload` and the pod-group path no longer check `CustomMetricLabels` themselves; they copy the set they receive. With the gate off the field is ignored. A `labelKeysToCopy` case for LeaderWorkerSet was added as its prerequisite (source: pr-19088.md).
+
+### Jobs outside `managedJobsNamespaceSelector` are neither suspended nor handed to MultiKueue
+
+Since `ManagedJobsNamespaceSelectorAlwaysRespected` went GA (v0.19) the job reconciler skips every job in a non-matching namespace, with or without a queue-name label. Two webhook defaults still ignored the selector (source: pr-19270.md, pr-19306.md, issue-19269.md, issue-19305.md; backported to 0.19/0.20):
+
+- `ApplyDefaultForSuspend` suspended any job that had a queue name, so such a job (for example in `kube-system` with the default selector) stayed suspended forever. It now leaves jobs in unmanaged namespaces alone. `WorkloadShouldBeSuspended` itself is unchanged: StatefulSet, Deployment and LeaderWorkerSet use it in their own reconcilers, and a queued StatefulSet outside the selected namespaces is still managed.
+- `ApplyDefaultForManagedBy` set `spec.managedBy: kueue.x-k8s.io/multikueue` when the LocalQueue's ClusterQueue had a MultiKueue AdmissionCheck, so nothing dispatched the job and its own controller ignored it. It now takes the context, client and selector, reads the Namespace only when it would otherwise set `managedBy`, and returns that read's error.
+
 
 ## A finished prebuilt Workload is not adopted
 

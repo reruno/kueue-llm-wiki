@@ -166,7 +166,7 @@ From `pkg/features/kube_features.go` (source: kube_features.go). Contradiction w
 | `KueueDRADeviceFeasibility` | Alpha, off (v0.20) | `KueueDRAIntegration`, `TopologyAwareScheduling`, `TASNodeFeasibilityForAllLevels` |
 | `KueueDRAIntegrationDeviceTaints` | Alpha, off (v0.20) | `KueueDRADeviceFeasibility` |
 | `ReservedResourceNameValidation` | Beta, on (v0.20) | see the reserved `pods` section |
-| `KueueDRAIntegrationPrioritizedList` | Alpha, off (v0.20) | `firstAvailable` requests (see *Prioritized lists*); also needs Kubernetes `DRAPrioritizedList` (on by default since 1.34) |
+| `KueueDRAIntegrationPrioritizedList` | Alpha, off (v0.20); **Beta, on (v0.21, pr-19158)** | `firstAvailable` requests (see *Prioritized lists*); also needs Kubernetes `DRAPrioritizedList` (on by default since 1.34) |
 
 The "No Topology-Aware Scheduling" alpha limitation above is superseded for feasibility: `KueueDRADeviceFeasibility` runs inside the TAS placement path.
 
@@ -193,7 +193,7 @@ The "No Topology-Aware Scheduling" alpha limitation above is superseded for feas
 
 A device request with `exactly.adminAccess: true` gives shared, read-only access to devices that are already allocated, for example to a monitoring agent. Charging quota for it would count the device twice, once for the real owner and once for the monitor. kube-scheduler likewise leaves AdminAccess out of `allocatedDevices`. Since v0.20.0, such requests are accepted and **skipped** in every DRA quota path: `isAdminAccessRequest` in `claims.go`, the capacity path (`capacity.go`) and the counter path (`counters.go`). Other requests in the same claim are counted normally. This is a behaviour change, so it was not cherry-picked (source: pr-13642.md, claims.go).
 
-## Prioritized lists (`firstAvailable`, `KueueDRAIntegrationPrioritizedList`, Alpha)
+## Prioritized lists (`firstAvailable`, `KueueDRAIntegrationPrioritizedList`, Alpha in v0.20, Beta on main)
 
 With the gate off, a request with `firstAvailable` is still refused with `FirstAvailable device selection is not supported`, and the Workload is inadmissible. With the gate on, `chargeForFirstAvailable` charges the request **only when the charge equals whatever alternative kube-scheduler will pick** (source: claims.go; CHANGELOG-0.20.md):
 
@@ -206,6 +206,25 @@ With the gate off, a request with `firstAvailable` is still refused with `FirstA
 The request is then charged that count once, on the logical resource. The design issue (issue-13599.md) first proposed a looser **component-wise maximum envelope** over alternatives that map to different resources (e.g. a GPU alternative and a CPU alternative charge both). The shipped Alpha contract is the stricter rule above, from the KEP-2941 update in #13601, which "refuses a charge no active representation can hold exactly rather than saturating it". Treat the envelope text in the issue as historical.
 
 User docs (source: pr-16469.md, docs only; website cherry-pick pr-16523). The Workload does **not** record which alternative a Pod received. Read it from the Pod's generated ResourceClaim: `status.allocation.devices.results[*].request` reads `<request>/<alternative>`, e.g. `gpu/a100`. Mismatched counts and unmapped classes are refused with `DRAResourcesUnresolved`. If **any** alternative's DeviceClass does not exist, the kube-scheduler allocator fails the whole claim even when an earlier alternative could be satisfied, and the Pod stays Pending (`device class ... does not exist`). This was verified on kind during review.
+
+## CEL device check: backtracking search, `allowMultipleAllocations`, mode `All` (2026-11, v0.21 main)
+
+Four changes to `pkg/dra/claims.go` since the check was greedy (source: pr-19172.md, pr-19169.md, pr-19296.md, pr-19158.md, issue-19161.md, issue-18996.md):
+
+- **Search instead of greedy matching (pr-19172, fixes issue-19161).** The first pass still gives each request the first matching unused devices. When a request falls short, the check now tries other device choices before reporting a shortage. It walks requests, `firstAvailable` alternatives and devices in the kube-scheduler allocator's order, tries each device set for a request only once, and drops a choice as soon as too few unused matching devices remain. Previously an earlier request that took a device a later request needed produced a false "insufficient matching devices" even when another assignment satisfied every request.
+  - **Stops at the first CEL evaluation error**; the claim keeps its shortage and the error is reported.
+  - **Step limit: 1,000,000 device visits** (the first pass is not counted). On reaching it the check **lets the claim through**: kube-scheduler still decides per node, and a retry would stop at the same limit.
+  - A shortage is an internal error, so the workload controller retries with backoff; only the first request that falls short is reported.
+  - Results with evaluation errors still depend on device order (Kueue walks the whole cluster's devices in listing order, not one node's). The check does not know the Pod's node, so it can count devices on different nodes for one claim.
+  - **Known gap (issue-19258, open):** the search does not see devices that *other* requests need, so it can pass a claim that no node can place.
+- **`device.allowMultipleAllocations` is now in the CEL device input (pr-19169, fixes issue-18996; also on release-0.19/0.20).** Before, `device.allowMultipleAllocations == true` matched no device and `!device.allowMultipleAllocations` matched every device, even when the ResourceSlice set the field.
+- **`allocationMode: All` needs a CEL match (pr-19296; cherry-picked to release-0.20).** An `AdminAccess` request with `allocationMode: All` has count zero, and the first pass treated zero matches as satisfying it, so quota was reserved although kube-scheduler needs at least one matching device. The first pass now requires one match and otherwise reports a retryable shortage. In the search, such a request holds every matching device in the cluster and fails if nothing matches or an earlier request holds one of them.
+- **`KueueDRAIntegrationPrioritizedList` is Beta, default on (pr-19158).** Kueue checks a `firstAvailable` request's CEL selectors **only when every alternative has a selector**; if any alternative has none, kube-scheduler can use it, so Kueue skips the check. Alternatives are tried in order and only the successful one reserves devices; if all fall short the Workload stays inadmissible with `DRAResourcesUnresolved` (message `insufficient matching devices for CEL selectors in every firstAvailable alternative`). Resolution, compile and evaluation errors stop that request immediately. MultiKueue is no longer listed as unsupported for `firstAvailable` (pr-19260 documents and tests workers with different devices). **ACTION REQUIRED:** if you disable `KueueDRAIntegration`, also disable `KueueDRAIntegrationPrioritizedList`, or kueue-controller-manager fails to start.
+
+### Duplicate counter/capacity sources and DeviceClass events
+
+- A `deviceClassMappings` entry with two counter or capacity sources for the same driver and name charged the device's quota twice. Configuration validation now rejects it, and when two mappings name the same DeviceClass every counter source is checked (pr-18921, fixes issue-18914; backported to 0.19/0.20).
+- A DeviceClass **creation** requeues all pending Workloads that use ResourceClaimTemplates (before: only those DRA processing had held back); a **deletion** requeues them too, before the `KueueDRAIntegrationExtendedResource` gate check. Requeues are delayed one second (pr-18895).
 
 ## Extended-resource charge computation
 

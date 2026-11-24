@@ -233,7 +233,15 @@ Issue-17948 (closed 2026-11-02): an elastic Job's replacement Pod stayed gated w
 
 ## Elastic SparkApplication and partial scale-up
 
-Partial scale-up now also exists for SparkApplication, with `minCount = spec.dynamicAllocation.minExecutors`; see [[integration-spark#Elastic SparkApplication (main, not in a release as of v0.20)]] (source: pr-18064.md). Elastic RayCluster, RayJob, RayService and SparkApplication reject required/preferred topology at creation when `ElasticJobsViaWorkloadSlicesWithTAS` is on (source: pr-18568.md, pr-18569.md, pr-18613.md).
+Partial scale-up now also exists for SparkApplication, with `minCount = spec.dynamicAllocation.minExecutors` (superseded by pr-19250: `minCount` is now the initial executor count, so the first slice is all-or-nothing); see [[integration-spark#Elastic SparkApplication (main, not in a release as of v0.20)]] (source: pr-18064.md). Elastic RayCluster, RayJob, RayService and SparkApplication reject required/preferred topology at creation when `ElasticJobsViaWorkloadSlicesWithTAS` is on (source: pr-18568.md, pr-18569.md, pr-18613.md).
+
+## Partial scale-up: a pending scale-up slice follows scale-down below `minCount` (pr-19249, fixes issue-19247)
+
+With the `partial` strategy a pending scale-up slice (the probe after a partial admission, or a slice not admitted yet) copies `minCount` from the admitted slice. When the job scaled down below that value, `EnsureWorkloadSlices` applied the new count to the pending slice and the API server rejected the update (`minCount should be less or equal to count`); the job reconcile then failed on every retry, the admitted slice kept its quota and was not finished when the job completed. `CanReduceMinCountOnScaleDown` (`pkg/workload/podsetscounts.go`) is now also true for a scale-up slice that is **not admitted yet** — a Workload carrying `kueue.x-k8s.io/workload-slice-replacement-for`, with or without a quota reservation (a slice can hold a reservation while waiting for admission checks) — and `ApplyPodSetCounts` caps its `minCount` at the new count. The Workload webhook, the other caller, calls it only when the old Workload has a reservation, and now allows the same reduction for a reserved-but-unadmitted scale-up slice.
+
+- The **initial** Workload keeps its `minCount` until admitted, so its first admission stays all-or-nothing (lowering it would let a 4 → 1 → 5 sequence admit partially, a KEP-12100 non-goal).
+- A lowered `minCount` on a pending slice does not permit a smaller admission while the replaced slice is admitted: the scheduler still requires the replacement to grow past the replaced slice's grant.
+- For RayCluster this is the path the KubeRay autoscaler takes when it lowers `replicas` on an idle cluster (source: pr-19249.md).
 
 ## Related pages
 

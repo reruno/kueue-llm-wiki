@@ -56,6 +56,7 @@ All of these shipped in v0.20.0 (source: CHANGELOG-0.20.md):
 - the `match.resources` rule above (#15573);
 - ResourceFlavors are resolved **per requested resource**, not one flavor for the whole Pod, so Pods whose resources map to different flavors get the right assignment (#12924);
 - a failed Pod list (missing RBAC, wrong namespace) is an error with a non-zero exit, not a silent success (#15484);
+- the Pod importer no longer assigns the first ResourceFlavor of a resource group blindly: it keeps every flavor of each resource group in ClusterQueue order and assigns the **first that fits the Pod's PodSet** — the flavor's `nodeLabels` match the Pod's `nodeSelector` and required node affinity, and the Pod (with the flavor's tolerations) tolerates the flavor's `nodeTaints`. It calls the same helper the scheduler uses outside TAS (`checkFlavorForPodSets`). Before, with `rf-gpu` (`accelerator: gpu`) listed before `rf-cpu` (`accelerator: cpu`), a Pod with `nodeSelector: {accelerator: cpu}` was imported with `cpu` on `rf-gpu` and its Workload marked admitted (pr-18977, fixes issue-14611; backports pr-19000, pr-19002, v0.20.7/v0.19.14);
 - `importer import --concurrent-workers=0` is rejected and asks for at least 1 worker. Before, it reported success without checking or importing any Pod (#15490).
 
 ## Related pages

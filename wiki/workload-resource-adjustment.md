@@ -60,7 +60,13 @@ A PodSet total is `per-pod * count`; since pr-16479 (v0.20.1 / v0.19.8) the in-m
 
 `ValidatePodSpec` compared a Pod-type LimitRange `max` only with the summed Pod *requests*; LimitRanger also checks summed Pod *limits*, so a Workload with limits above the max was admitted, took quota and then every Pod creation was forbidden. The check now uses the max of Pod requests and Pod limits, like the container branch. Pod limits come from `resourcehelpers.PodLimits` with overhead excluded (LimitRanger does not add overhead to limits); sidecar init containers are counted as LimitRanger counts them. The message stays `requests must not be above the limitRange max`; the Workload is inadmissible with the LimitRange message and reserves no quota (source: pr-18723.md, fixes issue-18722.md).
 
-Gap: `maxLimitRequestRatio` is merged by `limitrange.Summarize` but `ValidatePodSpec` checks only `max` and `min`, so Workloads exceeding a ratio are admitted and their Pods forbidden (`cpu max limit to request ratio per Container is 2, but provided ratio is 4`) (source: issue-18800.md; fix status not verified).
+**`maxLimitRequestRatio` is now checked (pr-18931, fixes issue-18800; cherry-picked to release-0.19/0.20 as pr-19256/pr-19257).** `limitrange.Summarize` always merged the ratio, but `ValidatePodSpec` checked only `max` and `min`, so a Workload exceeding it was admitted, took quota, and then every Pod creation was forbidden (`cpu max limit to request ratio per Container is 2, but provided ratio is 4.000000`). `ValidatePodSpec` now mirrors LimitRanger:
+
+- `type: Container`: each container and init container, from its own requests and limits.
+- `type: Pod`: summed Pod requests against summed Pod limits, overhead excluded from both (the limits are the ones the Pod `max` check already computes).
+- The request, limit and maximum are first rounded **up to milli units** (whole units on overflow), as LimitRanger in Kubernetes 1.35-1.37 does, and then compared exactly on decimal quantities (`limit > request * maxLimitRequestRatio`), not with float64 division. So maximum `2.0001`, request `1`, limit `2001m` is accepted, as in the API server.
+- Resources lacking a non-zero request **and** a non-zero limit are skipped, consistent with how the `max`/`min` checks treat missing keys (LimitRanger itself rejects those Pods; Kueue does not).
+- A violation is a `field.Invalid` and the Workload is inadmissible with the LimitRange message (source: pr-18931.md).
 
 ## Related pages
 

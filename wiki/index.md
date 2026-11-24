@@ -2,7 +2,7 @@
 
 **Summary**: Table of contents for the Kueue knowledge base. Each entry is one link and a one-line blurb.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-11-24), `raw/kueue/` (source snapshot, kueue@966f00d21) and `raw/cve/` (Kubernetes-ecosystem CVE corpus, 855 entries).
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-11-24), `raw/kueue/` (source snapshot, kueue@966f00d21) and `raw/cve/` (Kubernetes-ecosystem CVE corpus, 875 entries).
 
 **Last updated**: 2026-11-24
 
@@ -50,7 +50,7 @@
 - [[topology-aware-scheduling]] — Pack pods within a topology domain (rack/block/zone) to reduce cross-node latency.
 - [[multikueue]] — Dispatch Workloads across multiple worker clusters from a manager cluster; resync on watch reconnect, local status reset on requeue.
 - [[multikueue-orchestrated-preemption]] — **[Beta]** Serialize preemption across MultiKueue worker clusters to avoid unnecessary disruptions; a missing gate state means closed.
-- [[dra]] — **[Beta]** Quota management for DRA-based devices (GPUs via ResourceClaimTemplates or extended resources).
+- [[dra]] — **[Beta]** Quota management for DRA-based devices (GPUs via ResourceClaimTemplates or extended resources); CEL device check searches across requests, `firstAvailable` Beta in v0.21.
 - [[resource-transformer]] — **[Stable]** Rewrite workload resource requests into quota units (MIG GPU slicing, budget credits).
 
 ## Integrations
@@ -110,7 +110,7 @@
 
 ## Code security
 
-- [[security]] — Threat model for Kueue and how the 855-CVE corpus in `raw/cve/` (none a Kueue advisory) maps to its code surface.
+- [[security]] — Threat model for Kueue and how the 875-CVE corpus in `raw/cve/` (none a Kueue advisory) maps to its code surface.
 - [[security-code-patterns]] — Master checklist of patterns to flag in review, grouped by category and CWE.
 - [[security-denial-of-service]] — DoS patterns: unbounded loops, missing timeouts, nil-pointer crashes, invalid-spec wedges.
 - [[security-authn-authz]] — Authentication bypass, RBAC misconfiguration, privilege escalation, MultiKueue credential boundary, opt-in NetworkPolicies.
