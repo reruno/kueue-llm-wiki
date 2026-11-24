@@ -2,9 +2,9 @@
 
 **Summary**: A [[workload]]'s priority is the integer used by the [[queueing-strategy]] heap and by [[preemption]]. It comes from either a stock `scheduling.k8s.io/PriorityClass` (via the Pod template) or, more commonly for Kueue, a `kueue.x-k8s.io/WorkloadPriorityClass` — the latter decouples "how does this job queue?" from "how does the Pod preempt other Pods on the node?"
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13775.md, pr-13719.md, pr-16422.md, pr-14411.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/jobs/deployment/deployment_webhook.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13775.md, pr-13719.md, pr-16422.md, pr-14411.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/jobs/deployment/deployment_webhook.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-17991.md, pr-18127.md, pr-18287.md, pr-18329.md, pr-18758.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -104,6 +104,22 @@ Consequences:
 Releases: `main` (merged 2026-10-16), release-0.20 ([[pr-17309]]) and release-0.19 ([[pr-17313]]). All merged after v0.20.2 / v0.19.9; shipped in **v0.20.3 (#17309) and v0.19.10 (#17313)**. On release-0.19 the gate is Alpha and off by default, so the bug only appears there if you enabled it. That backport calls `jobframework.ApplyDefaultWorkloadPriorityClassWithManagedJobsNamespaceSelector` instead of the `integrationManager` method (source: pr-17313.md). **Correction (2026-10-21)**: this page listed issue-16333 as an open bug.
 
 See also [[integration-statefulset]] and [[integration-leaderworkerset]].
+
+## `WorkloadPriorityClassWatchesWorkloads` gate (Beta, on)
+
+Since pr-16459 the WorkloadPriorityClass controller watches Workloads and rewrites a Workload whose priority differs from its class value, including after a direct `priority` edit. The watch is now gated by `WorkloadPriorityClassWatchesWorkloads`; with it off the controller does not watch Workloads and a changed priority stays until the class is reconciled again. The gate decides whether the watch is registered (like `KueueDRAIntegrationExtendedResource` for the DeviceClass watch) (source: pr-18758.md).
+
+## Queue and priority updated in one write
+
+When a suspended Job changes both `queue-name` and WorkloadPriorityClass labels, the job framework used to persist the new priority first and the new queue in a second update, so watchers (and the scheduler) could see the new priority in the old queue and reserve quota there, after which `spec.queueName` is immutable. The eligible queue-name mutation is now prepared in memory and sent in the same Workload update that persists resolved priority fields (atomic per Workload, not across Workload slices; no new gate; queue changes remain illegal once quota is reserved) (source: pr-18329.md).
+
+## Boost annotation re-evaluation
+
+Changes to `kueue.x-k8s.io/priority-boost` re-evaluate pending Workloads for class-less Workloads and for Kubernetes `PriorityClass`-backed ones, not only WorkloadPriorityClass-backed ones (see [[preemption]]) (source: pr-17991.md, pr-18127.md).
+
+## Deployments: adding the priority class to a running Deployment
+
+The Deployment webhook no longer rejects adding `kueue.x-k8s.io/priority-class` to a Deployment with ready replicas (it used to say "WorkloadPriorityClass cannot be added to a non-suspended workload"); only removing the label is rejected. Every Pod has its own Workload from the template labels, so the label change causes a normal rolling update: new Pods are admitted with the priority, running Pods keep theirs. Shared validation for Jobs, StatefulSets and LeaderWorkerSets is unchanged (source: pr-18287.md).
 
 ## Related pages
 

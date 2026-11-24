@@ -2,9 +2,9 @@
 
 **Summary**: Kueue's beta integration (`KueueDRAIntegration`, on by default since v0.18) with Kubernetes Dynamic Resource Allocation (DRA) enables quota management, borrowing, and preemption for workloads that request devices via ResourceClaimTemplates or extended resources backed by DRA DeviceClasses.
 
-**Sources**: `raw/kueue/keps/2941-DRA/README.md`, `raw/kueue/keps/2941-DRA/kep.yaml`, `raw/kueue/pkg/dra/claims.go`, `raw/kueue/pkg/dra/extended_resources.go`, `raw/github/kubernetes-sigs__kueue/pr-14951.md`, `issue-14964.md`, pr-14200, pr-14367, pr-15577, pr-15888, pr-15961, pr-15983, pr-16081, pr-16098, pr-16169, pr-16317, issue-14393, issue-15769, pr-13642, pr-16469, issue-13599, issue-14035, pr-16625, pr-16652, pr-17141, pr-17434, pr-14562, pr-17208, pr-17211, issue-14535, pr-17093, pr-17294, pr-17445, pr-17447, pr-17314, pr-17368, pr-17424, pr-17443, pr-17444, issue-17422, issue-14372, pr-17649, pr-17706, pr-17751, issue-14573, pr-17803, pr-17864, pr-17867, pr-16857, issue-16855; `raw/kueue/pkg/dra/counters.go`, `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `raw/kueue/CHANGELOG/CHANGELOG-0.19.md`, `raw/kueue/pkg/cache/queue/manager.go`, `raw/kueue/pkg/controller/core/workload_controller.go`, `raw/kueue/pkg/features/kube_features.go`, `raw/kueue/pkg/cache/scheduler/dra/`, `raw/kueue/pkg/cache/scheduler/tas_dra.go`
+**Sources**: `raw/kueue/keps/2941-DRA/README.md`, `raw/kueue/keps/2941-DRA/kep.yaml`, `raw/kueue/pkg/dra/claims.go`, `raw/kueue/pkg/dra/extended_resources.go`, `raw/github/kubernetes-sigs__kueue/pr-14951.md`, `issue-14964.md`, pr-14200, pr-14367, pr-15577, pr-15888, pr-15961, pr-15983, pr-16081, pr-16098, pr-16169, pr-16317, issue-14393, issue-15769, pr-13642, pr-16469, issue-13599, issue-14035, pr-16625, pr-16652, pr-17141, pr-17434, pr-14562, pr-17208, pr-17211, issue-14535, pr-17093, pr-17294, pr-17445, pr-17447, pr-17314, pr-17368, pr-17424, pr-17443, pr-17444, issue-17422, issue-14372, pr-17649, pr-17706, pr-17751, issue-14573, pr-17803, pr-17864, pr-17867, pr-16857, issue-16855; `raw/kueue/pkg/dra/counters.go`, `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `raw/kueue/CHANGELOG/CHANGELOG-0.19.md`, `raw/kueue/pkg/cache/queue/manager.go`, `raw/kueue/pkg/controller/core/workload_controller.go`, `raw/kueue/pkg/features/kube_features.go`, `raw/kueue/pkg/cache/scheduler/dra/`, `raw/kueue/pkg/cache/scheduler/tas_dra.go`, issue-17705.md, issue-17769.md, issue-18171.md, pr-17916.md, pr-18133.md, pr-18632.md, pr-18749.md, pr-18809.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -254,6 +254,28 @@ When a DRA Workload is marked inadmissible (`Requeued=False`, reason `Inadmissib
 - emitted only **after** the status patch succeeds, and only when the failure is new: there is no `QuotaReserved` condition, or it is not `False` with the same reason and the same truncated message, or `Requeued` is `True` (a failure that recurs after an earlier successful DRA resolution). A Workload reconciled again with the same recorded failure gets no duplicate event.
 
 The original PR description also made `SetRequeuedCondition` independent of `updated`. That part had already landed through pr-17093 before this PR was rebased (source: pr-16857.md).
+
+## `excludeDeviceClassNames` for companion devices (Alpha, `KueueDRAExcludeDeviceClasses`, off)
+
+Configuration lists `excludeDeviceClassNames`. Kueue skips DRA requests on those DeviceClasses: no quota is charged, and they are not rejected for `allocationMode: All` or a missing mapping. An extended resource backed by a listed class is not charged either. Use it for companion devices such as RDMA NICs that ride along with accelerators charged another way. A `firstAvailable` request that mixes listed and unlisted classes is still rejected (source: pr-18632.md, fixes issue-18171.md).
+
+## When the CEL device-availability check is skipped
+
+The workload controller counts matching devices in ResourceSlices for CEL selectors and marks the Workload inadmissible (`QuotaReserved=False`, `DRAResourcesUnresolved`, "insufficient matching devices for CEL selector in DeviceClass ...") when too few exist. CEL compilation always runs first, so invalid selectors are always rejected. The *present-device count* is skipped when:
+
+- the target ClusterQueue has a **MultiKueue** admission check: the manager has no worker ResourceSlices; availability is evaluated on the worker. Also applies when the check is added after the Workload was already inadmissible (source: pr-17916.md, fixes issue-17769.md);
+
+## Pool eligibility is one shared helper
+
+CEL availability, counter and capacity paths share one pool-eligibility helper. A pool counts only when complete and valid at its highest observed generation (grouped by driver and pool name). As in the allocator (`k8s.io/dynamic-resource-allocation/structured`) a pool is invalid when two devices share a name, two counter sets share a name, or a device consumes a counter set/counter missing from the pool's `sharedCounters`. Invalid pools are skipped (logged at V(4)); listing order is preserved so overlapping CEL requests still reserve greedily in the same order; too few eligible devices keeps the existing internal-error path (inadmissible, retry with backoff) (source: pr-18133.md, fixes issue-17705.md).
+
+## Missing DeviceClass rejects the Workload
+
+kube-scheduler fails a whole claim if any named class is missing (in a request or a `firstAvailable` alternative), so admitting such a Workload left Pods unscheduled while holding quota. `GetResourceRequestsForResourceClaimTemplates` now checks every DeviceClass (in `exactly` requests and `firstAvailable` alternatives, empty names skipped) before the CEL check and returns a `NotFound` field error; QuotaReserved reports `DeviceClass does not exist`. The DeviceClass watcher is now registered whenever `KueueDRAIntegration` is on (previously required `KueueDRAIntegrationExtendedResource`); on DeviceClass creation it requeues, after one second, Workloads with claim templates, `QuotaReserved=False`, held back by DRA. Extended-resource processing in that handler still needs `KueueDRAIntegrationExtendedResource` (source: pr-18809.md).
+
+## Note on device tests and LimitRange
+
+A LimitRange-derived device request depends on the Workload and LimitRange watches; they are unordered, so the scheduler can admit from empty requests before the LimitRange reaches the manager cache (a test flake, not a product bug) (source: pr-18749.md).
 
 ## Related pages
 

@@ -2,9 +2,9 @@
 
 **Summary**: A cohort is a group of [[cluster-queue]]s that can share unused quota with each other. Cohorts can be flat (CQs point to a cohort name) or hierarchical (cohorts have parents). The cohort is the scope in which [[fair-sharing]] and [[borrowing-and-lending]] are computed.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16375.md, pr-16376.md, pr-16438.md, pr-16409.md, pr-15107.md, pr-16738.md, issue-16666.md, pr-16360.md, pr-16488.md, pr-17079.md, pr-17080.md, pr-17346.md, pr-17404.md, pr-17407.md, pr-16630.md, pr-13307.md, pr-17798.md, pr-17851.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/controller/core/cohort_controller.go, raw/kueue/pkg/cache/scheduler/cache.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16375.md, pr-16376.md, pr-16438.md, pr-16409.md, pr-15107.md, pr-16738.md, issue-16666.md, pr-16360.md, pr-16488.md, pr-17079.md, pr-17080.md, pr-17346.md, pr-17404.md, pr-17407.md, pr-16630.md, pr-13307.md, pr-17798.md, pr-17851.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/controller/core/cohort_controller.go, raw/kueue/pkg/cache/scheduler/cache.go, pr-17957.md, pr-18078.md, pr-18314.md, pr-18486.md, pr-18594.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -59,6 +59,17 @@ In fair-sharing preemption a candidate ClusterQueue counts as a borrower of a co
 ## A Cohort's own nominal quota gives its descendants a preemption claim (pr-13307)
 
 With fair sharing and `FairSharingPreemptWithinNominal` (Beta, on), the "within nominal, bypass DRS" preemption claim is evaluated at the preemptor's `AlmostLCA` with each target. If that node is a Cohort, it is within nominal when its usage does not exceed its `SubtreeQuota` (own `nominalQuota` plus lendable child quota) for every flavor-resource the incoming Workload requests. Descendants of a Cohort therefore get preferential access to that Cohort's quota against outside borrowers, even when the Cohort borrows on an unrelated flavor. Conversely, a ClusterQueue within its own nominal quota has no claim against a target reached through a **borrowing** parent Cohort. Main 2026-10-27; backports pr-17798 (0.20) and pr-17851 (0.19) pending the next patch (source: pr-13307.md, pr-17798.md, pr-17851.md). See [[fair-sharing#Nominal claim is evaluated at the AlmostLCA with each target (pr-13307, fixes #9466)]].
+
+## Notification and requeue behaviour (v0.21 main)
+
+- A Cohort reconcile notifies its ClusterQueues only when the Cohort was created or its spec/quotas changed, or (with fair sharing) a CQ under it was created, deleted or had spec/quota changes; a CQ status write alone no longer re-sweeps the tree. With fair sharing the whole tree is enqueued since weighted share divides by the tree's lendable quota (source: pr-17957.md).
+- `kueue_cohort_subtree_admitted_active_workloads` with `CustomMetricLabels`: each series counts only the CQs whose label values match; relabeling a CQ under the same parent moves its count at once via incremental per-label counts in the Cohort; an old series is deleted only when its last contributing CQ leaves (source: pr-18078.md, pr-18486.md; see [[metrics]]).
+
+## DQO handoff between subtrees (Alpha)
+
+A ClusterQueue or Cohort moving between two active DynamicQuotaOrchestrator subtrees kept its `orchestratorRef`, making the destination DQO report `EffectiveQuotasConflict` for the whole subtree. The destination may now take over once the previous DQO's resolved subtree no longer covers the target (also when the previous DQO changes root). Foreign owners are protected; missing roots, missing targets and cycles are treated conservatively; a referenced Cohort without an object is an implicit root. Membership uses the controller cache, so an in-flight reconcile may briefly use an older view; an object moved outside every eligible DQO subtree keeps its last effective quota (source: pr-18594.md).
+
+Opt-in expiration: `spec.capacityDistribution.effectiveQuotasTTLSeconds` on the DQO (60 to 604800, no default) makes the DQO write `status.effectiveQuotas.expirationTime` (now + TTL on each successful distribution; kept while the quota is unchanged and more than half the TTL remains). ClusterQueue and Cohort controllers set condition `EffectiveQuotaActive` (`True` reason `Issued`/`Renewed`, `False` reason `Expired`) and requeue at `expirationTime`; cache, queue manager, metrics and the MultiKueue capacity provider fall back to `spec.resourceGroups` only when the condition is `False` (they read the condition, not the clock). Cohort also gains `status.conditions` (source: pr-18314.md).
 
 ## Related pages
 

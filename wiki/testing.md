@@ -2,9 +2,9 @@
 
 **Summary**: How to run, focus, and debug Kueue's three test tiers (unit, integration, e2e) on a local dev machine, which make targets and env vars each tier honors, how CI exercises them, and where to look when a test goes flaky. Entry point for the developer-workflow section.
 
-**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/hack/testing/`, `raw/kueue/site/content/en/community/contribution_guidelines/testing.md`, `raw/kueue/test/util/constants.go`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-2415]], [[pr-5414]], [[pr-6906]]; pr-16723.md, pr-16481.md, pr-16781.md, pr-16791.md, pr-16823.md, pr-16996.md, pr-16923.md; 2026-10-21 batch: pr-17136.md, pr-17163.md, pr-17206.md, pr-17391.md, pr-17283.md, pr-17304.md, pr-17352.md, pr-17431.md, pr-17477.md, pr-17487.md, pr-17377.md, pr-17148.md, `raw/kueue/hack/make/verify.mk`, `raw/kueue/hack/make-failure-summary.sh`; `raw/kueue/site/content/en/community/contribution_guidelines/writing_tests.md`; 2026-10-28 batch: pr-17882.md, pr-17822.md, pr-17807.md, pr-14142.md, pr-17602.md, pr-17634.md, pr-17847.md, pr-16893.md, pr-17062.md, pr-17629.md, pr-17734.md, pr-17585.md, pr-17645.md, pr-17771.md, pr-17760.md, pr-17854.md, `raw/kueue/test/util/behavioral/queues.go`, `raw/kueue/test/util/behavioral/integration/workload.go`.
+**Sources**: `raw/kueue/hack/make/test.mk`, `raw/kueue/hack/testing/`, `raw/kueue/site/content/en/community/contribution_guidelines/testing.md`, `raw/kueue/test/util/constants.go`; `raw/github/kubernetes-sigs__kueue/` — [[issue-9952]], [[issue-9954]], [[issue-3044]], [[issue-6525]], [[issue-10200]], [[pr-2415]], [[pr-5414]], [[pr-6906]]; pr-16723.md, pr-16481.md, pr-16781.md, pr-16791.md, pr-16823.md, pr-16996.md, pr-16923.md; 2026-10-21 batch: pr-17136.md, pr-17163.md, pr-17206.md, pr-17391.md, pr-17283.md, pr-17304.md, pr-17352.md, pr-17431.md, pr-17477.md, pr-17487.md, pr-17377.md, pr-17148.md, `raw/kueue/hack/make/verify.mk`, `raw/kueue/hack/make-failure-summary.sh`; `raw/kueue/site/content/en/community/contribution_guidelines/writing_tests.md`; 2026-10-28 batch: pr-17882.md, pr-17822.md, pr-17807.md, pr-14142.md, pr-17602.md, pr-17634.md, pr-17847.md, pr-16893.md, pr-17062.md, pr-17629.md, pr-17734.md, pr-17585.md, pr-17645.md, pr-17771.md, pr-17760.md, pr-17854.md, `raw/kueue/test/util/behavioral/queues.go`, `raw/kueue/test/util/behavioral/integration/workload.go`.; 2026-11-24 batch: pr-18311.md, pr-18384.md, pr-18567.md, pr-18660.md, pr-18545.md, pr-18707.md, pr-18308.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -225,7 +225,7 @@ Normal `go test`. Table tests in the codebase-standard form use `utiltestingapi.
 
 Ginkgo suites under `test/integration/`. Shared fixtures live under `test/util/behavioral/` ([[pr-2415]] started the shared-helper pattern; see the layout note below). Common patterns:
 
-- `var _ = ginkgo.Describe("...", ginkgo.Ordered, ginkgo.ContinueOnFailure, func() { ... })`.
+- Single-cluster integration specs no longer use `ginkgo.Ordered`: each spec starts its manager with `fwk.StartManagerForSpec` (stop registered via `DeferCleanup`) and uses generated namespaces; see [[testing-integration]] (pr-18311, pr-18660, pr-18545, pr-18707). `ginkgo.Ordered, ginkgo.ContinueOnFailure` remains acceptable for kueuectl and MultiKueue suites that depend on earlier setup.
 - One `ginkgo.It` per independent scenario. `ginkgo.DescribeTable` still appears in older suites, but the writing-tests guide keeps table-driven style for unit tests only, and CodeRabbit no longer suggests converting `It` blocks to `DescribeTable` (source: pr-16481.md).
 - `ginkgo.DeferCleanup(...)` over manual teardown.
 - `gomega.Eventually(func(g gomega.Gomega) { ... }, behavioral.Timeout, behavioral.Interval).Should(gomega.Succeed())` rather than `time.Sleep`.
@@ -295,6 +295,10 @@ Same Ginkgo + Gomega patterns, but every assertion crosses a real apiserver over
 - Tests that change shared Kueue configuration go in a **sequential** suite.
 
 Related maintainer hygiene seen in this window: many tests were converted to the wrappers and to declarative table cases (pr-16648, pr-16654, pr-16655, pr-16961). The performance-tool unit tests moved from `make verify` into the regular unit-test shards, and `verify-checks` now runs with `GOMAXPROCS=2` to reduce CPU contention (source: pr-16923.md).
+
+## Test review ownership
+
+A `test-reviewers` alias (ivnovakov, mykysha, reruno, vladikkuzn) is requested as reviewer for `test/`, `hack/testing/`, `pkg/util/testing/`, `pkg/util/testingjobs/`, `*_test.go`, test/verification makefiles and linter configs; approval still comes from `test-approvers` (pr-18308). See [[reviewers]].
 
 ## Debugging flakes
 

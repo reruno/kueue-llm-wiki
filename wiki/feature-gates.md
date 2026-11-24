@@ -2,9 +2,9 @@
 
 **Summary**: Kueue follows the Kubernetes feature-gate convention: new features land alpha → beta → GA, with a named gate (`--feature-gates=Foo=true|false`) controlling the on/off switch. Each graduation updates the default (alpha defaults off, beta defaults on, GA locked on).
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, `raw/kueue/site/data/featuregates/versioned_feature_list.yaml`, `raw/kueue/site/data/featuregates/removed_feature_list.yaml`, `raw/kueue/pkg/features/kube_features.go`, pr-15889.md, pr-15562.md, pr-15623.md, pr-16235.md, pr-15000.md, pr-15503.md, pr-15734.md, pr-16059.md, pr-13063.md, pr-13706.md, pr-13719.md, pr-16347.md, pr-16362.md, pr-16436.md, pr-17167.md, pr-17285.md, pr-16035.md, pr-16340.md, pr-17295.md, pr-17296.md, pr-17370.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-16460.md, pr-16493.md, pr-15280.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md (kube_features.go read at kueue@8922c563e), pr-13316.md, pr-16470.md, pr-16343.md; 2026-10-28 batch: pr-17591.md, pr-17603.md, pr-17604.md, pr-13307.md, pr-17370.md, pr-17371.md, pr-16684.md, pr-14577.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md (v0.20.3), CHANGELOG-0.19.md (v0.19.10); `git -C raw/kueue diff 3bbb8cce4 966f00d21 -- pkg/features/`
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, `raw/kueue/site/data/featuregates/versioned_feature_list.yaml`, `raw/kueue/site/data/featuregates/removed_feature_list.yaml`, `raw/kueue/pkg/features/kube_features.go`, pr-15889.md, pr-15562.md, pr-15623.md, pr-16235.md, pr-15000.md, pr-15503.md, pr-15734.md, pr-16059.md, pr-13063.md, pr-13706.md, pr-13719.md, pr-16347.md, pr-16362.md, pr-16436.md, pr-17167.md, pr-17285.md, pr-16035.md, pr-16340.md, pr-17295.md, pr-17296.md, pr-17370.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-16460.md, pr-16493.md, pr-15280.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md (kube_features.go read at kueue@8922c563e), pr-13316.md, pr-16470.md, pr-16343.md; 2026-10-28 batch: pr-17591.md, pr-17603.md, pr-17604.md, pr-13307.md, pr-17370.md, pr-17371.md, pr-16684.md, pr-14577.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md (v0.20.3), CHANGELOG-0.19.md (v0.19.10); `git -C raw/kueue diff 3bbb8cce4 966f00d21 -- pkg/features/`; 2026-11-24 batch: pr-17937.md, pr-17989.md, pr-18038.md, pr-18176.md, pr-18180.md, pr-18193.md, pr-18195.md, pr-18281.md, pr-18282.md, pr-18290.md, pr-18310.md, pr-18367.md, pr-18591.md, pr-18615.md, pr-18706.md, pr-18758.md, pr-17903.md, pr-18021.md, pr-18064.md, pr-18382.md, pr-18516.md, pr-18632.md, pr-18851.md, pr-18179.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md (v0.20.4-v0.20.6), CHANGELOG-0.19.md (v0.19.11-v0.19.13)
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -36,7 +36,7 @@ Representative subset (not exhaustive):
 - **`PriorityBoost`** (KEP-7990) — **Alpha**. Honors the `kueue.x-k8s.io/priority-boost` annotation; computes effective priority for scheduling and preemption candidate selection. See [[preemption-cost]].
 - **`FailureRecoveryPolicy`** (KEP-6757) — **Alpha**. Force-deletes zombie pods stuck `Terminating` after node failure when the pod opted in via `safe-to-forcefully-delete`. See [[failure-recovery]].
 - **Maximum execution time** (KEP-3125) — no feature gate; Beta since v0.9, GA in v0.19. Enforces `spec.maximumExecutionTimeSeconds` per Workload. See [[workload-max-execution-time]].
-- **`ManagedJobsNamespaceSelectorAlwaysRespected`** (KEP-3589) — strengthens `managedJobsNamespaceSelector` so jobs in non-matching namespaces are never managed even if labeled. See [[manage-jobs-selectively]].
+- **`ManagedJobsNamespaceSelectorAlwaysRespected`** (KEP-3589; GA in v0.19, **gate removed in v0.21**, pr-17989) — strengthens `managedJobsNamespaceSelector` so jobs in non-matching namespaces are never managed even if labeled. See [[manage-jobs-selectively]].
 - **`KueueDRAIntegration` (was `DynamicResourceAllocation`) / KEP-2941** — **Beta, on by default since v0.18** (#10996). DRA support for [[resource-flavor]] / partitionable devices ([[pr-3071]] — DRA design; [[pr-8734]] — extended resources design for DRA integration; [[pr-10283]] — partitionable devices). The gate was **renamed** in v0.18 to avoid a name collision with the *upstream Kubernetes* `DynamicResourceAllocation` gate, which broke the scheduler-library integration ([[pr-11255]], fixes [[issue-11248]]). See [[dra]].
 - **`KueueDRAIntegrationExtendedResource` (was `DRAExtendedResources`)** (KEP-2941) — **Alpha (v0.18), off by default.** Companion gate that enables the extended-resource path for DRA; validation at startup (`validateDRAFeatureGateDependencies`) **rejects** enabling it unless `KueueDRAIntegration` is also enabled. See [[dra]].
 - **DRA gate rename (v0.18)** — the old gate names `DynamicResourceAllocation` and `DRAExtendedResources` are **deprecated and `LockToDefault: true`** in v0.18 (slated for removal in v0.19). `cmd/kueue/main.go` calls `MigrateDeprecatedDRAFeatureGates` *before* config validation: it logs a deprecation warning and maps old→new. If an operator sets both an old and its new gate to conflicting values, the **new (canonical)** gate wins (decided via an `ExplicitlySet` check). ([[pr-11255]])
@@ -47,7 +47,7 @@ Representative subset (not exhaustive):
 - **`QuotaCheckStrategy`** — **Alpha (new in v0.18)**. Gates the `resources.quotaCheckStrategy` configuration field on the [[cluster-queue]]; setting it to `IgnoreUndeclared` admits Workloads requesting resources the CQ does not list (those resources don't count against quota). PR #9808.
 - **`RejectUpdatesToCQWithInvalidOnFlavors`** — **Alpha (new in v0.18, action-required)**. When enabled, ClusterQueue updates that reference invalid flavors in `AdmissionCheckStrategy.OnFlavors` are rejected at the validation webhook. Operators must fix any pre-existing invalid references before flipping the gate on.
 - **`SchedulingEquivalenceHashing`** — **Beta, default on, since v0.18** ([[pr-11097]], fixes [[issue-10005]]). When a Workload can't be admitted and is requeued to the inadmissible set, Workloads with the same scheduling hash are bulk-moved together instead of re-evaluated one at a time — an admission-throughput optimization. v0.18 **narrows** the trigger to two requeue reasons only — `RequeueReasonNoFit` and `RequeueReasonPreemptionNoCandidates` — so namespace-mismatched or preemption-gated Workloads are no longer incorrectly bulk-moved (the prior bug). See [[scheduler-internals]]. Trade-off: a single Workload that consumes ~100% of a CQ's quota regresses on time-to-admission (it waits for the requeue batch / a capacity event). [[pr-11399]] folds each PodSet's **effective** `TotalRequests.Requests` (key `"requests"`) into `computeSchedulingHash`, not just the PodSet spec shape — necessary because [[dra]] preprocessing rewrites a device-class resource into its DeviceClass-mapped logical resource in `TotalRequests` *without* mutating the pod spec, so two semantically different DRA Workloads would otherwise hash identically and wrongly share an equivalence-cache result.
-- **`TASHandleOverlappingFlavors`** — **Beta, on by default since v0.18** ([[pr-11210]]; review discussed Alpha, but the merged commit 7b57e1111 registers `{0.18, Beta, on}`). Fixes node over-subscription when two TAS [[resource-flavor]]s reference the same Topology and share the same hostname-leaf nodes. The whole aggregation path is guarded by this gate; with it off the old per-flavor usage tracking remains. See [[topology-aware-scheduling]].
+- **`TASHandleOverlappingFlavors`** — **GA/locked in v0.21 (pr-18193); Beta, on by default v0.18-v0.20** ([[pr-11210]]; review discussed Alpha, but the merged commit 7b57e1111 registers `{0.18, Beta, on}`). Fixes node over-subscription when two TAS [[resource-flavor]]s reference the same Topology and share the same hostname-leaf nodes. The whole aggregation path is guarded by this gate; with it off the old per-flavor usage tracking remains. See [[topology-aware-scheduling]].
 - **`TASReplaceNodeOnNodeTaints`** — gates TAS NodeHotSwap on node taints: when a node assigned to an admitted Workload gains a `NoExecute`/`NoSchedule` taint the Workload's pods are relocated. [[pr-11185]] fixed it to evaluate taints against the Workload's **effective** tolerations (PodSet template + assigned ResourceFlavor + AdmissionCheck `PodSetUpdates`), not just the raw PodSet template. See [[topology-aware-scheduling]].
 - **`MultiKueueManagerQuotaAutomation`** — **Alpha (new in v0.18), off by default** ([[pr-11141]], KEP-9988 "Alpha1" scope). When enabled (and opted in per-config via `MultiKueueConfig.spec.quotaManagement: Automated`; the field defaults to `Manual`. **Correction (2026-10-21):** this page earlier named the field `spec.quotaAutomation.mode`, which does not exist (source: raw/kueue/apis/kueue/v1beta2/multikueue_types.go)), a manager [[cluster-queue]]'s nominal quota is kept equal to the sum of the corresponding worker-cluster quotas. See [[multikueue]].
 - **`MultiKueueIncrementalDispatcherConfig`** — **Beta, on by default** ([[pr-11208]], KEP-9270, registered at v0.19). Enables the `multiKueue.incrementalDispatcherConfig.stepSize` config field controlling how many worker clusters the Incremental Dispatcher nominates per round (default 3, minimum 1). See [[multikueue]].
@@ -99,7 +99,7 @@ All entries below are **merged and shipped**. Where a gate has a different stage
 
 ### Integrations
 
-- **`ValidateRayAndSparkJobUpdates`** — **Beta, on by default** ([[pr-13293]]; cherry-picks [[pr-14666]], [[pr-14676]]). Rejects removal of the `kueue.x-k8s.io/queue-name` label from RayJob / RayCluster / RayService / SparkApplication. See [[integration-rayjob]].
+- **`ValidateRayAndSparkJobUpdates`** — **GA/locked on in v0.21 (pr-18038); earlier Beta, on by default** ([[pr-13293]]; cherry-picks [[pr-14666]], [[pr-14676]]). Rejects removal of the `kueue.x-k8s.io/queue-name` label from RayJob / RayCluster / RayService / SparkApplication. See [[integration-rayjob]].
 - **`MultiKueueBatchJobClearingTTLSecondsAfterFinishedOnWorkerCluster`** — **Alpha, off by default (registered at 0.20)**. **Correction (2026-10-21)**: this bullet said Beta/on on main; it was introduced that way by [[pr-14734]] (branch variants [[pr-14827]], [[pr-14828]] off) but #15126 changed it to Alpha/off before v0.20.0 ("Enable it explicitly to omit `ttlSecondsAfterFinished` from worker Jobs"), which is what `kube_features.go` at the snapshot and the table below show (source: CHANGELOG-0.20.md). Omits `spec.ttlSecondsAfterFinished` when MultiKueue creates the remote worker Job. See [[multikueue#Worker Job TTL]]. GA graduation is tracked in [[issue-14826]].
 - **`ElasticJobsViaWorkloadSlicesWithPartialReplicaScaleUp`** — **Alpha, off by default** ([[pr-14909]], part of #12100). Opt-in per job via the `kueue.x-k8s.io/elastic-job-scale-up-strategy` annotation (`atomic` — the default — or `partial`). When enabled *and* the annotation is `partial` *and* `minReplicas` is set, the RayCluster worker PodSet gets `MinCount` = effective minimum worker count instead of a fixed count. No behaviour change with the gate off. See [[elastic-jobs]].
 
@@ -119,13 +119,13 @@ All entries below are **merged and shipped**. Where a gate has a different stage
 
 | Gate | Target | Done? |
 |---|---|---|
-| `ManagedJobsNamespaceSelectorAlwaysRespected` | Stable | yes |
+| `ManagedJobsNamespaceSelectorAlwaysRespected` | Stable, then removed | yes (removed by pr-17989, 2026-10-29) |
 | `LendingLimit`, `MultiKueueBatchJobWithManagedBy`, `HierarchicalCohorts`, `ObjectRetentionPolicies` | removed | yes |
 | `MultiKueueKubeConfigPathValidation` | Beta | yes (#13706) |
 | `RejectUpdatesToCQWithInvalidOnFlavors` | Beta | yes ([[pr-14776]]) |
 | `QuotaCheckStrategy` | Beta | yes |
 | `WorkloadPriorityClassDefaulting` | Beta (default-on at v0.20) | yes |
-| `TASProfileMixed`, `AssignQueueLabelsForPods` | Stable | no |
+| `TASProfileMixed`, `AssignQueueLabelsForPods` | Stable | yes, in v0.21 (pr-18193, pr-18180) |
 | `PriorityBoost` | Beta | no — deliberately deferred |
 
 Two things worth carrying forward from the discussion: bundling is only appropriate for gates whose graduation is mechanical (removal always is; Beta/Stable promotion has per-feature criteria — `PartialAdmission` is the standing counter-example), and an opt-in-by-Configuration feature is treated as safe enough to promote without broad alpha feedback because the config field is the second switch. `PriorityBoost`'s promotion is held pending the direction of configurable preemption rules, since that mechanism may subsume boost scoping ([[preemption-cost]]).
@@ -225,21 +225,70 @@ Stages verified against `kube_features.go` at kueue@8922c563e (main, v0.21 dev) 
 
 Not a gate: **`PreemptionConfigPriorityClassSelector`** (pr-16684, pr-17019) is a `kueue.x-k8s.io/v1alpha1` API type, a priority-class filter in a PreemptionConfig. It is covered by the existing `ConfigurablePreemptions` gate (0.20 Alpha/off) and has no gate of its own (raw/kueue/pkg/scheduler/preemption/config/filters/priority_filters.go). `CustomMetricLabels` is unchanged at 0.17 Alpha/off. On main it now also covers Workload labels on `kueue_admitted_workloads_total` and `kueue_admission_wait_time_seconds` (pr-14577; see [[metrics]]). `SchedulerLibraryDeepIntegration` is unchanged at 0.21 Alpha/off, main only.
 
+### Gate changes in the 2026-11 batch (v0.21 development, main)
+
+Merged PRs only. Versions are the registration version on main unless noted. Defaults of "GA" gates are locked on (`LockToDefault: true`).
+
+**Graduated to GA (locked on, v0.21; no behaviour change for default installs, only for users who had set the gate to `false`):**
+
+| Gate | From | Notes |
+|---|---|---|
+| `ValidateRayAndSparkJobUpdates` | Beta/on since 0.18 | pr-18038 (merged 2026-10-30). Code comment had planned "GA in 0.21". |
+| `RemoveFinalizersWithStrictPatch` | Beta/on since 0.17 | pr-18176 (2026-11-04). Removal scheduled for v0.23. |
+| `AssignQueueLabelsForPods` | Beta/on since 0.17 | pr-18180 (2026-11-02). Removal scheduled for v0.23. |
+| `TASProfileMixed` | Beta/on since 0.15 | pr-18193 (2026-11-03). |
+| `TASHandleOverlappingFlavors` | Beta/on since 0.18 | pr-18193. A locked GA gate cannot depend on a Beta gate, and `TopologyAwareScheduling` is still Beta, so both TAS gates were **removed from `defaultFeatureGateDependencies`**; their code paths stay inactive when TAS is off. |
+
+Not graduated: `PrioritySortingWithinCohort` (Beta/on since 0.6). The GA PR (pr-18179) is still open and on hold behind #16824 (a user still depends on the gate), so treat it as Beta (source: pr-18179.md).
+
+**Removed:** `ManagedJobsNamespaceSelectorAlwaysRespected` (pr-17989, 2026-10-29). It was GA/locked since v0.19 (pr-13021 removed all `features.Enabled` checks), so two releases later nothing read it. Any `--feature-gates` still naming it will now fail as an unknown gate. `MultiKueueManagerQuotaAutomation` and its CQ condition and the `multikueue_cluster_status` metric were removed in pr-18382 (2026-11-06); the replacement is DQO with a MultiKueue capacity provider (`DynamicQuotaOrchestration` + `DQOMultiKueueCapacityProvider`, a `MultiKueueCapacityProviderConfig`, a CapacityProvider and a DynamicQuotaOrchestrator). `MultiKueueConfig.spec.quotaManagement` is deprecated and ignored (action required).
+
+**Graduated to Beta (on by default, v0.21):**
+
+- `CustomMetricLabels` (Alpha 0.17 to Beta, pr-18706, 2026-11-19). Existing `metrics.customLabels` configuration now takes effect without setting the gate. Beta decision recorded in the KEP (pr-18467): Workload labels require `trackedValues` (max 12 values plus the `kueue.x-k8s.io/_UNTRACKED_VALUE_` bucket, max 2 Workload labels); pending-workload series are deleted at zero, admitted-active series keep zero values. See [[metrics]].
+- `MultiKueueClusterProfile` (Alpha 0.15 to Beta, pr-18367, 2026-11-14, fixes #17133). Gate-off still reports `MultiKueueClusterProfileFeatureDisabled` on a `MultiKueueCluster` using `clusterProfile`. The ClusterProfile CRD may now be installed after the manager starts: pr-18404 (main) makes Kueue watch ClusterProfiles late; it shipped as an Alpha-gate fix in v0.20.6 / v0.19.13 (pr-18450 / pr-18451). See [[multikueue]].
+
+**New gates (registered 0.21 on main):**
+
+| Gate | Stage | Purpose / notes |
+|---|---|---|
+| `DisableStatefulSetWorkloadNameFallback` | Beta/on, GA targeted v0.22 | pr-17937 (2026-11-04). `findWorkload()` skips the legacy lookup `GetWorkloadName("", sts.Name)` (names without owner UID). Upgrading clusters that still hold legacy StatefulSet Workloads can set it to `false` until they migrate. |
+| `LeaderWorkerSetRejectGroupIdentityHash` | Beta/on | pr-18591 (2026-11-13), gate for pr-18250 (2026-11-10). The webhook rejects `spec.groupIdentity: Hash` on a managed LWS (create, or an update that brings it under management, e.g. via default LocalQueue or `manageJobsWithoutQueueName`); leader Pods ran without admission while workers stayed gated. Gate off: no rejection, no warning, default LocalQueue applied on update as before. Use `Ordinal`, or delete and recreate an already-managed LWS. ACTION REQUIRED in the release note. |
+| `AllowMutatingContainersWhenEffectiveRequestsDontChange` | Beta/on | pr-17903 (2026-11-18). LWS Pod templates may add/remove/change containers and init containers while effective requests stay equal and no host port is added. MultiKueue now also copies container changes (e.g. new image) to the worker. Complements `LWSImmutableGroupSize`. |
+| `WorkloadPriorityClassWatchesWorkloads` | Beta/on | pr-18758 (2026-11-13) for the Workload watch added by pr-16459: a Workload whose `priority` differs from its class gets the class value back. Gate off: watch not registered; a directly changed priority stays until the class reconciles again. The gate decides watch registration, like `KueueDRAIntegrationExtendedResource` does for the DeviceClass watch. Backports pr-18766 / pr-18768 carry the release note. |
+| `TASAncestorCapacityTieBreak` | Beta/on | pr-18516 (2026-11-09). Equal-capacity topology domains below the root level are tie-broken by smaller/partially used ancestor free capacity instead of alphabetically, so larger intact blocks stay unfragmented. Shipped in v0.20.6 / v0.19.13 as Beta/on. See [[topology-aware-scheduling]]. |
+| `WorkloadValidateUniquePodSetUpdates` | Beta/on | pr-18021 (2026-11-24). Workload webhook rejects an admission check that writes more than one `podSetUpdates` entry for the same PodSet (TAS could place Pods on nodes whose taints the Pods did not tolerate). ACTION REQUIRED for external AdmissionCheck controllers: write one merged entry or disable the gate. |
+| `MultiKueueJobSuspendedWorkaroundDisabled` | **Alpha/off** | pr-18615 (2026-11-12). Kubernetes 1.36.0/1.36.1 reject spec updates to a suspended Job without a `JobSuspended=True` condition (kubernetes/kubernetes#139281, fixed in 1.36.2), so the MultiKueue batch/Job adapter patches `JobSuspended=True` on the local Job while the remote Job runs (#11649). Enabling the gate skips that patch; use only on managers running Kubernetes 1.36.2+. The workaround stays default while Kueue supports 1.36. |
+| `KueueDRAExcludeDeviceClasses` | **Alpha/off** | pr-18632 (2026-11-16). `resources.excludeDeviceClassNames` in the Configuration: no quota charge for DRA requests on listed DeviceClasses (including extended resources they back) and no rejection for `allocationMode: All` or a missing mapping. See [[dra]]. |
+| `PartialPreemption` | **Alpha/off** | pr-18851 (2026-11-19). Partial preemption under Fair Sharing: shrink eligible workloads to their configured minimum count before whole-evicting them (KEP-975). |
+| `ElasticJobsViaWorkloadSlicesWithPartialReplicaScaleUp` | Alpha/off (existing gate) | pr-18064 (2026-11-18) extends partial scale-up to elastic SparkApplication with dynamic allocation (needs annotation `kueue.x-k8s.io/elastic-job-scale-up-strategy: "partial"`; admits at least `minExecutors`, also on first admission). |
+
+**Release-branch-only gates (shipped in patch releases):**
+
+| Gate | Branch / stage | Notes |
+|---|---|---|
+| `DeclareWorkloadFailureOnUnretriablePodGroups` | main: **Beta/on** (pr-18195, 2026-11-02); release-0.20 / 0.19: **Alpha/off** (pr-18282 / pr-18281) | An unretriable pod group where not all Pods succeed produces a Workload with reason `Failed` (behaviour from pr-16156). Created as a gate so the fix could be cherry-picked. Shipped v0.20.5 / v0.19.12. Gate off keeps the previous "succeeded" outcome. |
+| `DisableMetricsAccessControl` | release-0.20 (pr-18310) / release-0.19 (pr-18290): **Alpha/off**, backport-only | Lets a trusted sidecar scrape HTTPS metrics without authN/authZ on an explicit loopback IP and port 1-65535 (wildcards, hostnames, non-loopback IPs, port 0 fail validation; `metrics.bindAddress: "0"` still disables metrics). It adapts main's pr-16035 without Configuration API changes. Removal planned v0.22. **Before upgrading to v0.21**, remove it and use `MetricsAccessControl` with `metrics.accessControlMode: None`; v0.21 does not recognise the old gate. Shipped v0.20.5 / v0.19.12. The alpha-enabled manifest sets it to `false` explicitly (#18399 / #18398) so `AllAlpha=true` does not break metrics bind-address validation (v0.20.6 / v0.19.13). |
+| `TASResidualPodAccounting` | release-0.20 (#18194) / release-0.19 (#18196): **Alpha/off** | Accounts bound Pods after a Workload releases quota to avoid extra preemptions while Pods are cleaned up. Requires `TopologyAwareScheduling`. Shipped v0.20.5 / v0.19.12. |
+| `RayClusterHeadPodReady` | release branches Alpha/off | Shipped v0.20.4 / v0.19.11 (see the 2026-10-28 section). |
+
+**Developer rule: gate PRs.** Changes that alter default behaviour are routinely given a gate after review ("as requested in this review": pr-18591, pr-18758). The PR template asks for a `Gate / Default / PreRelease / Version / Off-path test` block, and the off-path test (gate false) is expected. After editing `kube_features.go`, run `make generate-featuregates` to regenerate `site/data/featuregates/versioned_feature_list.yaml` and `test/compatibility_lifecycle/reference/versioned_feature_list.yaml`. A gate-off test must set the gate explicitly when the default flips (pr-18367, pr-18706 removed explicit `CustomMetricLabels` setup from tests).
+
 ### Full stage table at kueue@966f00d21 (main, v0.21 development)
 
-Read from `defaultVersionedFeatureGates` in `pkg/features/kube_features.go` at the snapshot (re-verified 2026-10-28 against kueue@966f00d21: the only change since kueue@3bbb8cce4 is the new `RayClusterHeadPodReady`; earlier tables were at kueue@3bbb8cce4 and kueue@8922c563e). Entries with a `0.21` spec exist only on main; v0.20.x carries the gate (if at all) with a branch-specific spec (see below).
+**Rows reflect the stages at kueue@966f00d21 plus the graduations/removals listed in the 2026-11 section above; the new gates of that section (for example `DisableStatefulSetWorkloadNameFallback`, `WorkloadPriorityClassWatchesWorkloads`) are not repeated as rows.** Read from `defaultVersionedFeatureGates` in `pkg/features/kube_features.go` at the snapshot (re-verified 2026-10-28 against kueue@966f00d21: the only change since kueue@3bbb8cce4 is the new `RayClusterHeadPodReady`; earlier tables were at kueue@3bbb8cce4 and kueue@8922c563e). Entries with a `0.21` spec exist only on main; v0.20.x carries the gate (if at all) with a branch-specific spec (see below).
 
 | Gate | Stage history (Kueue version, stage, default) |
 |---|---|
 | `AdmissionFairSharing` | 0.12 Alpha off → 0.15 Beta on |
 | `AdmissionFairSharingAnchorAtQuotaReservation` | 0.20 Beta on |
 | `AdmissionGatedBy` | 0.17 Alpha off → 0.19 Beta on |
-| `AssignQueueLabelsForPods` | 0.17 Beta on |
+| `AssignQueueLabelsForPods` | 0.17 Beta on → **0.21 GA on (locked; removal planned v0.23)** (pr-18180) |
 | `ClassicalPreemptionCandidateOrderCache` | 0.21 Beta on |
 | `CleanupProvisioningRequestsOnEviction` | 0.19 Beta on |
 | `ConcurrentAdmission` | 0.18 Alpha off |
 | `ConfigurablePreemptions` | 0.20 Alpha off |
-| `CustomMetricLabels` | 0.17 Alpha off |
+| `CustomMetricLabels` | 0.17 Alpha off → **0.21 Beta on** (pr-18706) |
 | `DeferRayServiceFinalizationForRedisCleanup` | 0.19 Beta on → 0.20 Deprecated off |
 | `DeploymentJobUIDLabel` | 0.20 Beta on |
 | `DisableWaitForPodsReady` | 0.19 Alpha off |
@@ -274,18 +323,18 @@ Read from `defaultVersionedFeatureGates` in `pkg/features/kube_features.go` at t
 | `KueueDRARejectWorkloadsWhenDRADisabled` | 0.18 Beta on |
 | `LocalQueueMetrics` | 0.10 Alpha off → 0.17 Beta on |
 | `LWSImmutableGroupSize` | 0.20 Beta on |
-| `ManagedJobsNamespaceSelectorAlwaysRespected` | 0.13 Alpha off → 0.15 Beta on → 0.19 GA on (locked) |
+| `ManagedJobsNamespaceSelectorAlwaysRespected` | **removed** from main in v0.21 (pr-17989); was 0.13 Alpha off → 0.15 Beta on → 0.19 GA on (locked) |
 | `MetricForWorkloadCreationLatency` | 0.18 Beta on → 0.21 GA on (locked) |
 | `MetricsAccessControl` | 0.21 Alpha off |
 | `MetricsForCohorts` | 0.18 Beta on |
 | `MultiKueue` | 0.6 Alpha off → 0.9 Beta on |
 | `MultiKueueAdaptersForCustomJobs` | 0.14 Alpha off → 0.15 Beta on |
 | `MultiKueueBatchJobClearingTTLSecondsAfterFinishedOnWorkerCluster` | 0.20 Alpha off |
-| `MultiKueueClusterProfile` | 0.15 Alpha off |
+| `MultiKueueClusterProfile` | 0.15 Alpha off → **0.21 Beta on** (pr-18367) |
 | `MultiKueueIncrementalDispatcherConfig` | 0.19 Beta on |
 | `MultiKueueIncrementalDispatcherRespectConfigOrder` | 0.19 Beta on |
 | `MultiKueueKubeConfigPathValidation` | 0.19 Alpha off → 0.20 Beta on |
-| `MultiKueueManagerQuotaAutomation` | 0.18 Alpha off |
+| `MultiKueueManagerQuotaAutomation` | **removed** in v0.21 (pr-18382) |
 | `MultiKueueOrchestratedPreemption` | 0.17 Alpha off → 0.20 Beta on |
 | `MultiKueueRayInTreeAutoscaling` | 0.20 Alpha off |
 | `MultiKueueRemoteSpecSync` | 0.20 Beta on |
@@ -304,7 +353,7 @@ Read from `defaultVersionedFeatureGates` in `pkg/features/kube_features.go` at t
 | `ReclaimablePods` | 0.15 Beta on |
 | `RecomputeAssignmentUponPreemptionTargetsOverlap` | 0.20 Beta on |
 | `RejectUpdatesToCQWithInvalidOnFlavors` | 0.18 Alpha off → 0.20 Beta on |
-| `RemoveFinalizersWithStrictPatch` | 0.17 Beta on |
+| `RemoveFinalizersWithStrictPatch` | 0.17 Beta on → **0.21 GA on (locked; removal planned v0.23)** (pr-18176) |
 | `ReservedResourceNameValidation` | 0.20 Beta on |
 | `SchedulerLibraryDeepIntegration` | 0.21 Alpha off |
 | `SchedulerLibraryIntegration` | 0.19 Alpha off |
@@ -323,12 +372,12 @@ Read from `defaultVersionedFeatureGates` in `pkg/features/kube_features.go` at t
 | `TASFailedNodeReplacement` | 0.12 Alpha off → 0.14 Beta on |
 | `TASFailedNodeReplacementFailFast` | 0.13 Alpha off → 0.14 Beta on |
 | `TASGroupedPodSetSlicing` | 0.20 Beta on |
-| `TASHandleOverlappingFlavors` | 0.18 Beta on |
+| `TASHandleOverlappingFlavors` | 0.18 Beta on → **0.21 GA on (locked)** (pr-18193) |
 | `TASLeaderPodSetFeasibility` | 0.20 Beta on |
 | `TASMultiLayerTopology` | 0.17 Alpha off → 0.19 Beta on |
 | `TASNodeFeasibilityForAllLevels` | 0.20 Beta on |
 | `TASPartialSlices` | 0.20 Beta on |
-| `TASProfileMixed` | 0.10 Alpha off → 0.15 Beta on |
+| `TASProfileMixed` | 0.10 Alpha off → 0.15 Beta on → **0.21 GA on (locked)** (pr-18193) |
 | `TASRecomputeAssignmentWithinSchedulingCycle` | 0.19 Beta on |
 | `TASRejectFalseUnconstrainedTopology` | 0.20 Alpha off |
 | `TASReplaceMultipleFailedNodes` | 0.20 Alpha off |
@@ -342,7 +391,7 @@ Read from `defaultVersionedFeatureGates` in `pkg/features/kube_features.go` at t
 | `TopologyAwareScheduling` | 0.9 Alpha off → 0.14 Beta on |
 | `UnadmittedWorkloadsExplicitStatus` | 0.19 Alpha off |
 | `UnadmittedWorkloadsObservability` | 0.19 Alpha off → 0.20 Beta on |
-| `ValidateRayAndSparkJobUpdates` | 0.18 Beta on |
+| `ValidateRayAndSparkJobUpdates` | 0.18 Beta on → **0.21 GA on (locked)** (pr-18038) |
 | `VectorizedResourceRequests` | 0.19 Beta on |
 | `VisibilityOnDemand` | 0.6 Alpha off → 0.9 Beta on |
 | `WaitForPodsReadyMaxNotReady` | 0.20 Alpha off |
@@ -362,6 +411,8 @@ Kueue never sets an emulation version, so the effective version used by `feature
 Examples: `RayClusterHeadPodReady` is `{0.21, Beta, on}` on main and `{0.20, Alpha, off}` / `{0.19, Alpha, off}` in pr-17603 / pr-17604; `ClassicalPreemptionCandidateOrderCache` is `{0.21, Beta, on}` on main and Alpha/off in its 0.20/0.19 backports (pr-17295, pr-17296); `PodIntegrationVerifyRoleRequests` shipped Alpha/off in v0.20.2 / v0.19.9. Earlier: `SkipChildJobSuspension` is `{0.20, Alpha, off}` on main but its 0.19/0.18 backports (pr-16460, pr-16461) rewrite the introduction version to `0.19`; `KubeRayServiceUsingTopLevelSuspend` is `{0.21, Beta, on}` on main but shipped in v0.20.1 as Alpha/off (source: pr-16460.md, CHANGELOG-0.20.md). Always read the gate stage from the branch you run, not from main.
 
 Gate *dependencies* are also tracked differently per branch: `main` uses the `defaultFeatureGateDependencies` map in `pkg/features`, while release branches use `validateFeatureGateDependency` in `pkg/config/validation.go`. Both surface as a startup configuration error. ([[pr-14804]], [[pr-14256]])
+
+**Alpha-enabled manifest (`manifests-alpha-enabled.yaml`, pr-18184, merged 2026-11-04; v0.20.5 / v0.19.12 changelog).** `config/alpha-enabled/kustomization.yaml` referenced only `../default`, so the alpha CRDs (`DynamicQuotaOrchestrator`, `CapacityProvider`, `PreemptionConfig`, in `config/components/crd/alpha`) were missing; it now includes `../components/crd/alpha`. Its `--feature-gates=AllAlpha=true` also crashed the manager on Kubernetes 1.37+, where `GenericWorkload` is Beta/off while its dependents (`WorkloadWithJob`, `CompositePodGroup`, `TopologyAwareWorkloadScheduling`, `PodGroupPreemptionPolicy`) are Alpha: `AllAlpha` enables only Alpha gates, so the dependency check failed at startup. The patch now sets compatible gates explicitly. Lesson: when a gate's stage differs from its dependents', `AllAlpha=true` is not a safe way to test all alpha features.
 
 ## Related pages
 

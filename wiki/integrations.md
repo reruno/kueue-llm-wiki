@@ -2,9 +2,9 @@
 
 **Summary**: An "integration" is a per-job-type controller inside Kueue that observes a particular CRD (batch/v1 Job, JobSet, RayJob, PyTorchJob, etc.), wraps each labeled instance in a [[workload]], and toggles `.spec.suspend` or scheduling gates when Kueue admits the Workload. Each integration handles the quirks of its target API — how many PodSets to emit, how tolerations flow, how status mirrors back — while the core scheduler stays generic.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16773.md, pr-16779.md, pr-16370.md, pr-13375.md, issue-16517.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16937.md, pr-17035.md, pr-16474.md, issue-16333.md, pr-15412.md, pr-16994.md, pr-17053.md, pr-17454.md, pr-16044.md, pr-17255.md, pr-16884.md, pr-16259.md, pr-17464.md, pr-17147.md, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-17059.md, pr-16612.md, pr-17420.md, pr-16175.md, pr-17845.md, pr-17563.md, pr-16982.md, pr-17382.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16773.md, pr-16779.md, pr-16370.md, pr-13375.md, issue-16517.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16937.md, pr-17035.md, pr-16474.md, issue-16333.md, pr-15412.md, pr-16994.md, pr-17053.md, pr-17454.md, pr-16044.md, pr-17255.md, pr-16884.md, pr-16259.md, pr-17464.md, pr-17147.md, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-17059.md, pr-16612.md, pr-17420.md, pr-16175.md, pr-17845.md, pr-17563.md, pr-16982.md, pr-17382.md, pr-18010.md, pr-18218.md, pr-18266.md, pr-18195.md, pr-18287.md, pr-17903.md, pr-18250.md, pr-18591.md, pr-18783.md, pr-17937.md, pr-18868.md, pr-18600.md, pr-17910.md, pr-18730.md, pr-18038.md, pr-18180.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -107,6 +107,21 @@ The integrations overview page in the docs now lists each in-tree integration's 
 | Deprecated | JAXJob, PaddleJob, PyTorchJob, TFJob, XGBoostJob (Kubeflow Trainer v1): migrate to TrainJob or JobSet |
 
 Reviewers asked why JobSet is Stable while TrainJob is still Alpha; the table was merged as is. The level describes the integration code in Kueue, not the stability of the upstream operator.
+
+## Recent integration changes (v0.21 main)
+
+- **Job**: Workload `AlreadyExists` race is no longer an error ([[integration-batchjob]], pr-18010); `max-exec-time-seconds` is int32-bounded (pr-18218).
+- **Pod / groups**: stale single-pod requests for pods that joined a group are dropped (pr-18266); unretriable groups finish `Failed` unless all Pods succeeded, behind `DeclareWorkloadFailureOnUnretriablePodGroups` (pr-18195). See [[integration-plain-pod]].
+- **Deployment**: adding `kueue.x-k8s.io/priority-class` to a running Deployment is allowed; removal is still rejected (pr-18287). See [[webhooks]].
+- **LeaderWorkerSet**: container/init-container changes allowed when effective requests are unchanged (pr-17903); `groupIdentity: Hash` rejected, gate `LeaderWorkerSetRejectGroupIdentityHash` (pr-18250, pr-18591); `AlreadyExists` on create ignored (pr-18783). See [[integration-leaderworkerset]].
+- **StatefulSet**: gate `DisableStatefulSetWorkloadNameFallback` (pr-17937); TAS request refreshed before quota reservation (pr-18868). See [[integration-statefulset]].
+- **SparkApplication**: elastic support on main with partial scale-up, sparkConf resolution and executor-Pod based PodsReady ([[integration-spark]]).
+- **RayCluster/RayJob/RayService**: elastic + required/preferred topology rejected at creation ([[integration-rayjob]]).
+- **AppWrapper**: implicit TAS no longer causes repeated suspension (pr-18600, [[integration-appwrapper]]).
+- **Argo**: docs now list which templates create Pods (pr-17910, [[integration-argo-workflow]]).
+- **TrainJob**: shared runtime patch helper package (pr-18730, [[integration-trainjob]]).
+- **`ValidateRayAndSparkJobUpdates`** is GA; **`AssignQueueLabelsForPods`** is GA in v0.21 (pr-18038, pr-18180).
+(source: the PRs cited in each bullet)
 
 ## Related pages
 

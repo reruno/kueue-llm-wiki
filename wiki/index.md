@@ -2,9 +2,9 @@
 
 **Summary**: Table of contents for the Kueue knowledge base. Each entry is one link and a one-line blurb.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-10-28), `raw/kueue/` (source snapshot, kueue@966f00d21) and `raw/cve/` (Kubernetes-ecosystem CVE corpus, 803 entries).
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (scraped issues and PRs from `kubernetes-sigs/kueue`, through 2026-11-24), `raw/kueue/` (source snapshot, kueue@966f00d21) and `raw/cve/` (Kubernetes-ecosystem CVE corpus, 855 entries).
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -12,7 +12,7 @@
 
 - [[kueue-overview]] — What Kueue is, who uses it, and the class of problems it solves.
 - [[architecture]] — Controllers, scheduler, webhooks, manager, and how they fit together.
-- [[feature-gates]] — Feature gate lifecycle and how features graduate from alpha → beta → GA.
+- [[feature-gates]] — Feature gate lifecycle and how features graduate from alpha → beta → GA; 2026-11 batch of graduations, removals and new gates.
 - [[api-versions]] — **[Action required in v0.20]** `v1beta1` is no longer served (and is deleted entirely on main); migrating stored objects and `storedVersions` to `v1beta2`, the migration script.
 
 ## Core API objects
@@ -110,7 +110,7 @@
 
 ## Code security
 
-- [[security]] — Threat model for Kueue and how the 795-CVE corpus in `raw/cve/` (none a Kueue advisory) maps to its code surface.
+- [[security]] — Threat model for Kueue and how the 855-CVE corpus in `raw/cve/` (none a Kueue advisory) maps to its code surface.
 - [[security-code-patterns]] — Master checklist of patterns to flag in review, grouped by category and CWE.
 - [[security-denial-of-service]] — DoS patterns: unbounded loops, missing timeouts, nil-pointer crashes, invalid-spec wedges.
 - [[security-authn-authz]] — Authentication bypass, RBAC misconfiguration, privilege escalation, MultiKueue credential boundary, opt-in NetworkPolicies.

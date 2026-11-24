@@ -2,9 +2,9 @@
 
 **Summary**: Combined coverage for Injection (27), Path Traversal (13), and Code Execution (236) CVE categories — they share the same root cause (untrusted input crossing a parse/exec boundary) and the same mitigations (validate at boundary, allowlist, type-safe builders).
 
-**Sources**: `raw/cve/` — representative entries `CVE-2018-17450.md` (Jenkins SSRF), `CVE-2019-10165.md` (OpenShift command injection), `CVE-2019-11246.md` (kubectl cp tar extraction path traversal), `CVE-2019-1002101.md` (related path traversal), `CVE-2021-25741.md` (subpath symlink), `CVE-2022-23524-26.md` (Helm SSRF), `CVE-2025-15613.md` (Kyverno Service Call SSRF), 2026-09 additions `CVE-2026-80352.md` (Camel K YAML injection), `CVE-2026-77180.md`, `CVE-2026-52831.md`, `CVE-2026-53713.md`, `CVE-2026-84721.md`, `CVE-2026-59341.md`, and CWE-20/22/74/77/78/89/94/502/918/601 entries; 2026-10 additions `CVE-2026-55797.md`, `CVE-2026-18529.md`, `CVE-2026-108546.md`, `CVE-2026-86671.md`, `CVE-2026-7767.md`, `CVE-2026-55252.md`, `CVE-2026-105985.md`, `CVE-2026-108570.md`. 2026-10-21 additions `CVE-2026-113708.md`, `CVE-2026-113672.md`, `CVE-2026-113709.md`, `CVE-2026-92982.md`, `CVE-2026-47218.md`, `CVE-2026-77934.md`. 2026-10-28 additions `CVE-2026-113788.md`, `CVE-2025-30050.md`.
+**Sources**: `raw/cve/` — representative entries `CVE-2018-17450.md` (Jenkins SSRF), `CVE-2019-10165.md` (OpenShift command injection), `CVE-2019-11246.md` (kubectl cp tar extraction path traversal), `CVE-2019-1002101.md` (related path traversal), `CVE-2021-25741.md` (subpath symlink), `CVE-2022-23524-26.md` (Helm SSRF), `CVE-2025-15613.md` (Kyverno Service Call SSRF), 2026-09 additions `CVE-2026-80352.md` (Camel K YAML injection), `CVE-2026-77180.md`, `CVE-2026-52831.md`, `CVE-2026-53713.md`, `CVE-2026-84721.md`, `CVE-2026-59341.md`, and CWE-20/22/74/77/78/89/94/502/918/601 entries; 2026-10 additions `CVE-2026-55797.md`, `CVE-2026-18529.md`, `CVE-2026-108546.md`, `CVE-2026-86671.md`, `CVE-2026-7767.md`, `CVE-2026-55252.md`, `CVE-2026-105985.md`, `CVE-2026-108570.md`. 2026-10-21 additions `CVE-2026-113708.md`, `CVE-2026-113672.md`, `CVE-2026-113709.md`, `CVE-2026-92982.md`, `CVE-2026-47218.md`, `CVE-2026-77934.md`. 2026-10-28 additions `CVE-2026-113788.md`, `CVE-2025-30050.md`. 2026-11-24 additions: CVE-2026-122310.md, CVE-2026-121374.md, CVE-2026-123810.md, CVE-2026-62284.md, CVE-2026-97373.md, CVE-2026-120307.md, CVE-2026-120091.md, CVE-2026-63121.md.
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -171,6 +171,23 @@ Also reinforcing only: CGM CLININET, CVE-2025-30050 (CWE-94), imported a module 
 ### Denylist "sandboxes"
 
 **Coze Studio < 0.5.0, CVE-2026-77934** (CWE-1188, 8.8): a regex filter on Python imports was bypassed with `__import__('subprocess')` (source: CVE-2026-77934.md). Filtering code text is not isolation.
+
+## 2026-11-24 additions
+
+> Kueue relevance: none of the products is a Kueue dependency. The rules below apply to code that formats tenant-controlled strings.
+
+| CVE | Product | Class | Lesson for Kueue |
+| --- | --- | --- | --- |
+| CVE-2026-122310 | Kyverno 1.19.1, fixed 1.19.2 (9.9) | CWE-436, path validated after `path.Clean` but executed raw; `#`/`?` hid `../` | Validate the exact string that is used. Reject `#`, `?` and `..` in segments that become URL paths, or build the URL from parts (source: CVE-2026-122310.md) |
+| CVE-2026-121374 | Checkmk Kubernetes agent | CWE-88, node role value injected into command arguments, writing arbitrary files | Pass `--` before user data, validate against `validation.IsValidLabelValue` (source: CVE-2026-121374.md) |
+| CVE-2026-123810 | Dynatrace MCP server <2.1.1 | CWE-89, DQL injection broke a read-only tool contract | A "read-only" label is enforced by the query builder, not by the caller; use parameterised or typed APIs (source: CVE-2026-123810.md) |
+| CVE-2026-62284 | OSAC operator | CWE-94/918, kubeconfig `exec` plus `server` SSRF | See [[security-authn-authz#Kubeconfigs from Secrets run code]]; validate `server` as well as `exec` (source: CVE-2026-62284.md) |
+| CVE-2026-97373 | draw.io <30.3.8 | CWE-918, SSRF block-list missed `100.64.0.0/10` | Use an allow-list plus resolved-IP checks (source: CVE-2026-97373.md) |
+| CVE-2026-120307 | Beta9 worker (9.9) | CWE-22/59, `filepath.Join` after prefix check, symlinks followed | `os.OpenRoot` confines parent-directory and symlink lookups (source: CVE-2026-120307.md) |
+| CVE-2026-120091 | Temporal Server (no CVSS) | CWE-78/749, a provider built a Kubernetes client from the caller's request config and ran a command during read-only validation | A client config supplied in a request is code, as with kubeconfig `exec`; a validation endpoint must have no side effects (source: CVE-2026-120091.md) |
+| CVE-2026-63121 | Kubewarden `trusted-repos-policy` | CWE-178, case-sensitive registry host match | Normalise case before comparing hostnames (source: CVE-2026-63121.md) |
+
+**Checklist additions:** (1) after normalising an input, use only the normalised form; (2) put `--` before user data in argv; (3) lower-case hostnames before comparing; (4) for every file API, confine with `os.OpenRoot`; (5) treat any client-config struct from a CR as executable.
 
 ## Related pages
 

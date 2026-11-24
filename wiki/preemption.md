@@ -2,9 +2,9 @@
 
 **Summary**: When a pending [[workload]] can't fit with currently available quota, Kueue may evict one or more admitted workloads to free capacity. Preemption has three distinct triggers: within the same [[cluster-queue]] (priority-driven), reclaim within [[cohort]] (a CQ wants its own nominal quota back), and preemption-while-borrowing (an above-threshold borrower is displaced by a lower-priority reclaimer).
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16167.md, pr-16130.md, pr-16208.md, issue-16049.md, issue-14608.md, pr-17010.md, pr-16343.md, pr-16738.md, pr-16537.md, pr-16619.md, pr-16627.md, pr-17016.md, pr-17034.md, pr-17285.md, pr-16340.md, pr-17295.md, pr-17296.md, issue-16338.md, pr-17081.md, pr-17394.md, pr-17403.md, issue-10824.md, pr-16766.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/cache/scheduler/candidate_order_cache.go, raw/kueue/pkg/scheduler/preemption/classical/cache_candidate_generator.go, raw/kueue/pkg/scheduler/preemption/preemption.go, raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go, pr-13307.md, pr-17798.md, pr-17851.md, pr-17746.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16167.md, pr-16130.md, pr-16208.md, issue-16049.md, issue-14608.md, pr-17010.md, pr-16343.md, pr-16738.md, pr-16537.md, pr-16619.md, pr-16627.md, pr-17016.md, pr-17034.md, pr-17285.md, pr-16340.md, pr-17295.md, pr-17296.md, issue-16338.md, pr-17081.md, pr-17394.md, pr-17403.md, issue-10824.md, pr-16766.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/cache/scheduler/candidate_order_cache.go, raw/kueue/pkg/scheduler/preemption/classical/cache_candidate_generator.go, raw/kueue/pkg/scheduler/preemption/preemption.go, raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go, pr-13307.md, pr-17798.md, pr-17851.md, pr-17746.md, issue-18597.md, pr-17991.md, pr-18127.md, pr-18271.md, pr-18598.md, pr-18827.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -106,6 +106,13 @@ When a Workload is in `Preempt` mode but its preemption gate is closed (MultiKue
 ## A rejected AdmissionCheck during eviction now deactivates
 
 An AdmissionCheck flipping to `Rejected` while an eviction is in flight used to be dropped silently, leaving `Admitted=True` next to a `Rejected` check. See [[admission-check#A `Rejected` check during an in-flight eviction]] ([[pr-14309]]).
+
+## v0.21 main fixes and additions
+
+- **Second-pass preemptor quota.** A Workload needing a second pass already holds quota counted in the snapshot; it is now sized at zero added quota so only the topology fit decides (details in [[topology-aware-scheduling]]) (source: pr-18598.md, fixes issue-18597.md).
+- **Delayed preemption after a priority-boost change.** With `PriorityBoost`, an external controller edits the `kueue.x-k8s.io/priority-boost` annotation to offset priority without touching Pod priority. For WorkloadPriorityClass-backed Workloads this re-evaluated pending Workloads, but for Kubernetes `PriorityClass`-backed ones it did not, so a lowered boost that made an admitted Workload preemptable waited for an unrelated event. Boost annotation changes on PriorityClass-backed Workloads now trigger re-evaluation; Pod priority changes are still ignored (source: pr-18127.md). Likewise class-less Workloads (no WorkloadPriorityClass) now trigger re-evaluation on `priority-boost` changes when the gate is on, while direct `spec.priority` and Pod PriorityClass changes keep their old behaviour; MultiKueue updates a class-less remote Workload's priority in place (source: pr-17991.md).
+- **Flavors without quota count as borrowed** in Fair Sharing, so such a CQ can be preempted by a peer reclaiming nominal quota (see [[fair-sharing]]) (source: pr-18827.md).
+- **Timed requeue** when `PreemptionConfig` filters exclude candidates only until a known time: see [[configurable-preemptions]] (source: pr-18271.md).
 
 ## Related pages
 

@@ -2,9 +2,9 @@
 
 **Summary**: LeaderWorkerSet is a SIG-Apps API for running groups of Pods where each group has a designated leader and a number of followers. It targets inference serving (disaggregated prefill/decode) and training with tightly-coupled worker groups. Kueue integrates per-group, treating a leader+workers as one gang.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-14405.md, pr-16402.md, pr-16423.md, pr-13316.md, pr-16401.md, pr-13775.md, pr-17255.md, pr-17307.md, pr-17310.md, issue-17251.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, pr-17504.md, pr-15142.md, pr-15412.md, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_reconciler.go, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_webhook.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16612.md, pr-17644.md, pr-17647.md, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_multikueue_adapter.go, raw/kueue/pkg/controller/admissionchecks/multikueue/workload.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-14405.md, pr-16402.md, pr-16423.md, pr-13316.md, pr-16401.md, pr-13775.md, pr-17255.md, pr-17307.md, pr-17310.md, issue-17251.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, pr-17504.md, pr-15142.md, pr-15412.md, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_reconciler.go, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_webhook.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16612.md, pr-17644.md, pr-17647.md, raw/kueue/pkg/controller/jobs/leaderworkerset/leaderworkerset_multikueue_adapter.go, raw/kueue/pkg/controller/admissionchecks/multikueue/workload.go, pr-17903.md, pr-18250.md, pr-18591.md, pr-18783.md, pr-18434.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -139,6 +139,26 @@ The LWS adapter (`leaderworkerset_multikueue_adapter.go`) implements `MultiKueue
 **The shared remote LWS outlives individual groups ([[pr-16612]]).** Removing the remote objects of one group used to delete the shared remote LWS. Finishing, preempting or scaling down one group therefore stopped every other group on that worker until the LWS was recreated. Now the MultiKueue Workload reconciler deletes only that group's remote Workload while another group Workload of the same LWS is still on the cluster. That means a Workload that is not deleting, not finished, holds quota, and has the cluster as `status.clusterName` or in `status.nominatedClusterNames`. The remote LWS is deleted with the last group. The check reads manager Workloads only. Details: [[multikueue#Remote cleanup for jobs with several Workloads (LeaderWorkerSet)]] (source: pr-16612.md, raw/kueue/pkg/controller/admissionchecks/multikueue/workload.go).
 
 **Scale-down shrinks the remote LWS.** The remote LWS is no longer recreated on a scale-down, so `SyncJob` now patches the remote `spec.replicas` to the local value when the local count (default 1 if unset) is **lower**. It never raises the remote count. When a group Workload is deleted, the reconciler enqueues the LWS's other group Workloads so this sync runs right away. Releases: `main` (merged 2026-10-22), release-0.20 ([[pr-17644]]) and release-0.19 ([[pr-17647]]). Neither is in v0.20.3 / v0.19.10 (source: pr-16612.md, pr-17644.md, pr-17647.md).
+
+## Container changes are allowed when effective requests stay the same (pr-17903)
+
+The webhook used to compare containers and init containers as positional lists of resource requests and ports, so adding or removing a container (even one without requests) or moving requests between containers was rejected and users had to recreate the LeaderWorkerSet. Now the update is accepted when the **effective** Pod requests are unchanged and no host port is added, so admitted Workloads stay valid. Effective requests are computed as for Workload quota: limits fill missing requests, then LimitRange defaults apply. With `hostNetwork: true`, a port without `hostPort` counts as host port `containerPort`. Everything the earlier validation accepted is still accepted. With MultiKueue `MultiKueueRemoteSpecSync`, the containers, init containers and the rolling update partition are copied to the remote LeaderWorkerSet; the partition is patched together with containers so the worker never sees new containers with the old, lower partition (source: pr-17903.md). This partly reverses the "strict equality restored" note under *v0.18.0 behaviour changes* above (part of #15570).
+
+## `spec.groupIdentity: Hash` is rejected on managed LWS (pr-18250, pr-18591)
+
+With LWS v1.0.0 `groupIdentity: Hash`, LWS manages leader Pods through a Deployment and names groups by hash. Kueue's reconciler creates Workloads per ordinal group index and ungates any Pod without a StatefulSet, so leader Pods ran **without admission** while worker Pods stayed gated forever waiting for a Workload that is never created. The LWS webhook now rejects `Hash` when a LeaderWorkerSet is created under Kueue management or an update brings it under management (for example by adding `queue-name`, through a default LocalQueue, or via `manageJobsWithoutQueueName`). Details (source: pr-18250.md, pr-18591.md):
+
+- A LeaderWorkerSet already managed with `Hash` stays updatable, because `groupIdentity` is immutable and rejecting would block scaling and finalizer removal; its updates return a **warning** (its ordinal Workloads can reserve quota no Pod uses). Remedy: delete and recreate with `Ordinal`.
+- On update the default LocalQueue is not applied to a Hash LWS without a queue name, so an unmanaged one stays unmanaged; a dropped `default` priority label is restored.
+- Gate `LeaderWorkerSetRejectGroupIdentityHash` (Beta, on, v0.21). With it off the webhook neither rejects nor warns and applies the default LocalQueue as before. Modelled on the DisaggregatedSet integration (#17675).
+
+## `AlreadyExists` when creating a Workload is treated as created (pr-18783)
+
+If a reconcile runs before the Workload cache sees a Workload an earlier reconcile created, the reconciler attempted to create it again, logged `Failed to create Workload` and returned the error, requeuing with backoff. `AlreadyExists` is now treated as created (as in the StatefulSet reconciler) (source: pr-18783.md). Open: a Workload with the generated name that the LWS does not own is never reconciled (issue-18805).
+
+## Default size constant (pr-18434)
+
+The reconciler used a literal `1` for an unset `spec.leaderWorkerTemplate.size` in `podSets()` and for the pod-group-total-count annotation; it now uses `defaultLeaderWorkerSetSize`, as the webhook does (no behaviour change) (source: pr-18434.md).
 
 ## Related pages
 

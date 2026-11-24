@@ -2,9 +2,9 @@
 
 **Summary**: Each [[cluster-queue]] has a `queueingStrategy` of `StrictFIFO` or `BestEffortFIFO`. The strategy controls whether a head-of-queue workload that can't be admitted blocks the rest of the queue (Strict) or gets skipped while subsequent workloads are tried (BestEffort).
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-18271.md, pr-18592.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -33,6 +33,12 @@ The queue heap is ordered by (priority descending, creation-time ascending). See
 ## Flaky-test heritage
 
 StrictFIFO tests are often timing-sensitive — "should schedule workloads by their priority strictly" ([[issue-678]]) and related cohort+StrictFIFO flakes ([[issue-2020]]) are recurring. This reflects the tight race between preemption, quota release, and head-of-queue re-consideration.
+
+## Requeue behaviour fixes (v0.21 main)
+
+- **Inadmissible retry after Namespace lookup failure.** The requeue worker retries failed Namespace lookups (incl. `NotFound`) with 5 s to 2 min exponential delay instead of dropping the notification (source: pr-18592.md).
+- **PreemptionConfig changes retry inadmissible Workloads.** Creating, deleting or editing a referenced `PreemptionConfig` retries the inadmissible Workloads of the ClusterQueues that reference it (see [[configurable-preemptions]]) (source: pr-19011.md).
+- **Timed retry** for `PreemptionNoCandidates`/`NoFit` entries when candidates become eligible at a known time (source: pr-18271.md).
 
 ## Related pages
 

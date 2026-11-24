@@ -2,9 +2,9 @@
 
 **Summary**: A LocalQueue (LQ) is a namespaced resource that points to exactly one [[cluster-queue]]. Tenants reference LocalQueues from their jobs via the `kueue.x-k8s.io/queue-name` label; the LQ is what enforces namespace-to-ClusterQueue binding.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-13481.md, pr-13433.md, pr-13621.md, pr-12786.md, pr-16728.md, pr-17414.md, pr-17448.md, issue-17412.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-13481.md, pr-13433.md, pr-13621.md, pr-12786.md, pr-16728.md, pr-17414.md, pr-17448.md, issue-17412.md, issue-18283.md, issue-18322.md, pr-17968.md, pr-18295.md, pr-18325.md, pr-18608.md, pr-18806.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -73,6 +73,17 @@ The LocalQueue pending-workload metric no longer scans the whole ClusterQueue on
 With [[admission-fair-sharing]], pending Workloads in a ClusterQueue are ordered by LocalQueue usage divided by `spec.fairSharing.weight` (default 1). Validation accepts `0`; since pr-13481 (v0.20.0, backported to 0.19/0.18) a weight `<= 0` gives usage `+Inf`, so the LocalQueue is served **last**. Before, an idle zero-weight LocalQueue computed `0/0 = NaN`, which sorted first. Weights are read from a per-ClusterQueue cache in the queue manager (`lqWeights`, default `1.0` for an unknown LocalQueue), not from the API at sort time ([[fair-sharing#LocalQueue weight lookup: one cached path for heap and snapshot (AFS ordering)]]).
 
 Other AFS accounting fixes that show up in LocalQueue `status.fairSharing` (`admissionFairSharingStatus.consumedResources`): sub-milli CPU/GPU contributions are no longer truncated to 0 (pr-13621), and Workloads admitted via AdmissionChecks no longer keep their entry penalty forever (pr-12786). Both can change observed ordering after an upgrade ([[admission-fair-sharing#Sub-milli usage is no longer truncated (pr-13621)]]).
+
+## Metrics lifecycle across stop and delete (v0.21 main)
+
+- **Stop keeps counters, delete clears everything.** Stopping a LocalQueue (`stopPolicy: Hold`/`HoldAndDrain`) used to call `ClearLocalQueueMetrics()`, wiping cumulative counters (`kueue_local_queue_admitted_workloads_total`, `finished_workloads_total`, `evicted_workloads_total`) and histograms, and a later `kubectl delete` returned early from `Manager.DeleteLocalQueue()` (the queue was already out of the manager map), leaking counters recorded while stopped. `clearLQMetrics()` now calls `ClearLocalQueueGaugeMetrics()` (gauge scope only), and `LocalQueueReconciler.Delete()` explicitly calls `ClearLocalQueueMetrics()` (source: pr-17968.md).
+- **Deleted queues are not resurrected.** Records for a Workload (e.g. `kueue_local_queue_evicted_workloads_total`) were checked against the scheduler cache, lock released, then recorded; nine call sites in `Evict` checked before the status write and recorded after, so a record after the clear recreated the series. They now go through `Cache.RecordLocalQueueMetricsForWorkload`, which checks the LocalQueue and `localQueueSelector` and records under one read lock; deletion clears under the write lock (source: pr-18325.md, fixes issue-18322.md).
+- **Unadmitted gauge.** `kueue_local_queue_unadmitted_workloads` could be reported after delete or stop: `DeleteLocalQueue` (also run on stop) cleared metrics before removing queued Workloads from the unadmitted tracker, whose removals re-reported the gauge, and updates checked the LocalQueue the Workload names now rather than the one in its old status. The manager now drops the LocalQueue first and each status checks its own LocalQueue (source: pr-18608.md).
+- **Creation latency.** `kueue_local_queue_workload_creation_latency_seconds` (labels `name`, `namespace`, `job_kind`, `replica_role` plus LocalQueue custom labels) is recorded only while the LocalQueue exists and is not stopped, honouring `LocalQueueMetrics` and `metrics.localQueueMetrics`; the queue manager (keyed by LocalQueue) is consulted because a new Workload has no admission yet. The global histogram keeps only `job_kind` and `replica_role` (source: pr-18295.md, fixes issue-18283.md).
+
+## Pending count under ConcurrentAdmission
+
+LocalQueue `status.pendingWorkloads` and `kueue_local_queue_pending_workloads` count each Parent once, and the Parent itself is never counted as an item (restart ordering, early Parent events and eviction requeue paths previously leaked it) (source: pr-18806.md).
 
 ## Related pages
 

@@ -2,9 +2,9 @@
 
 **Summary**: Actionable checklist a Kueue contributor or reviewer can apply to a PR. Distilled from the `Mitigation` sections of `raw/cve/` and adapted to Kueue's code shape (controller-runtime, webhooks, scheduler cache).
 
-**Sources**: `raw/cve/CVE-*.md` mitigation blocks (which repeat per category); the category pages [[security-denial-of-service]], [[security-authn-authz]], [[security-information-disclosure]], [[security-injection-and-input-validation]], [[security-supply-chain]]; [[code-quality]] for the project's existing review bar; 2026-10 CVE additions (`CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-26287.md`, `CVE-2026-7767.md`, `CVE-2026-86671.md`, `CVE-2026-109358.md`). 2026-10-21 additions: pr-17143.md, pr-17249.md, pr-17246.md, pr-17088.md, pr-16035.md; 2026-10-28 additions: pr-17207.md, pr-14142.md, pr-17736.md, `CVE-2026-102649.md`, `CVE-2026-114638.md`, `CVE-2026-115356.md`; `CVE-2026-113727.md`, `CVE-2026-113708.md`, `CVE-2026-77524.md`.
+**Sources**: `raw/cve/CVE-*.md` mitigation blocks (which repeat per category); the category pages [[security-denial-of-service]], [[security-authn-authz]], [[security-information-disclosure]], [[security-injection-and-input-validation]], [[security-supply-chain]]; [[code-quality]] for the project's existing review bar; 2026-10 CVE additions (`CVE-2026-92393.md`, `CVE-2026-101919.md`, `CVE-2026-106487.md`, `CVE-2026-26287.md`, `CVE-2026-7767.md`, `CVE-2026-86671.md`, `CVE-2026-109358.md`). 2026-10-21 additions: pr-17143.md, pr-17249.md, pr-17246.md, pr-17088.md, pr-16035.md; 2026-10-28 additions: pr-17207.md, pr-14142.md, pr-17736.md, `CVE-2026-102649.md`, `CVE-2026-114638.md`, `CVE-2026-115356.md`; `CVE-2026-113727.md`, `CVE-2026-113708.md`, `CVE-2026-77524.md`. 2026-11-24 additions: CVE-2026-102340.md, CVE-2026-88984.md, CVE-2026-91168.md, CVE-2026-122310.md, CVE-2026-62284.md, CVE-2026-63121.md, CVE-2026-126643.md, CVE-2026-123047.md, CVE-2026-120306.md, CVE-2026-120307.md.
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -134,6 +134,22 @@ The CVE corpus has no Kueue-specific entries as of 2026-09. Use the most-similar
 
 - For DoS-class concerns: `raw/cve/CVE-2019-11253.md` (API server YAML/JSON), `raw/cve/CVE-2022-39272.md` (Flux invalid `.spec.interval`).
 - For RBAC concerns: `raw/cve/CVE-2018-16886.md` (etcd RBAC), `raw/cve/CVE-2019-11247.md` (cross-namespace CR access).
+
+## Checklist additions (2026-11-24)
+
+Add these to the pre-flight list above.
+
+- [ ] **Namespace from the request**: every handler that accepts a namespace runs a SubjectAccessReview for it, and the empty-namespace form fails closed (CVE-2026-102340, CVE-2026-88984).
+- [ ] **Authorization caches** are keyed by immutable UID, evicted on close or deletion, and time-bounded (CVE-2026-91168).
+- [ ] **A cached or merged result** is re-authorised like a fresh one; conflicts deny rather than fall back (CVE-2026-119572, CVE-2026-119573).
+- [ ] **Same string validated and used**: no `Clean` then use-raw; `#`, `?` and `..` rejected in path segments (CVE-2026-122310).
+- [ ] **Kubeconfig and client config from a CR**: `exec`, `auth-provider`, file paths and `server` all validated (CVE-2026-62284).
+- [ ] **Hostnames lower-cased** before comparison; allow-lists preferred over reject-lists (CVE-2026-63121).
+- [ ] **Cache keys include namespace**; tenant-writable annotations are not trusted (CVE-2026-88982).
+- [ ] **No secret values** in ConfigMaps, CRs, Helm templates or status (CVE-2026-126643, CVE-2026-123047).
+- [ ] **File paths from tenant data** use `os.OpenRoot` or equivalent (CVE-2026-120307); privileged pods share no namespace with tenant-controlled steps (CVE-2026-120306).
+- [ ] **Feature-gated or Alpha APIs** get the same authz tests as stable ones (CVE-2026-103506).
+- [ ] **Validation endpoints** have no side effects (CVE-2026-120091).
 
 ## Related pages
 

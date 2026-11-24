@@ -2,9 +2,9 @@
 
 **Summary**: The `kueue-controller-manager` binary exposes Prometheus metrics on `/metrics`. Metrics cover per-[[cluster-queue]] usage and reservation, [[workload]] admission/preemption counters, [[admission-check]] outcomes, and scheduling-loop latency. Labels include `cluster_queue`, `flavor`, `priority_class`, `replica_role`, and (Alpha, `CustomMetricLabels`) operator-defined `custom_*` labels sourced from ClusterQueues, LocalQueues, Cohorts or Workloads.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15026.md, pr-16208.md, raw/kueue/pkg/metrics/metrics.go, raw/kueue/site/content/en/docs/reference/metrics.md, pr-13420.md, pr-13469.md, pr-13635.md, pr-16730.md, pr-16670.md, pr-16372.md, pr-16379.md, pr-16398.md, pr-16762.md, pr-16833.md, pr-16890.md, pr-16888.md, pr-16493.md, pr-16581.md, pr-17057.md, issue-16530.md, pr-16743.md, issue-16623.md, pr-15391.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/site/content/en/docs/tasks/manage/observability/configure_custom_metric_labels.md, raw/kueue/apis/config/v1beta2/configuration_types.go; 2026-10-21 batch: pr-16653.md, pr-17238.md, pr-17239.md, pr-17240.md, pr-17046.md, pr-17219.md, pr-17222.md, pr-16647.md, issue-16640.md, pr-17336.md, pr-17435.md, pr-17414.md, pr-17448.md, pr-17416.md, pr-17417.md, pr-17452.md, issue-17412.md, pr-16035.md, pr-16535.md, issue-16029.md, issue-11843.md, raw/kueue/pkg/cache/queue/local_queue_counts.go, raw/kueue/pkg/cache/scheduler/clusterqueue.go, raw/kueue/pkg/config/metrics.go; 2026-10-28 batch: pr-14577.md, issue-13589.md, pr-17856.md, pr-17868.md, issue-17796.md, raw/kueue/pkg/metrics/custom_labels.go, raw/kueue/pkg/scheduler/scheduler.go, raw/kueue/pkg/controller/core/workload_controller.go, CHANGELOG-0.20.md (v0.20.3), CHANGELOG-0.19.md (v0.19.10)
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15288.md, pr-15026.md, pr-16208.md, raw/kueue/pkg/metrics/metrics.go, raw/kueue/site/content/en/docs/reference/metrics.md, pr-13420.md, pr-13469.md, pr-13635.md, pr-16730.md, pr-16670.md, pr-16372.md, pr-16379.md, pr-16398.md, pr-16762.md, pr-16833.md, pr-16890.md, pr-16888.md, pr-16493.md, pr-16581.md, pr-17057.md, issue-16530.md, pr-16743.md, issue-16623.md, pr-15391.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/site/content/en/docs/tasks/manage/observability/configure_custom_metric_labels.md, raw/kueue/apis/config/v1beta2/configuration_types.go; 2026-10-21 batch: pr-16653.md, pr-17238.md, pr-17239.md, pr-17240.md, pr-17046.md, pr-17219.md, pr-17222.md, pr-16647.md, issue-16640.md, pr-17336.md, pr-17435.md, pr-17414.md, pr-17448.md, pr-17416.md, pr-17417.md, pr-17452.md, issue-17412.md, pr-16035.md, pr-16535.md, issue-16029.md, issue-11843.md, raw/kueue/pkg/cache/queue/local_queue_counts.go, raw/kueue/pkg/cache/scheduler/clusterqueue.go, raw/kueue/pkg/config/metrics.go; 2026-10-28 batch: pr-14577.md, issue-13589.md, pr-17856.md, pr-17868.md, issue-17796.md, raw/kueue/pkg/metrics/custom_labels.go, raw/kueue/pkg/scheduler/scheduler.go, raw/kueue/pkg/controller/core/workload_controller.go, CHANGELOG-0.20.md (v0.20.3), CHANGELOG-0.19.md (v0.19.10), issue-18060.md, issue-18234.md, pr-17968.md, pr-18078.md, pr-18221.md, pr-18295.md, pr-18325.md, pr-18486.md, pr-18608.md, pr-18631.md, pr-18706.md, pr-18748.md, pr-18806.md, pr-18827.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -114,7 +114,7 @@ Kueue metrics could silently report incorrect quota and usage for very large res
 
 pr-16493 locks the gate on (`0.21 GA`, `LockToDefault`); `kueue_workload_creation_latency_seconds{job_kind, replica_role}` is registered and recorded without checking the gate. Recording is still limited to job objects with `metadata.generation <= 1`, so a Workload recreated for an already-edited job is not sampled (source: pr-16493.md, raw/kueue/pkg/features/kube_features.go). See [[feature-gates]].
 
-## Custom metric labels (`CustomMetricLabels`, Alpha, off)
+## Custom metric labels (`CustomMetricLabels`, Alpha, off; Beta and on by default on main for 0.21)
 
 Configured under `metrics.customLabels` in the Configuration (source: configuration_types.go, configure_custom_metric_labels.md):
 
@@ -240,6 +240,23 @@ issue-11843 asked for a `reason` label on `kueue_pending_workloads`. It was clos
 | `metrics.accessControlMode` / `MetricsAccessControl` | pr-16035 | main only (Alpha, v0.21 dev) |
 | Workload labels on cohort subtree admitted total; creation-latency gate GA | pr-16730, pr-16493 | main (v0.21 dev) |
 
+
+## New and changed metrics on main (v0.21 dev)
+
+| Metric | Notes |
+|---|---|
+| `kueue_local_queue_workload_creation_latency_seconds` | per-LocalQueue variant of `kueue_workload_creation_latency_seconds` with `name`, `namespace`, `job_kind`, `replica_role` and LocalQueue custom labels; the global one keeps only `job_kind`, `replica_role`; recorded only while the LocalQueue exists and is not stopped (source: pr-18295.md) |
+
+`CustomMetricLabels` graduated to Beta (on by default) for ClusterQueue, LocalQueue, Cohort and Workload metrics (source: pr-18706.md).
+
+## Metric lifecycle and correctness fixes (v0.21 main)
+
+- **Cohort subtree gauge with custom labels.** `kueue_cohort_subtree_admitted_active_workloads` series each carried the whole subtree count, so summing over-counted; each series now counts only CQs whose custom label values match (nested Cohorts: ancestors count only matching CQs). Relabeling a CQ moves its count immediately (the Cohort keeps incremental per-label counts); an old series is deleted only when its last contributing CQ leaves. Without custom labels there is one series, unchanged (source: pr-18078.md, pr-18486.md, fixes issue-18060.md, issue-18234.md).
+- **Terminating ClusterQueues.** Resource metrics and cohort metrics keep updating while a CQ is held by the `resource-in-use` finalizer (source: pr-18631.md).
+- **Missing ClusterQueue.** Unadmitted-workload metrics are reported/cleared at CQ level only when the CQ exists (`ClusterQueueNameForWorkloadWithoutLock` returns an `ok` flag that callers used to drop); prevents a stale empty-label series after delete-and-recreate. In-memory counts, stored statuses and LocalQueue metrics are unchanged (source: pr-18221.md).
+- **LocalQueue metrics.** Stop clears gauges only; delete clears all; records for Workloads go through `Cache.RecordLocalQueueMetricsForWorkload` under one read lock so deleted LocalQueues' series cannot reappear; the unadmitted gauge is not reported for a deleted or stopped LocalQueue (source: pr-17968.md, pr-18325.md, pr-18608.md).
+- **Pending counts with ConcurrentAdmission** count each Parent once for ClusterQueue and LocalQueue (`variantParentCounts`); the custom-label breakdown and Visibility API still list Variants (source: pr-18748.md, pr-18806.md).
+- **Fair-sharing gauges.** A CQ with usage on a flavor it has no quota for now has non-zero weighted share (source: pr-18827.md).
 
 ## Related pages
 

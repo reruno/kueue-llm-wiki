@@ -2,9 +2,9 @@
 
 **Summary**: Kueue ships validating and mutating admission webhooks for every CRD it defines and for every job type it integrates with. Validation enforces API-level invariants (flavor existence, immutability of certain fields). Mutation defaults fields, stamps finalizers, and — crucially — injects `.spec.suspend` or Pod scheduling gates so jobs are gated the instant they are created.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13375.md, pr-16972.md, pr-16973.md, pr-16705.md, pr-16710.md, pr-17060.md, pr-13996.md, pr-16779.md, raw/kueue/pkg/controller/jobframework/defaults.go, pr-17090.md, pr-17201.md, pr-17202.md, issue-13991.md, pr-17147.md, raw/kueue/pkg/webhooks/workload_webhook.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13375.md, pr-16972.md, pr-16973.md, pr-16705.md, pr-16710.md, pr-17060.md, pr-13996.md, pr-16779.md, raw/kueue/pkg/controller/jobframework/defaults.go, pr-17090.md, pr-17201.md, pr-17202.md, issue-13991.md, pr-17147.md, raw/kueue/pkg/webhooks/workload_webhook.go, pr-18021.md, pr-18218.md, pr-18250.md, pr-18591.md, pr-18287.md, pr-18568.md, pr-18569.md, pr-18613.md, pr-18038.md, pr-18803.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -92,6 +92,16 @@ The `mworkload.kb.io` mutating webhook keeps `verbs=create`; an earlier attempt 
 - **RayService error paths** now use `spec.rayClusterConfig` ([[pr-17060]]). The **RayCluster autoscaling error** names the gate and annotation that make it valid ([[pr-13996]]). See [[integration-rayjob]].
 - **`integrations.labelKeysToCopy` naming internal labels** is accepted but logged at startup ([[pr-16779]]); see [[job-framework-interface#Internal labels and annotations are never inherited]].
 - **The Pod webhook does not rewrite `kueue.x-k8s.io/role-hash`.** Forged role hashes are caught at ungate time, not in the webhook (#13382); see [[integration-plain-pod#Role-hash forgery: requests are verified before ungating]].
+
+## Additional validation (late v0.21 main)
+
+- **`podSetUpdates` uniqueness (pr-18021).** The Workload webhook rejects two entries for the same PodSet in one admission check (gate `WorkloadValidateUniquePodSetUpdates`, Beta, on); an unchanged list is still accepted on update. See [[admission-check#Repeated `podSetUpdates` for one PodSet are rejected (pr-18021)]].
+- **`max-exec-time-seconds` (pr-18218).** Job-integration creation validation rejects label values above 2147483647 (int32); see [[workload-max-execution-time]].
+- **LeaderWorkerSet `groupIdentity: Hash` (pr-18250, pr-18591).** Rejected on create/under-management updates, warning on update of already-managed ones; gate `LeaderWorkerSetRejectGroupIdentityHash` (Beta, on). See [[integration-leaderworkerset]].
+- **Deployment priority class (pr-18287).** The Deployment validating webhook now allows **adding** `kueue.x-k8s.io/priority-class` to a Deployment that already has ready replicas (it used to fail with "WorkloadPriorityClass cannot be added to a non-suspended workload"). Reason: a Deployment has no Deployment-level Workload; each Pod has its own Workload from its template labels, so adding the label just triggers a rolling update where new Pods are admitted with the priority and running Pods keep theirs. Only **removal** is rejected (helper `ValidateWorkloadPriorityClassNameNotRemoved`), except when a `default` WorkloadPriorityClass exists and `WorkloadPriorityClassDefaulting` is on, where the label is reset to `default`. The default class is still not applied when a running Deployment without the label is updated. Validation for Jobs, StatefulSets and LeaderWorkerSets is unchanged. Rolling-update caveat: while new Pods wait for admission the Deployment controller may terminate old Pods up to `maxUnavailable` (25% default); `maxUnavailable: 0` keeps them and the new Pods then need extra quota (source: pr-18287.md).
+- **Ray/Spark elastic topology (pr-18568, pr-18569, pr-18613).** Create-time rejection of required/preferred topology on elastic KubeRay and SparkApplication jobs with `ElasticJobsViaWorkloadSlicesWithTAS`; see [[integration-rayjob]], [[integration-spark]].
+- **`ValidateRayAndSparkJobUpdates` is GA (pr-18038)**, locked on.
+- **Generated names (pr-18803).** Truncated generated names never end in `.` before the hash suffix; see [[job-framework-interface]].
 
 ## Related pages
 

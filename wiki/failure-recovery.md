@@ -2,9 +2,9 @@
 
 **Summary**: Kueue's opt-in failure recovery mechanism detects and force-deletes zombie pods — pods stuck in `Terminating` after a node failure — so that job replacement pods can start and quota is not wasted.
 
-**Sources**: `raw/kueue/keps/6757-failure-recovery/README.md`, `raw/kueue/keps/6757-failure-recovery/kep.yaml`, `raw/kueue/pkg/controller/failurerecovery/failurerecovery.go`, `raw/kueue/pkg/controller/failurerecovery/pod_termination_controller.go`, pr-16033.md, pr-17087.md
+**Sources**: `raw/kueue/keps/6757-failure-recovery/README.md`, `raw/kueue/keps/6757-failure-recovery/kep.yaml`, `raw/kueue/pkg/controller/failurerecovery/failurerecovery.go`, `raw/kueue/pkg/controller/failurerecovery/pod_termination_controller.go`, pr-16033.md, pr-17087.md, pr-18032.md, issue-16497.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -74,6 +74,10 @@ With `FailureRecoveryPolicy` enabled, every reconcile of a Pod still stuck in te
 ## Related: quota held by stuck-terminating pod-group Pods
 
 Separately from forced deletion, the Pod integration stops counting a Running but terminating Pod as *active* for quota once its `deletionTimestamp` (already the end of the grace period) has passed. Since #16076, the grace period is no longer added a second time. A pod group stuck on a lost node therefore releases its quota at the next reconcile after the deadline. See [[integration-plain-pod#PodGroup activity at the Pod deletion deadline]] (source: pr-17087.md).
+
+## Reported grace period is correct (pr-18032)
+
+The `KueueFailureRecovery` condition and the Warning event reported the wrong grace period for Pods with non-zero `deletionGracePeriodSeconds`: the value is in seconds but was formatted as a `time.Duration`. It is converted to a duration and the message now reports the correct combined grace period (pod's `deletionGracePeriodSeconds` plus the 1 minute forceful-termination threshold). The termination logic itself was unaffected (source: pr-18032.md, issue-16497.md).
 
 ## Related pages
 

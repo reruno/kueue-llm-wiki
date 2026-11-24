@@ -2,9 +2,9 @@
 
 **Summary**: Patterns from the 8 Supply Chain CVEs in `raw/cve/`. Smallest category in the corpus, but the one whose impact scales to every Kueue deployment because a compromised release artifact affects all downstream clusters at once.
 
-**Sources**: `raw/cve/` — representative entries `CVE-2020-8564.md` and other supply-chain category CVEs; CWE-295 (improper cert validation) and CWE-494 (download of code without integrity check) entries broadly; 2026-09 additions `CVE-2026-50166.md`, `CVE-2026-52724.md`, `CVE-2026-100704.md`, `CVE-2026-100833.md`; 2026-10 additions `CVE-2026-105216.md`, `CVE-2026-105223.md`, `CVE-2026-109358.md`, `CVE-2026-107446.md`. 2026-10-21 additions `CVE-2026-47218.md`, `CVE-2026-113709.md`; pr-17377.md. 2026-10-28 additions: pr-17736.md, pr-17729.md, issue-17728.md, issue-17748.md, pr-14142.md, `raw/kueue/.github/workflows/sync-dependabot.yaml`.
+**Sources**: `raw/cve/` — representative entries `CVE-2020-8564.md` and other supply-chain category CVEs; CWE-295 (improper cert validation) and CWE-494 (download of code without integrity check) entries broadly; 2026-09 additions `CVE-2026-50166.md`, `CVE-2026-52724.md`, `CVE-2026-100704.md`, `CVE-2026-100833.md`; 2026-10 additions `CVE-2026-105216.md`, `CVE-2026-105223.md`, `CVE-2026-109358.md`, `CVE-2026-107446.md`. 2026-10-21 additions `CVE-2026-47218.md`, `CVE-2026-113709.md`; pr-17377.md. 2026-10-28 additions: pr-17736.md, pr-17729.md, issue-17728.md, issue-17748.md, pr-14142.md, `raw/kueue/.github/workflows/sync-dependabot.yaml`. 2026-11-24 additions: CVE-2026-120306.md, CVE-2026-119115.md, CVE-2026-63121.md, CVE-2026-123047.md, CVE-2026-126802.md, CVE-2026-127073.md.
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -101,6 +101,14 @@ None of the 20 new entries is in a Kueue dependency ([[security#2026-10-21 wave:
 ## CI workflows that write to PR branches (2026-10)
 
 `.github/workflows/sync-dependabot.yaml` checks out a Dependabot PR's head and runs `make sync-hugo-version` or `make manifests update-helm`. It then **pushes the result to the PR branch with `contents: write`**. That combination of PR-head code, `make` and a write token is the classic risky Actions pattern. pr-17736 moved the trigger from `pull_request_target` to `pull_request`. GitHub will block `pull_request_target` by default in public repositories from 2026-12-02, and GitHub recommends `pull_request` for workflows that do not serve forks. Dependabot branches are in-repo, so `pull_request` still runs. For Dependabot-triggered runs the token is read-only unless the workflow's `permissions` raises it (source: pr-17736.md, issue-17728.md). The guard that remains is the job condition: the PR author **and** the triggering actor must be `dependabot[bot]`, and the PR must carry `ok-to-test`. Since pr-17729 a `labeled` event counts only for `ok-to-test`, and a per-PR `concurrency` group serialises pushes. Review rule for any workflow that pushes: keep the actor checks, never widen the trigger to forks, and treat steps that run repository code with a write token as privileged.
+
+## 2026-11-24 additions
+
+- **Build steps that share the worker's namespaces** (Beta9, CVE-2026-120306, CWE-269/653, Critical 9.9). Buildah ran tenant `RUN` lines with `BUILDAH_ISOLATION=chroot`, which changes only the filesystem root, as uid 0 with `CAP_DAC_OVERRIDE` inside a privileged worker pod. `/proc/1/root` gave write access to the worker's runtime binaries and ServiceAccount token. The fix (worker 0.1.756) uses OCI isolation with private PID, IPC and network namespaces (source: CVE-2026-120306.md). **Kueue check:** Kueue builds no tenant images, but its own `hack/` and CI jobs run untrusted PR code. They must not run privileged or share namespaces with credentialed pods.
+- **Approval policy that trusts an unvalidated reference kind** (aws-privateca-issuer, CVE-2026-119115, fixed 1.10.1): require exact `issuerRef.kind` and a match with the referenced issuer (source: CVE-2026-119115.md).
+- **Reject-lists for image registries must normalise case** (Kubewarden, CVE-2026-63121, fixed 2.1.2) (source: CVE-2026-63121.md). Prefer allow-lists for registries and base images.
+- **Helm chart secrets in ConfigMaps** (BaSyx, CVE-2026-123047) and hardcoded credentials in shipped software (NextScan, CVE-2026-126802): audit Kueue's chart and default manifests for both. One BaSyx chart (CVE-2026-123059) has no fixed release, so the remediation is to migrate charts, a reminder that chart deprecation must be communicated (sources: CVE-2026-123047.md, CVE-2026-123059.md, CVE-2026-126802.md).
+- **Unrestricted manifests applied by a deployment tool** (BuildPiper, CVE-2026-127073, fixed 2.7.0): cluster-admin ClusterRoleBinding via an "additional manifest" field (source: CVE-2026-127073.md).
 
 ## Related pages
 

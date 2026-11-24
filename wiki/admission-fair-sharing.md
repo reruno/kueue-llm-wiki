@@ -4,7 +4,7 @@
 
 **Sources**: `raw/kueue/keps/4136-admission-fair-sharing/README.md`, `raw/kueue/keps/4136-admission-fair-sharing/kep.yaml`, pr-15000.md, pr-16034.md, pr-16241.md, issue-15221.md, issue-13602.md, pr-12786.md, pr-13844.md, pr-13621.md, pr-13481.md, pr-13433.md, pr-12946.md, raw/kueue/pkg/util/admissionfairsharing/admission_fair_sharing.go, raw/kueue/pkg/util/resource/resource.go
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 

@@ -2,9 +2,9 @@
 
 **Summary**: DoS vulnerability patterns drawn from 101 DoS-class CVEs in `raw/cve/`. The highest-relevance category for Kueue because the scheduler, webhooks, and reconcilers all process untrusted CR input on a hot path.
 
-**Sources**: `raw/cve/` — 101 entries with `Category: Denial of Service`, including representative cases `CVE-2019-11253.md` (Kubernetes API server YAML/JSON CPU exhaustion), `CVE-2020-8552.md` (API server resource exhaustion via valid requests), `CVE-2020-8569.md` (CSI snapshot-controller nil-pointer crash loop), `CVE-2020-8557.md` (kubelet `/etc/hosts` disk exhaustion), `CVE-2022-39272.md` (Flux `.spec.interval` halts kind-wide reconciliation), `CVE-2022-31016.md` (Argo CD); 2026-09 additions `CVE-2026-53716.md`, `CVE-2026-53717.md`, `CVE-2026-53719.md`, `CVE-2026-54247.md`, `CVE-2026-61794.md`; 2026-10 additions `CVE-2026-95838.md`, `CVE-2026-107446.md`. 2026-10-21 additions `CVE-2026-53999.md`, `CVE-2026-113672.md`.
+**Sources**: `raw/cve/` — 101 entries with `Category: Denial of Service`, including representative cases `CVE-2019-11253.md` (Kubernetes API server YAML/JSON CPU exhaustion), `CVE-2020-8552.md` (API server resource exhaustion via valid requests), `CVE-2020-8569.md` (CSI snapshot-controller nil-pointer crash loop), `CVE-2020-8557.md` (kubelet `/etc/hosts` disk exhaustion), `CVE-2022-39272.md` (Flux `.spec.interval` halts kind-wide reconciliation), `CVE-2022-31016.md` (Argo CD); 2026-09 additions `CVE-2026-53716.md`, `CVE-2026-53717.md`, `CVE-2026-53719.md`, `CVE-2026-54247.md`, `CVE-2026-61794.md`; 2026-10 additions `CVE-2026-95838.md`, `CVE-2026-107446.md`. 2026-10-21 additions `CVE-2026-53999.md`, `CVE-2026-113672.md`. 2026-11-24 additions: CVE-2026-116472.md, CVE-2026-109797.md, CVE-2026-120091.md.
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -112,6 +112,14 @@ None affects Kueue ([[security#2026-10-21 wave: what the 20 new CVEs add]]).
 
 - **Radius before 0.58.0, CVE-2026-53999** (CWE-20/441, 7.7, tagged Denial of Service): a forged `radapp.io/status` annotation on a Deployment made the controller delete another tenant's container resource (source: CVE-2026-53999.md). The availability impact comes from a confused-deputy deletion, so the rule is in [[security-authn-authz]]: verify ownership before any destructive action driven by a tenant-writable field.
 - **Argo CD, CVE-2026-113672** (CWE-22): `importstr` on a non-terminating device such as `/dev/zero` exhausted repo-server memory (source: CVE-2026-113672.md). Any reader of a path or stream from input needs a size cap (`io.LimitReader`), not only a path check.
+
+## 2026-11-24 additions
+
+Few entries in this wave are real DoS bugs, and none affects Kueue directly.
+
+- **ingress-nginx, CVE-2026-116472** (CWE-20, Low 2.7): the `mirror-target` annotation could point at the controller's own unauthenticated local configuration API, so a user with Ingress create permission could write bad state and drop all traffic until a config change or restart (source: CVE-2026-116472.md). **Kueue check:** an annotation or spec field that names a URL or address must never be allowed to reach the controller's own loopback listeners (health, metrics, pprof). Kueue's metrics listener and KueueViz bind separately; keep unauthenticated debug endpoints off by default and on loopback only (see [[security-authn-authz#Metrics listener: opting out of authentication (main, Alpha)]]).
+- **SAP astonish, CVE-2026-109797** (High 7.1, tagged DoS): the real bug was tenant isolation, since handlers skipped the tenant-aware lookup and allowed cross-tenant container deletion (source: CVE-2026-109797.md). Deleting another tenant's object is an availability attack as well as an authorization bug. See [[security-authn-authz]].
+- **Temporal, CVE-2026-120091**: unbounded host access via a provider run during read-only validation. Only reinforces the rule that validation paths must have no side effects (source: CVE-2026-120091.md).
 
 ## Related pages
 

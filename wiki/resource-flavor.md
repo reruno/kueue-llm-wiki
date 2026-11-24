@@ -2,9 +2,9 @@
 
 **Summary**: A ResourceFlavor is a cluster-scoped label-and-toleration descriptor that distinguishes otherwise-equivalent resources — `a100` vs `h100` GPUs, `spot` vs `on-demand` CPU, `zone-a` vs `zone-b` memory. Flavors attach to [[cluster-queue]] quota slots so that a Workload asking for "10 GPUs of flavor h100" is counted against the right pool and its Pods are directed to the right nodes.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-13616.md, pr-13956.md, pr-16766.md, pr-16466.md, pr-16658.md, pr-13622.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-13616.md, pr-13956.md, pr-16766.md, pr-16466.md, pr-16658.md, pr-13622.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-17962.md, pr-18423.md, pr-18442.md, pr-18500.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -50,6 +50,15 @@ ResourceFlavor tolerations have to reach the Pods the underlying integration cre
 When admitting a workload, `PodSetInfo.Merge` (`pkg/podset/podset.go`) appends the flavor's tolerations to the Pod template, **deduplicating** against the workload's existing tolerations. The dedup originally compared `corev1.Toleration` values with Go `==`, which treats `Operator: ""` and `Operator: "Equal"` as different — but the Kubernetes API **defaults an empty toleration `Operator` to `Equal`**, so the two forms are semantically identical. A flavor toleration written one way and a Pod toleration written the other both slipped past dedup and **both got appended**, injecting a duplicate ([[pr-11147]]).
 
 The downstream symptom is nasty: on the next Pod/Job update, if a mutating webhook collapses the duplicate between Kueue's read and write, `validateOnlyAddedTolerations` rejects the update (`existing toleration can not be modified except its tolerationSeconds`) and the Pod is stuck `scheduleGated`. The fix adds a `tolerationsEqual` helper that normalizes an empty `Operator` to `Equal` before comparing.
+
+## `nodeLabels` matching rules
+
+- An entry matches a node only if the node has the label with exactly that value; `key: ""` no longer matches nodes lacking the label (shared `NodeMatchesFlavor` for the TAS cache, TAS controllers and local-capacity provider) (source: pr-18500.md).
+- For Pod `nodeSelector` / required `nodeAffinity`, a flavor is evaluated only against the label keys declared in its `.spec.nodeLabels` (non-contradiction matching), not all Pod keys, so sibling flavors in one resource group using disjoint label keys can both match; use shared keys with distinct values, or `nodeTaints` plus `tolerations`, to keep them mutually exclusive (source: pr-18423.md, pr-18442.md).
+
+## Flavor tolerations and the Workload
+
+Flavor assignment concatenates flavor tolerations with `slices.Concat` so it never writes into the Workload's slice (source: pr-17962.md).
 
 ## Related pages
 

@@ -2,9 +2,9 @@
 
 **Summary**: A Workload is the Kueue-internal CRD that wraps an underlying job (Job, JobSet, RayJob, …) and exposes the fields Kueue needs: PodSets, priority, queue-name, admission state, conditions. Every admitted job has exactly one Workload, owned by the job via an ownerReference.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16479.md, pr-14520.md, pr-13671.md, pr-16627.md, pr-13956.md, pr-17069.md, issue-16486.md, pr-16779.md, pr-16881.md, pr-17147.md, pr-17215.md, pr-17220.md, pr-17269.md, issue-14811.md, issue-17221.md, pr-17090.md, pr-17201.md, pr-17202.md, issue-13991.md, pr-17195.md, pr-17573.md, pr-17727.md, pr-17810.md, raw/kueue/pkg/workload/podsetscounts.go, pr-16857.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/webhooks/workload_webhook.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16479.md, pr-14520.md, pr-13671.md, pr-16627.md, pr-13956.md, pr-17069.md, issue-16486.md, pr-16779.md, pr-16881.md, pr-17147.md, pr-17215.md, pr-17220.md, pr-17269.md, issue-14811.md, issue-17221.md, pr-17090.md, pr-17201.md, pr-17202.md, issue-13991.md, pr-17195.md, pr-17573.md, pr-17727.md, pr-17810.md, raw/kueue/pkg/workload/podsetscounts.go, pr-16857.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/webhooks/workload_webhook.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-18338.md, pr-18329.md, pr-18803.md, pr-18723.md, issue-18722.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -101,6 +101,22 @@ Deactivation reasons follow a `DeactivatedDueTo<Cause>` pattern (e.g. `Deactivat
 ## Extended resources declared only in `limits` are indexed
 
 The core Workload indexer only looked at container `requests` when indexing extended resources, so a Workload whose containers declare an extended resource **only** in `limits` (legal Kubernetes — `requests` defaults from `limits`) was missing from the index. [[pr-14808]] (fixes [[issue-14801]]; cherry-picks [[pr-14887]], [[pr-14888]]) reads both.
+
+## `Evict` skips a Workload that has no quota reservation on retry (pr-18338)
+
+With `WorkloadRequestUseMergePatch` enabled, `Evict` decides whether to report the eviction from `hadAdmission`, read before the status patch. The scheduler evicts preemption targets, migration victims and Workloads that lost TAS nodes with retry-on-conflict; on a conflict the retry re-reads the Workload into `wl`, and if it released its quota meanwhile `wl.Status.Admission` is nil, so reading `Admission.ClusterQueue` panicked the scheduler. Now each retry checks the Workload it just read: with no quota reservation it skips the patch and reports nothing. `IssuePreemptions` treats such a target like an already-evicted one: it counts the preemption, releases the expectation and records no `Preempted` event. The default Server-Side Apply path does not retry and is not affected. The retry reads from the informer cache, so a stale copy of a just-admitted target can skip the preemption once; it is issued again in the next cycle (source: pr-18338.md).
+
+## Queue and priority are updated together (pr-18329)
+
+When a job's queue-name and WorkloadPriorityClass labels change together, the job framework persists the new `spec.queueName` and resolved priority in a single Workload update, so the scheduler cannot observe the new priority in the old queue. Not applied to quota-reserved/admitted Workloads (queue is immutable then); evicted Workloads whose quota is released are eligible. See [[job-framework-interface#Queue name and priority are written in one Workload update (pr-18329)]] (source: pr-18329.md).
+
+## Generated Workload names never end a prefix in a dot (pr-18803)
+
+`GenerateWorkloadNameWithExtra`, `GenerateWorkloadNamePrefix` and `GetWorkloadNameForVariant` cut the owner-derived prefix and append `-<hash>`; the cut now drops a trailing `.` (previously `.-<hash>` failed with 422) (source: pr-18803.md).
+
+## LimitRange `type: Pod` max is checked against pod limits too (pr-18723)
+
+`ValidatePodSpec` compared a Pod-type LimitRange `max` only with summed pod requests, so a Workload whose summed Pod limits exceeded `max` was admitted, took quota, and then every Pod creation was forbidden by LimitRanger. The check now uses the larger of pod requests and pod limits (limits from `resourcehelpers.PodLimits`, overhead excluded because LimitRanger does not add it to limits; sidecar init containers counted like LimitRanger). The Workload is marked inadmissible with the LimitRange message (`requests must not be above the limitRange max`, reused from the container branch) and reserves no quota. `maxLimitRequestRatio` was not checked by this change (see issue-18800) (source: pr-18723.md, issue-18722.md).
 
 ## Related pages
 

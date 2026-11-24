@@ -2,9 +2,9 @@
 
 **Summary**: Overview of Kueue's reviewer roster, OWNERS structure, Prow approval workflow, and how individual reviewers divide responsibility. Use this page as the entry point when navigating to a specific reviewer profile or to [[code-quality|the project's shared code quality bar]].
 
-**Sources**: `raw/kueue/OWNERS`, `raw/kueue/OWNERS_ALIASES`, `raw/kueue/CONTRIBUTING.md`, `raw/kueue/AGENTS.md`, and analysis of PR review comments across `raw/github/kubernetes-sigs__kueue/`; pr-16505.md, pr-16850.md, pr-16739.md, pr-17055.md, pr-14150.md; pr-17326.md, pr-17284.md, pr-17348.md, pr-17162.md, pr-17487.md, `raw/kueue/cmd/experimental/skills/OWNERS`, `raw/kueue/cmd/experimental/skills/reviewer/multikueue/SKILL.md` (OWNERS state re-read at kueue@966f00d21); 2026-10-28 batch: pr-17712.md, pr-17791.md, pr-17101.md, pr-17606.md, pr-17361.md, `raw/kueue/cmd/kueueviz/OWNERS`, `raw/kueue/test/e2e/kueueviz/OWNERS`.
+**Sources**: `raw/kueue/OWNERS`, `raw/kueue/OWNERS_ALIASES`, `raw/kueue/CONTRIBUTING.md`, `raw/kueue/AGENTS.md`, and analysis of PR review comments across `raw/github/kubernetes-sigs__kueue/`; pr-16505.md, pr-16850.md, pr-16739.md, pr-17055.md, pr-14150.md; pr-17326.md, pr-17284.md, pr-17348.md, pr-17162.md, pr-17487.md, `raw/kueue/cmd/experimental/skills/OWNERS`, `raw/kueue/cmd/experimental/skills/reviewer/multikueue/SKILL.md` (OWNERS state re-read at kueue@966f00d21); 2026-10-28 batch: pr-17712.md, pr-17791.md, pr-17101.md, pr-17606.md, pr-17361.md, `raw/kueue/cmd/kueueviz/OWNERS`, `raw/kueue/test/e2e/kueueviz/OWNERS`.; 2026-11-24 batch: pr-18350.md, pr-18057.md, pr-18075.md, pr-18191.md, pr-18431.md, pr-18284.md, pr-18309.md, pr-18308.md, pr-18349.md, pr-18478.md, pr-18712.md, pr-18178.md, pr-18334.md, pr-18799.md, pr-18292.md, pr-18130.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -42,6 +42,21 @@ This is why dependency-bump and test-infrastructure PRs route to mbobrovskyi or 
 ### Scoped OWNERS files
 
 Some directories have their own `OWNERS` with extra **reviewers** only. Approval still comes from the root aliases. `cmd/kueueviz/OWNERS` and `test/e2e/kueueviz/OWNERS` list `akram` (since #5248) and `danylott` (added 2026-10-27 by pr-17791). danylott's nomination used the reviewer checklist (org member; primary reviewer on 18 KueueViz PRs; 36 KueueViz PRs reviewed) and was discussed beforehand with mimowo and tenzen-y, who asked for a **scoped** reviewer role rather than a `kueue-reviewers` entry (source: pr-17791.md). `cmd/experimental/skills/` has its own file too (see the table above). Scoped self-nomination follows the same checklist as `kueue-reviewers`, limited to the area.
+
+### Reviewer and approver changes (2026-10-29 to 2026-11-17)
+
+Merged self-nominations and alias changes (all via OWNERS / OWNERS_ALIASES PRs; the bot also cherry-picks them to release branches and `website`, so the same title appears several times):
+
+- **Top-level `kueue-reviewers`:** apullo777 (pr-18350, 2026-11-06; evidence: org member since 2026-08, 24 primary reviews, 43 PRs reviewed).
+- **kueuectl:** `kueuectl-approvers` (mbobrovskyi, pr-17846) and new `kueuectl-reviewers` (henry3260, pr-18057), applied to kueuectl docs and tests OWNERS too (pr-18075).
+- **Pod-based integrations:** mbobrovskyi is approver for `pkg/controller/jobs/{pod,deployment,statefulset,leaderworkerset}` (pr-18191), since they share pod groups, scheduling gates and Pod finalizers; vladikkuzn is reviewer there and for infra/experimental tools via new `*-integration-reviewers` aliases (pr-18431).
+- **jobframework:** `jobframework-implementation-approvers` (mbobrovskyi, pr-18284) for `pkg/controller/jobframework`, **excluding `interface.go` and `multikueue.go`**, which stay with top-level approvers because external repositories build integrations on those interfaces and need semi-API-level stability.
+- **Concurrent Admission:** `concurrent-admission-reviewers` (ivnovakov, pr-18309) for `pkg/controller/concurrentadmission`, `pkg/workload/concurrentadmission` and its integration tests.
+- **Tests:** `test-reviewers` (ivnovakov, mykysha, reruno, vladikkuzn; pr-18308) for `test/`, `hack/testing/`, `pkg/util/testing*`, `*_test.go`, test makefiles and linter configs.
+- **KueueViz:** `kueueviz-reviewers` (akram, danylott, mykysha; pr-18349) for `cmd/kueueviz` and `test/e2e/kueueviz`.
+- **Infra:** `infra-approvers` extended to `.github/actions/` and `cloudbuild.yaml` / `cloudbuild-periodic.yaml` (the old `^\.cloudbuild.yaml$` filter never matched because the file has no leading dot; pr-18478); `infra-reviewers` are now requested wherever `infra-approvers` own files (workflows, Dockerfile, dependabot, cloudbuild, `.krew.yaml`; pr-18712). A nomination for reruno as `hack/infra/stats` reviewer (pr-18849) was still open.
+
+Pattern: reviewers nominate themselves with evidence (authored/reviewed PR lists) against the community-membership checklist, and narrow aliases are preferred over widening the global lists. (source: pr-18350.md, pr-18057.md, pr-18075.md, pr-18191.md, pr-18431.md, pr-18284.md, pr-18309.md, pr-18308.md, pr-18349.md, pr-18478.md, pr-18712.md)
 
 ### Emeritus approvers
 
@@ -88,6 +103,8 @@ Other active reviewers without dedicated profile pages:
   2. Before coding, establish the issue or objective and its acceptance criteria, the components that may change and the APIs, config and data formats that must stay compatible, and the required checks, tests and real-cluster validation. Ask about missing answers and wait for them. A clear task does not need a new issue.
   3. Implement the agreed scope, run the relevant checks, and follow the `kueue-verify` skill before pushing or opening or updating a PR. Report commands and results, including failures and checks that could not run.
   4. Write PR titles, descriptions and commits in English, and follow the `kueue-pr-issue-workflow` skill and the AI contribution policy (source: pr-17361.md; raw/kueue/AGENTS.md).
+- **PR evidence skills (guidance-only `SKILL.md`, no scripts).** `kueue-pr-evidence-common` (shared rules: the PR author's own coding agent writes one marked block per skill under "Useful notes for your reviewer", only on the author's own PR at the PR head, only after the author approves a dry-run diff of the body) and `kueue-pr-evidence-state-diff` (before/after table of Kueue state run on merge base and head in throwaway worktrees; pr-18178), and `kueue-pr-evidence-red-green` (changed tests failing on the merge base with only the PR's test hunks applied, passing on head; "not applicable" when test hunks need new code, infra failures reported as errors; pr-18334). Umbrella issue #18141. Three more (`contract-delta` pr-18480, `perf-delta` pr-18571, `timeline` pr-18607) were open at this snapshot. Many recent PR descriptions carry these tables (`Behavior | Level | Command and result | Not run and why`) and a `Gate / Default / PreRelease / Version / Off-path test` block for feature-gate PRs.
+- **Reviewer skill `ctx-structured-logging`** (pr-18799) flags a `context.Context` that is silenced (`_ = ctx`) instead of being used for `ctrl.LoggerFrom(ctx)` or passed to context-aware calls; it skips interface/callback implementations, stubs and fakes. Also, the flake-debugger skill's `gh issue` command was fixed (pr-18292) and the issue-workflow skill now adds template label commands to the issue body (pr-18130).
 - Agents must start each reply with `_Kueue Development (context canary, see AGENTS.md)_`; if it disappears, the agent has probably lost `AGENTS.md` from its context (pr-17348).
 - Reviewer skills live in `cmd/experimental/skills/reviewer/`. New in this window: `multikueue` — minimise reads from remote worker clusters, e.g. requeue from manager-cluster Workloads instead of listing on workers, keeping only reads needed for correctness (pr-17162). See [[code-quality]].
 

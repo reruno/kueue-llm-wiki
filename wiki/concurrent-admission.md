@@ -2,9 +2,9 @@
 
 **Summary**: An alpha feature that lets a Workload simultaneously pursue admission on multiple ResourceFlavors in parallel, enabling flavor migration and racing long-running AdmissionChecks across different accelerator types.
 
-**Sources**: `raw/kueue/keps/8691-concurrent-admission/README.md`, `raw/kueue/keps/8691-concurrent-admission/kep.yaml`, pr-15553.md, pr-15781.md, pr-15949.md, pr-16282.md, issue-15500.md, issue-15547.md, issue-15838.md, pr-15000.md, pr-17144.md, pr-17337.md, pr-17338.md, issue-16872.md, pr-17157.md, raw/kueue/pkg/controller/concurrentadmission/controller.go
+**Sources**: `raw/kueue/keps/8691-concurrent-admission/README.md`, `raw/kueue/keps/8691-concurrent-admission/kep.yaml`, pr-15553.md, pr-15781.md, pr-15949.md, pr-16282.md, issue-15500.md, issue-15547.md, issue-15838.md, pr-15000.md, pr-17144.md, pr-17337.md, pr-17338.md, issue-16872.md, pr-17157.md, raw/kueue/pkg/controller/concurrentadmission/controller.go, pr-14954.md, pr-17946.md, pr-18222.md, pr-18086.md, pr-17012.md, pr-17176.md, pr-19075.md, issue-17944.md, issue-18079.md, issue-18093.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -135,6 +135,34 @@ Note that this differs from non-ConcurrentAdmission ClusterQueues, where removin
 ### Preemption gate states are no longer written as `Closed` (pr-17157)
 
 ConcurrentAdmission readers of `status.preemptionGates` (`HasOpenPreemptionGate`, `latestOpenGateTime`) already treat a gate with no recorded state as closed, so the pr-17157 change that stops writing `Closed` states for never-opened gates does not change Variant gating ([[multikueue-orchestrated-preemption#Gate states are written only when a gate opens (pr-17157)]]).
+
+### Policy removed from the ClusterQueue: parents and variants are cleaned up (pr-14954; v0.20.5 / v0.19.12)
+
+`variantReconciler.Reconcile` used to keep treating leftover Parent/Variant Workloads as active after `spec.concurrentAdmissionPolicy` was removed (it had an unimplemented TODO), running `createVariants`/`deleteStaleVariants`/`syncVariantEvictionStatus` against a policy that no longer existed and leaving quota held. When `cq.Spec.ConcurrentAdmissionPolicy == nil` the reconciler now deactivates each Variant (`deactivateVariant`), clears the admission of an admitted Parent with the same `PatchAdmissionStatus` + `SetEvictedCondition` pattern as the "no variant is running" path (the Parent returns to `Pending` and is scheduled as a normal single Workload, not deleted or deactivated), and removes `ConcurrentAdmissionParentLabelKey` from the Parent so `IsParent()` is false and the reconciler stops touching it (source: pr-14954.md, CHANGELOG-0.20.md).
+
+### Finished or deleting Parents get no new Variants (pr-18086, fixes issue-18079; v0.20.7 / v0.19.14)
+
+Adding a flavor to a ClusterQueue enqueues all its Parents; `Reconcile` created a Variant for each **finished** Parent too and the scheduler could admit it. The workload controller then set `Evicted` on the finished Parent and returned before `syncFinished`, so the Variant never got `Finished`. For a Parent with a `deletionTimestamp`, Variants deleted first were recreated and re-collected by GC. `Reconcile` now returns before `createVariants` for a finished or deleting Parent; for a finished Parent it first runs `syncFinished` on existing Variants. Both checks sit **after** the policy-removed cleanup above, so that cleanup still runs. A finished Parent also skips `deleteStaleVariants`, `deactivateVariants`, `activateVariants` and opening the preemption gate (source: pr-18086.md).
+
+### `generateVariant` must not alias parent metadata (pr-17946, fixes issue-17944; v0.20.5 / v0.19.12)
+
+`generateVariant` assigned the Parent's `Labels`/`Annotations` maps to the Variant and then edited them, so removing `ConcurrentAdmissionParentLabelKey` from a Variant also removed it from the Parent, and setting the allowed-flavor annotation (`workload-allowed-resource-flavors`) on one Variant changed it on the Parent and every sibling built from it. Both maps are now cloned (like `Spec.PreemptionGates` already was). No evidence the mutated Parent was written back to the API server (source: pr-17946.md).
+
+### Migration must not re-evict an already evicted Variant (pr-18222, fixes issue-18093; v0.20.5 / v0.19.12)
+
+`issueMigration` evicted the migration victim on every scheduling cycle even if it was already `Evicted`. Each eviction is a loose SSA apply built from the scheduler snapshot (no `resourceVersion`) that bumps `schedulingStats.evictions`, so the controller's "Parent has no quota, clearing variant admission" write conflicted, and when it landed the next stale-snapshot eviction restored `status.admission` (about 80 times per second); the Parent was never re-admitted and `EvictedDueToFlavorMigration` events and `kueue_evicted_workloads_total` spammed. It now returns before `Evict` when the victim is already evicted, as `IssuePreemptions` does for evicted targets. The entry still gets `RequeueReasonPendingMigration` / "Pending the migration" (source: pr-18222.md).
+
+### `migration.mode` defaults to `TryPreferredFlavors` in the CRD (pr-17012)
+
+The webhook and controller already treated an empty `Mode` as `TryPreferredFlavors`, but the Go field was `+required` without a default, so the CRD rejected `concurrentAdmissionPolicy.migration` without `mode`. `ConcurrentAdmissionMigration.Mode` is now `*ConcurrentAdmissionMigrationMode` with `+kubebuilder:default=TryPreferredFlavors`. ACTION REQUIRED for Go consumers of `apis/kueue/v1beta2`: pass a pointer and handle nil when reading (source: pr-17012.md).
+
+### Admission checks of the admitted Variant are mirrored onto the Parent (pr-17176)
+
+Admission checks run on Variants, but the job starts from the Parent, which had no checks, so pod set updates (e.g. ProvisioningRequest `consume-provisioning-request` / `provisioning-class-name` annotations, node selectors) never reached the pods (pods unschedulable on DWS pools). `syncAdmissionStatus` now copies the admitted Variant's admission checks onto the Parent in the same patch that gives it its quota reservation and `Admitted`; stale checks from a Variant on another flavor are replaced, and they are reset when the Parent is evicted. The job reconciler reads the Parent's own checks. The workload controller already skips Parents when syncing/evicting on checks, and the **ProvisioningRequest controller now skips Parents** too (the requests belong to Variants; otherwise deleting the ProvisioningRequestConfig would flip the Parent's mirrored check to Pending and create a second request) (source: pr-17176.md).
+
+### Pending counts count each Parent once (pr-19075 and cherry-picks; v0.20.7 / v0.19.14)
+
+ClusterQueue `status.pendingWorkloads` / `kueue_pending_workloads` and LocalQueue `status.pendingWorkloads` / `kueue_local_queue_pending_workloads` counted a pending Workload once per Variant. `PendingWorkloads.Pending()` now subtracts the extra Variants; the LocalQueue count also stops counting the Parent after a Kueue restart or eviction. (source: pr-19075.md, CHANGELOG-0.20.md).
 
 ### Interaction with AdmissionFairSharing
 

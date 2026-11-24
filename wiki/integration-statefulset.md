@@ -2,9 +2,9 @@
 
 **Summary**: Kueue can manage `apps/v1 StatefulSet` jobs through queue-based admission, using per-pod scheduling gates rather than a top-level `spec.suspend` field, and supports MultiKueue dispatch.
 
-**Sources**: `raw/kueue/pkg/controller/jobs/statefulset/statefulset_controller.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_webhook.go`, pr-13316.md, pr-16399.md, pr-16401.md, issue-14013.md, pr-16705.md, pr-16710.md, pr-16751.md, pr-16770.md, pr-13775.md, pr-12948.md, pr-16044.md, pr-17540.md, pr-17541.md, issue-16043.md, issue-14266.md, pr-17255.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, pr-15142.md, pr-15412.md, raw/kueue/pkg/controller/jobs/statefulset/statefulset_reconciler.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
+**Sources**: `raw/kueue/pkg/controller/jobs/statefulset/statefulset_controller.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/statefulset/statefulset_webhook.go`, pr-13316.md, pr-16399.md, pr-16401.md, issue-14013.md, pr-16705.md, pr-16710.md, pr-16751.md, pr-16770.md, pr-13775.md, pr-12948.md, pr-16044.md, pr-17540.md, pr-17541.md, issue-16043.md, issue-14266.md, pr-17255.md, pr-16474.md, pr-17309.md, pr-17313.md, issue-16333.md, pr-15142.md, pr-15412.md, raw/kueue/pkg/controller/jobs/statefulset/statefulset_reconciler.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-17937.md, pr-18412.md, pr-18868.md, issue-18867.md, pr-18783.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -131,6 +131,22 @@ With `WorkloadPriorityClassDefaulting`, the mutating webhook also runs on update
 ## WorkloadPriorityClass on StatefulSets
 
 The StatefulSet reconciler resolves `kueue.x-k8s.io/priority-class` only when it **creates** the Workload (`PrepareWorkloadPriority` in `createPrebuiltWorkload`). So the `WorkloadPriorityClassNotFound` Warning (v0.20.0) appears only on that path. Changing the label on a StatefulSet whose Workload already exists is accepted and ignored (#13827) (source: pr-13775.md). See [[workload-priority#Missing WorkloadPriorityClass: Warning event]].
+
+## `DisableStatefulSetWorkloadNameFallback` (pr-17937)
+
+`findWorkload()` falls back to the legacy Workload name without owner UID (`GetWorkloadName("", sts.Name)`). Feature gate `DisableStatefulSetWorkloadNameFallback` (Beta, enabled by default, GA targeted for v0.22) makes it skip that fallback. Clusters upgrading with legacy Workloads that still need adoption can turn the gate off until the Workloads are migrated (source: pr-17937.md).
+
+## Framework check precedes the Workload lookup (pr-18412)
+
+Pod events of LeaderWorkerSet-owned StatefulSets still reach the StatefulSet reconciler. It used to look up the Workload first and then discard the result when another framework managed the StatefulSet; a failed lookup returned an error and retried. The framework check now runs first, so those StatefulSets return without a lookup (source: pr-18412.md).
+
+## TAS topology request is refreshed before quota reservation (pr-18868)
+
+A pending StatefulSet Workload retained a stale TAS request when the Pod template topology annotation changed while pending, or as the StatefulSet resumed from zero (for example required topology changed from block to hostname but the Workload still asked for the shared block). With TAS enabled, if `replicas > 0` and the Workload has no quota reservation, the Workload's topology request is re-synchronized from the current template, using the same builder as creation (including the Pod index label). On resume from zero the updated Workload spec is persisted **before** clearing `OnHold`. After quota is reserved the request is preserved. The Workload UID is retained (source: pr-18868.md, issue-18867.md).
+
+## Create `AlreadyExists` is treated as success
+
+The StatefulSet reconciler already treated `AlreadyExists` as created; LWS now matches it (source: pr-18783.md).
 
 ## Related pages
 

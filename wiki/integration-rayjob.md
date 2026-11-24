@@ -2,9 +2,9 @@
 
 **Summary**: KubeRay's RayJob and RayCluster each have their own Kueue integration. RayCluster is a long-lived cluster you submit Ray jobs into; RayJob bundles a cluster with a job entrypoint. Kueue accounts for the head pod, the worker groups, and (for RayJob) a short-lived submitter Pod.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16870.md, pr-16882.md, pr-16897.md, pr-16908.md, pr-16915.md, pr-17060.md, pr-17097.md, pr-13244.md, pr-13996.md, pr-14036.md, pr-16853.md, pr-16854.md, pr-16884.md, pr-17366.md, pr-17367.md, pr-17205.md, pr-16259.md, pr-17466.md, pr-17464.md, pr-17513.md, raw/kueue/pkg/controller/jobs/raycluster/common.go, raw/kueue/pkg/controller/jobs/rayservice/rayservice_multikueue_adapter.go, raw/kueue/pkg/controller/jobs/ray/ray_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/controller/jobs/rayservice/rayservice_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-17591.md, pr-17603.md, pr-17604.md, pr-17643.md, raw/kueue/pkg/controller/jobs/raycluster/raycluster_controller.go, raw/kueue/pkg/controller/jobs/rayjob/rayjob_controller.go, raw/kueue/pkg/features/kube_features.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-16870.md, pr-16882.md, pr-16897.md, pr-16908.md, pr-16915.md, pr-17060.md, pr-17097.md, pr-13244.md, pr-13996.md, pr-14036.md, pr-16853.md, pr-16854.md, pr-16884.md, pr-17366.md, pr-17367.md, pr-17205.md, pr-16259.md, pr-17466.md, pr-17464.md, pr-17513.md, raw/kueue/pkg/controller/jobs/raycluster/common.go, raw/kueue/pkg/controller/jobs/rayservice/rayservice_multikueue_adapter.go, raw/kueue/pkg/controller/jobs/ray/ray_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/controller/jobs/rayservice/rayservice_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-17591.md, pr-17603.md, pr-17604.md, pr-17643.md, raw/kueue/pkg/controller/jobs/raycluster/raycluster_controller.go, raw/kueue/pkg/controller/jobs/rayjob/rayjob_controller.go, raw/kueue/pkg/features/kube_features.go, pr-18568.md, pr-18613.md, issue-18566.md, pr-18038.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -166,6 +166,17 @@ With the gate on, `PodsReady()` returns whether the RayCluster's `HeadPodReady` 
 For worker groups with `replicas` and `numOfHosts`, the worker PodSet's TopologyRequest now carries `SubGroupCount = replicas`, `PodIndexLabel = ray.io/replica-host-index` and `SubGroupIndexLabel = ray.io/worker-group-replica-index`. TAS (and the GKE slice controller) can then place each replica's `numOfHosts` Pods as one group. Before this, such Workloads were never admitted, because the slice size was computed wrongly. Gate `KubeRayEvictOnInconsistentTopologyRequest` (Alpha, **off**) decides whether an already-admitted Workload without these fields is treated as inconsistent and replaced. With the default off, it keeps running (#15677; v0.20.1 pr-16853, v0.19.8 pr-16854; the 0.19 backport omits the MultiKueue runtime-count topology updates) (source: pr-16854.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md). See [[topology-aware-scheduling]].
 
 KubeRay version support: maintainers intend to document support for only the last few KubeRay releases (N-2/N-3); issue-16906 is open (source: pr-16897.md).
+
+## Elastic RayCluster/RayJob/RayService reject required or preferred topology (pr-18568, pr-18613)
+
+With `ElasticJobsViaWorkloadSlicesWithTAS`, only unconstrained topology is supported for elastic jobs. The `batch/v1` Job webhook already rejected others, but the RayCluster, RayJob and RayService webhooks accepted them, leaving the Workload pending with `required topology is not supported with ElasticJobsViaWorkloadSlices` and the job suspended. Now (source: pr-18568.md, pr-18613.md, issue-18566.md):
+
+- The check is shared (`jobframework.ValidateElasticJobTopologyRequest`) and runs on **create only**, like the RayService upgrade-strategy check, so elastic jobs created earlier stay updatable (KubeRay autoscaler, Kueue unsuspend). Child RayClusters that KubeRay creates from a RayJob/RayService are still validated at their creation.
+- RayJob in `K8sJobMode`: the submitter Pod topology is validated too (pr-18613); previously the scheduler rejected the unsupported request on the `submitter` PodSet and the whole Workload stayed pending with no error at creation.
+
+## `ValidateRayAndSparkJobUpdates` is GA (pr-18038)
+
+Locked to `true`; it was Beta and default-on since v0.18. See [[integration-spark]] (source: pr-18038.md).
 
 ## Related pages
 

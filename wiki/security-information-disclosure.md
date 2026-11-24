@@ -2,9 +2,9 @@
 
 **Summary**: Patterns from the 162 Information Disclosure CVEs in `raw/cve/`. Covers logging hygiene, error-response content, [[metrics]] label cardinality (as a covert channel), [[visibility-api]] cross-tenant exposure, and credential handling.
 
-**Sources**: `raw/cve/` — representative entries `CVE-2019-1002101.md` (kubectl cp path traversal also exposes file contents), `CVE-2020-8554.md` (man-in-the-middle via ExternalIP), `CVE-2020-8563.md` (sensitive info in logs), `CVE-2021-25741.md` (subpath symlink), CWE-200/CWE-532/CWE-522/CWE-552 entries broadly; 2026-09 additions `CVE-2025-71425.md`, `CVE-2025-71423.md`, `CVE-2026-47701.md`, `CVE-2026-86332.md`, `CVE-2026-94611.md`, `CVE-2026-45726.md`; 2026-10 additions `CVE-2026-106561.md`, `CVE-2026-106563.md`, `CVE-2026-71895.md`, `CVE-2026-18517.md`; 2026-10-21 additions `CVE-2026-110248.md`, `CVE-2026-77564.md`, `CVE-2026-113672.md`, `CVE-2026-113709.md`, `CVE-2026-65172.md`, `CVE-2026-77934.md`, `CVE-2026-87354.md`; Kueue sources pr-17246.md, pr-17088.md, pr-16035.md, `raw/kueue/pkg/config/metrics.go`. 2026-10-28 additions: `CVE-2026-102649.md`, pr-14142.md.
+**Sources**: `raw/cve/` — representative entries `CVE-2019-1002101.md` (kubectl cp path traversal also exposes file contents), `CVE-2020-8554.md` (man-in-the-middle via ExternalIP), `CVE-2020-8563.md` (sensitive info in logs), `CVE-2021-25741.md` (subpath symlink), CWE-200/CWE-532/CWE-522/CWE-552 entries broadly; 2026-09 additions `CVE-2025-71425.md`, `CVE-2025-71423.md`, `CVE-2026-47701.md`, `CVE-2026-86332.md`, `CVE-2026-94611.md`, `CVE-2026-45726.md`; 2026-10 additions `CVE-2026-106561.md`, `CVE-2026-106563.md`, `CVE-2026-71895.md`, `CVE-2026-18517.md`; 2026-10-21 additions `CVE-2026-110248.md`, `CVE-2026-77564.md`, `CVE-2026-113672.md`, `CVE-2026-113709.md`, `CVE-2026-65172.md`, `CVE-2026-77934.md`, `CVE-2026-87354.md`; Kueue sources pr-17246.md, pr-17088.md, pr-16035.md, `raw/kueue/pkg/config/metrics.go`. 2026-10-28 additions: `CVE-2026-102649.md`, pr-14142.md. 2026-11-24 additions: CVE-2026-126643.md, CVE-2026-123047.md, CVE-2026-123059.md, CVE-2026-126802.md, CVE-2026-120306.md, CVE-2026-91163.md, CVE-2026-118760.md, CVE-2026-120307.md, CVE-2026-102340.md, CVE-2026-59185.md.
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -151,6 +151,20 @@ None is a Kueue CVE ([[security#2026-10-21 wave: what the 20 new CVEs add]]).
 ## 2026-10-28 additions
 
 - **Output posted to the wrong audience.** Burrito before 0.13.0, CVE-2026-102649 (the corpus files it under Information Disclosure): a forged webhook paired a real pull-request number with an unrelated branch. The operator ran `terraform plan` for that branch and posted the plan in the real PR's comment thread. That exposed another branch's infrastructure changes and attributed them to the wrong PR (source: CVE-2026-102649.md). Kueue analogue: anything Kueue writes where tenants can read it, such as Events, conditions, Workload status messages and KueueViz payloads, must be derived from the object it is attached to, never from a second object picked by a client-supplied identifier. Authentication side: [[security-authn-authz#2026-10-28 additions]].
+
+## 2026-11-24 additions
+
+| CVE | Product | Disclosure path | Kueue check |
+| --- | --- | --- | --- |
+| CVE-2026-126643 | AAP Gateway Operator (CWE-312, 6.5) | Operator copied a Secret value into a generated CR `spec.extra_settings`; the CR was readable by principals without Secret access and flowed into etcd, GitOps diffs and support bundles (source: CVE-2026-126643.md) | Never copy Secret data into CRs, status, events or annotations; store a reference |
+| CVE-2026-123047, CVE-2026-123059 | Eclipse BaSyx Helm charts (CWE-312/522, 7.5) | Helm templates rendered Keycloak user passwords and a client secret into ConfigMaps; a `view` role holder could log in as admin (source: CVE-2026-123047.md, CVE-2026-123059.md) | Review Kueue's Helm chart and `config/` kustomize output: ConfigMaps (including `controller_manager_config.yaml`) must hold no credentials. Anything secret goes in a Secret |
+| CVE-2026-126802 | NextScan (CWE-798, 8.2) | Hardcoded Basic Auth credentials in admin routers exposed Redis passwords and a server token (source: CVE-2026-126802.md) | No default or embedded credentials in examples or manifests |
+| CVE-2026-91163 | Warpgate <0.29.0 (CWE-209/532, 3.7) | Kubernetes listener returned raw ASN.1 and database errors in HTTP 500 bodies, and the failures bypassed request logging (source: CVE-2026-91163.md) | Return generic errors to clients and log details server-side; an error path that skips the logging wrapper hides probing. Check KueueViz handlers and the visibility endpoints |
+| CVE-2026-118760 | Kubeflow Pipelines <2.17.0 (CWE-639/862, 6.5) | Artifact routes did not authorize the namespace, and an unguarded handler existed for the omitted-namespace form (source: CVE-2026-118760.md) | Authorize on the namespace actually used and cover the "no namespace" request shape |
+| CVE-2026-120306, CVE-2026-120307 | Beta9 (9.9) | Build and file-API paths let a tenant reach the worker's filesystem and its ServiceAccount token (bound to cluster-admin) (source: CVE-2026-120306.md, CVE-2026-120307.md) | Tokens mounted in privileged pods are the prize; keep Kueue's ServiceAccount narrow and its pod non-privileged |
+| CVE-2026-102340, CVE-2026-59185 | Telepresence, identrail | Cross-tenant reads via caller-supplied namespace or installation ID (source: CVE-2026-102340.md, CVE-2026-59185.md) | See [[security-authn-authz]] |
+
+**Rule:** the RBAC split between Secrets and every other kind only works if no controller or template copies secret values into the other kinds.
 
 ## Related pages
 

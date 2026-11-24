@@ -2,9 +2,9 @@
 
 **Summary**: Kueue integrates with the Kubernetes Training Operator v2's `TrainJob` CRD, delegating PodSet discovery to the child JobSet and supporting MultiKueue cross-cluster dispatch with full status synchronization.
 
-**Sources**: `raw/kueue/pkg/controller/jobs/trainjob/trainjob_controller.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_webhook.go`, pr-17563.md, pr-17571.md, pr-17572.md, pr-17862.md, pr-17871.md, pr-17872.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
+**Sources**: `raw/kueue/pkg/controller/jobs/trainjob/trainjob_controller.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_multikueue_adapter.go`, `raw/kueue/pkg/controller/jobs/trainjob/trainjob_webhook.go`, pr-17563.md, pr-17571.md, pr-17572.md, pr-17862.md, pr-17871.md, pr-17872.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-18730.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -74,6 +74,10 @@ Rank-ordered ungating for TrainJob Pods in a `kueue.x-k8s.io/podset-group-name` 
 ## RBAC: delete permission
 
 Kueue lacked `delete` on JAXJob and TrainJob, so jobs deactivated by Kueue were not deleted after `objectRetentionPolicies.workloads.afterDeactivatedByKueue` (source: pr-15567.md, pr-15568.md, backports of pr-15565).
+
+## Shared Kueue runtime patch helper (pr-18730)
+
+The Kueue runtime patch manager name and the helper that finds the Kueue runtime patch in a TrainJob now live once in `pkg/util/trainjob` (previously duplicated in the integration and in the test wrappers). The controller, webhook, MultiKueue adapter, test wrappers and tests use it; it cannot sit in the integration package because that package's unit tests import the wrappers (import cycle). Refactor only, no behaviour change (source: pr-18730.md).
 
 ## Related pages
 

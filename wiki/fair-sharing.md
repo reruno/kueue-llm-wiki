@@ -2,9 +2,9 @@
 
 **Summary**: Fair sharing (KEP-1714) is an optional admission policy that distributes unused [[cohort]] capacity across ClusterQueues in proportion to configured weights, DRF-style. Without it, first-come-first-served + nominal quota is the rule; with it, a noisy CQ borrowing heavily cannot starve its siblings.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16343.md, pr-16911.md, pr-16912.md, pr-16738.md, issue-16665.md, issue-16666.md, pr-16487.md, pr-16488.md, pr-16528.md, pr-16581.md, pr-17057.md, issue-16530.md, pr-14348.md, pr-16360.md, pr-16361.md, pr-13433.md, pr-10776.md, issue-16529.md, issue-17022.md, pr-17034.md, pr-17349.md, pr-17390.md, pr-17285.md, pr-17171.md, pr-17196.md, pr-13307.md, pr-17798.md, pr-17851.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/scheduler/preemption/preemption.go, raw/kueue/pkg/features/kube_features.go, raw/kueue/pkg/scheduler/preemption/fair_strategy.go, raw/kueue/pkg/scheduler/preemption/fairsharing/ordering.go, raw/kueue/pkg/cache/scheduler/fair_sharing.go, raw/kueue/pkg/scheduler/preemption/fairsharing/target.go, raw/kueue/pkg/scheduler/preemption/fairsharing/least_common_ancestor.go, raw/kueue/pkg/cache/scheduler/cohort_snapshot.go, raw/kueue/pkg/cache/scheduler/resource_node.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-16343.md, pr-16911.md, pr-16912.md, pr-16738.md, issue-16665.md, issue-16666.md, pr-16487.md, pr-16488.md, pr-16528.md, pr-16581.md, pr-17057.md, issue-16530.md, pr-14348.md, pr-16360.md, pr-16361.md, pr-13433.md, pr-10776.md, issue-16529.md, issue-17022.md, pr-17034.md, pr-17349.md, pr-17390.md, pr-17285.md, pr-17171.md, pr-17196.md, pr-13307.md, pr-17798.md, pr-17851.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/scheduler/preemption/preemption.go, raw/kueue/pkg/features/kube_features.go, raw/kueue/pkg/scheduler/preemption/fair_strategy.go, raw/kueue/pkg/scheduler/preemption/fairsharing/ordering.go, raw/kueue/pkg/cache/scheduler/fair_sharing.go, raw/kueue/pkg/scheduler/preemption/fairsharing/target.go, raw/kueue/pkg/scheduler/preemption/fairsharing/least_common_ancestor.go, raw/kueue/pkg/cache/scheduler/cohort_snapshot.go, raw/kueue/pkg/cache/scheduler/resource_node.go, issue-14090.md, issue-18826.md, pr-18626.md, pr-18827.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -164,6 +164,14 @@ History: before pr-16241, pr-13433 (v0.20.0; backports pr-13546/0.19, pr-13525/0
 ## Preemption logging volume
 
 pr-14348 (v0.20.0; branch ports [[pr-14531]], [[pr-14532]]) collapsed the per-candidate `V(4)` "Evaluating FairSharing strategy" entry into **one entry per candidate ClusterQueue**, carrying the constant fields (preemptor share, target CQ, target old share) once plus a `strategyEvaluations` array with `targetWorkload`, `targetNewShare`, `strategyPassed` per evaluated candidate; nothing is accumulated when V(4) is off. All DRS values are logged through `PreciseWeightedShareSerialized()` (strings), because a raw `+Inf` float made zapcore drop the whole array. Benchmark at 100 candidates: log bytes -69%, logging time -83% (source: pr-14348.md). Companion to the `+Inf` skip above.
+
+## Every entry of a ClusterQueue takes part in the cycle (pr-18626)
+
+A ClusterQueue can contribute several candidates to one cycle: Workloads awaiting a second pass (delayed topology assignment, node replacement) plus its own pending head. `fairSharingIterator` kept one entry per CQ, so the head replaced second-pass entries; those were never evaluated, got `SecondPassFailed` and were requeued with growing backoff while still holding quota, starving as long as the CQ had a head. The iterator now keeps a per-CQ list ordered like the classical iterator (quota-reserved entries first); only the first entry per CQ enters the tournament; `push` (used by the fair-sharing refill) inserts into the list rather than replacing it. Takes over pr-13179 (source: pr-18626.md, fixes issue-14090.md).
+
+## Usage on flavors the ClusterQueue has no quota for counts as borrowed (pr-18827)
+
+After a flavor is removed from a ClusterQueue, admitted Workloads keep running, so their usage remains in the CQ's and Cohorts' `Usage` but there is no `SubtreeQuota` entry. `dominantResourceShare` iterated only `SubtreeQuota`, so the CQ had DRS 0 and looked non-borrowing; `TargetClusterQueueOrdering` pruned it, so a peer could not reclaim its nominal quota (`InCohortReclamation`). It now also counts usage on flavor-resources without a `SubtreeQuota` entry against quota 0, for Cohorts too. Visible side effect: that CQ's `status.fairSharing.weightedShare` and metric are no longer 0 (source: pr-18827.md, fixes issue-18826.md).
 
 ## Related pages
 

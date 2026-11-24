@@ -2,9 +2,9 @@
 
 **Summary**: KueueViz is a web UI for Kueue: it reads the Kueue API (pending counts come from ClusterQueue/LocalQueue status, not the [[visibility-api]]) to show per-[[cluster-queue]] usage, pending workloads, cohort utilization, and per-namespace quotas. It's a separate component (backend + frontend) deployed alongside Kueue, not part of the controller-manager.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-13970.md, pr-16392.md, pr-16394.md, pr-16696.md, pr-16739.md, pr-16608.md; 2026-10-21 batch: pr-17088.md, pr-17135.md, pr-17143.md, pr-17230.md, pr-17246.md, pr-17249.md, pr-16849.md, pr-17104.md, pr-17105.md, pr-17175.md, pr-17235.md, pr-17236.md, pr-17272.md, pr-17273.md, pr-17491.md, pr-17493.md, pr-16278.md, issue-17073.md, issue-17142.md, issue-17178.md, issue-17248.md, issue-16694.md, issue-17102.md, issue-17103.md, issue-17232.md, issue-17270.md, issue-17271.md, issue-17492.md and their backports; 2026-10-28 batch: pr-17207.md, pr-17755.md, issue-17177.md, pr-17536.md, pr-17667.md, pr-17669.md, issue-17532.md, pr-17537.md, pr-17555.md, pr-17568.md, issue-17533.md, pr-16522.md, pr-17791.md, pr-14142.md; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`; `raw/kueue/cmd/kueueviz/backend/`, `raw/kueue/cmd/kueueviz/OWNERS`, `raw/kueue/charts/kueue/templates/networkpolicy/` (CHANGELOG v0.20.3 / v0.19.10 read at kueue@966f00d21).
+**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-13970.md, pr-16392.md, pr-16394.md, pr-16696.md, pr-16739.md, pr-16608.md; 2026-10-21 batch: pr-17088.md, pr-17135.md, pr-17143.md, pr-17230.md, pr-17246.md, pr-17249.md, pr-16849.md, pr-17104.md, pr-17105.md, pr-17175.md, pr-17235.md, pr-17236.md, pr-17272.md, pr-17273.md, pr-17491.md, pr-17493.md, pr-16278.md, issue-17073.md, issue-17142.md, issue-17178.md, issue-17248.md, issue-16694.md, issue-17102.md, issue-17103.md, issue-17232.md, issue-17270.md, issue-17271.md, issue-17492.md and their backports; 2026-10-28 batch: pr-17207.md, pr-17755.md, issue-17177.md, pr-17536.md, pr-17667.md, pr-17669.md, issue-17532.md, pr-17537.md, pr-17555.md, pr-17568.md, issue-17533.md, pr-16522.md, pr-17791.md, pr-14142.md; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`; `raw/kueue/cmd/kueueviz/backend/`, `raw/kueue/cmd/kueueviz/OWNERS`, `raw/kueue/charts/kueue/templates/networkpolicy/` (CHANGELOG v0.20.3 / v0.19.10 read at kueue@966f00d21).; 2026-11-24 batch: pr-17906.md, pr-17908.md, pr-18014.md, pr-18349.md, pr-18678.md, pr-18679.md, pr-18633.md, pr-18667.md, CHANGELOG-0.20.md, CHANGELOG-0.19.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -101,6 +101,16 @@ The `/ws/namespaces` fix generalised to every multi-resource WebSocket. Route mi
 Release: release-0.20 backport pr-17755 merged 2026-10-26, **after v0.20.3**, so it is not in v0.20.3. Not on release-0.19, which has no per-user authorization.
 
 Review rule from this fix: authorizing a route is not enough. **Every informer that can trigger a push to the caller needs its own `watch` check**, scoped the same way as the data the push reveals.
+
+## Authorization, Helm schema and UI fixes (2026-10-29 to 2026-11)
+
+- **ClusterQueue name disclosure in Workload details** (pr-17906, release-0.20 pr-18025, v0.20.5): the page used to read the ClusterQueue name through the Workload's LocalQueue without checking that the caller may read the LocalQueue. It now checks read permission first; if denied or the check fails, it uses only the Workload's own admission information and shows `Unknown` when no ClusterQueue name is there. On release-0.19, which has no per-user authorization, the v0.19.12 fix instead shows the admitted ClusterQueue after a LocalQueue is deleted and recreated (#18049).
+- **Helm values schema validates the auth mode** (pr-17908, 2026-11-16): `kueueViz.backend.auth.mode` accepts only `Disabled` and `TokenReview`. A misspelling such as `tokenreview`, an empty string, `null` or a non-string now fails `helm template`/install, instead of silently serving requests without authentication. This complements the backend fix that fails startup on an unknown `KUEUEVIZ_AUTH_MODE`.
+- **Taint/toleration labels** (pr-18014, shipped v0.20.5 / v0.19.12): `utils/taints.js` `formatTaint` / `formatToleration` follow `kubectl describe` (`key=value:Effect`, `key:Effect`, `op=Exists`, `for 300s`) so omitted optional fields no longer print `undefined`. Used for flavor taints, flavor tolerations and node taints.
+- **YAML dialogs** no longer switch resources across namespaces (#18028 / #18030) and **"Pod Sets Count"** shows the number of pod sets rather than the first pod set's pod count (pr-18678 / pr-18679, v0.20.6 / v0.19.13).
+- **Ownership:** a `kueueviz-reviewers` alias (akram, danylott, mykysha) covers `cmd/kueueviz` and `test/e2e/kueueviz` (pr-18349). KueueViz CI was trimmed to reuse test setup and race compilation (pr-18633, pr-18667); `cmd/kueueviz/backend` depends on `sigs.k8s.io/kueue`, which Dependabot bumps with each patch release.
+
+(source: pr-17906.md, pr-17908.md, pr-18014.md, pr-18349.md, pr-18678.md, pr-18633.md, CHANGELOG-0.20.md, CHANGELOG-0.19.md)
 
 ## Backend shutdown
 

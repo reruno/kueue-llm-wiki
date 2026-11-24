@@ -2,9 +2,9 @@
 
 **Summary**: A ClusterQueue (CQ) is a cluster-scoped resource that owns a pool of quota. It groups quota into resource groups of flavors, limits how workloads queue up, and optionally joins a [[cohort]] so unused capacity can be lent to peers.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15633.md, pr-16140.md, pr-15949.md, pr-16282.md, pr-15913.md, pr-16168.md, raw/kueue/apis/kueue/v1beta2/clusterqueue_types.go, pr-15371.md, pr-16375.md, pr-16438.md, pr-15040.md, pr-17010.md, pr-16487.md, pr-16488.md, pr-16528.md, pr-16728.md, pr-17479.md, pr-17480.md, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/cache/queue/manager.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-17523.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15633.md, pr-16140.md, pr-15949.md, pr-16282.md, pr-15913.md, pr-16168.md, raw/kueue/apis/kueue/v1beta2/clusterqueue_types.go, pr-15371.md, pr-16375.md, pr-16438.md, pr-15040.md, pr-17010.md, pr-16487.md, pr-16488.md, pr-16528.md, pr-16728.md, pr-17479.md, pr-17480.md, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/cache/queue/manager.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-17523.md, issue-18629.md, pr-18221.md, pr-18314.md, pr-18631.md, pr-18748.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -98,6 +98,18 @@ The gate that makes the validating webhook reject ClusterQueue updates referenci
 ## Configuration: `scheduling.quotaReleaseStrategy` (removed before v0.20)
 
 **Correction (2026-10-21)**: this section described `scheduling.quotaReleaseStrategy` (`OnTermination` default, `OnTerminalBestEffort`), the Configuration field added in `v1beta1`/`v1beta2` by [[pr-13224]] for KEP-6143. **pr-15371 reverted it** (merged 2026-09-09, ahead of the v0.20 code freeze): the field, its type, defaults, validation, tests and reference docs are gone, and no `quotaReleaseStrategy` exists in `apis/config` at this snapshot. The design moved to a **per-integration** setting (`.integrations.frameworkConfigs[].quotaReleaseStrategy`, KEP-10076 / #15146), which is **not merged** in this batch, so there is currently no released configuration knob for "hold quota until Pods are terminal" (source: pr-15371.md, raw/kueue/apis/config/).
+
+## Terminating ClusterQueues keep their metrics current (v0.21 main)
+
+While a CQ is being deleted and admitted Workloads hold the `kueue.x-k8s.io/resource-in-use` finalizer, its `Update` handler returned early on the deletion timestamp and never refreshed resource metrics. `Reconcile` now records the CQ resource metrics in its deletion branch (when `metrics.enableClusterQueueResources` is set) and records cohort metrics for every CQ it reconciles (source: pr-18631.md, fixes issue-18629.md).
+
+## Pending counts
+
+`status.pendingWorkloads` counts a ConcurrentAdmission Parent once (Variants beyond the first are subtracted) (source: pr-18748.md). `kueue_pending_workloads`/unadmitted series are reported only if the CQ exists: when a LocalQueue still points at a deleted CQ, a Workload turning Misconfigured used to create a stale empty-label series (source: pr-18221.md).
+
+## Effective-quota expiration (DQO, Alpha)
+
+`status.effectiveQuotas.expirationTime` and the `EffectiveQuotaActive` condition (`Issued`/`Renewed`/`Expired`) exist on ClusterQueue and Cohort when a DQO sets `effectiveQuotasTTLSeconds`; consumers fall back to `spec.resourceGroups` when the condition is `False` (source: pr-18314.md; see [[cohort]]).
 
 ## Related pages
 

@@ -2,9 +2,9 @@
 
 **Summary**: The integration for Kubernetes' built-in `batch/v1.Job`. It's the simplest and most mature — a Job has one PodSet (or one plus a `parallelism`/`completions` count). Kueue suspends the Job at creation and unsuspends on admission.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-17059.md, pr-17569.md, pr-17574.md, issue-17047.md, raw/kueue/pkg/controller/jobs/job/job_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-17059.md, pr-17569.md, pr-17574.md, issue-17047.md, raw/kueue/pkg/controller/jobs/job/job_multikueue_adapter.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-18010.md, pr-18218.md, issue-18217.md, pr-18503.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -37,6 +37,18 @@ The Workload PodSet reserves `min(parallelism, completions)` pods (`podsCount()`
 ## Zero-parallelism elastic Jobs
 
 A Job created at `parallelism: 0` used to be admitted on whichever flavor came first, and its `nodeLabels` were stamped into the pod template; see [[elastic-jobs#Zero-count PodSets and flavor selection]] (source: pr-15444.md).
+
+## Concurrent reconciles: `AlreadyExists` on Workload create is success (pr-18010)
+
+Two quick reconciles of one Job can race: the second reads an informer cache that has not yet seen the Workload the first created, `ensureOneWorkload` finds nothing, `handleJobWithNoWorkload` calls `Create`, and the API server answers `AlreadyExists`. Since #12931 that error was returned as-is, so controller-runtime logged a `Reconciler error` each time. The generic reconciler now returns with no error and no requeue, for plain Jobs and for Jobs with workload slices; the Workload create event requeues the owning Job through the Workload watch (source: pr-18010.md). The LeaderWorkerSet reconciler got the same treatment, see [[integration-leaderworkerset]].
+
+## `max-exec-time-seconds` label is bounded by int32 (pr-18218)
+
+`kueue.x-k8s.io/max-exec-time-seconds` is validated at creation for every job integration (shared `validateCreateForMaxExecTime`). The reader `MaximumExecutionTimeSecondsForObject` parses the label as 32 bits and `Workload.spec.maximumExecutionTimeSeconds` is an `int32`, but the webhook used `strconv.Atoi` only, so a value above 2147483647 was admitted and then silently dropped, giving a Workload with no limit. Creation now fails with `should be less than or equal to 2147483647`. Objects created earlier are unaffected, and the update path still checks only immutability (source: pr-18218.md, issue-18217.md). See [[workload-max-execution-time]].
+
+## Gotcha: TAS rollback does not stop Jobs admitted without TAS (pr-18503)
+
+The Job-to-Workload equivalence check added in #14585 compares the topology request. Jobs whose Workloads were admitted while `TopologyAwareScheduling` was disabled used to be stopped and requeued after the gate was re-enabled (reported on release-0.19 TAS rollouts). The topology-request validation is now skipped for Workloads admitted without TAS (source: pr-18503.md).
 
 ## Related pages
 

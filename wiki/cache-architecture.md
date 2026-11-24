@@ -2,9 +2,9 @@
 
 **Summary**: Kueue's in-memory cache stores the live state of ClusterQueues, Cohorts, and admitted workloads; the scheduler takes an immutable per-cycle snapshot of this cache to make admission decisions without holding locks.
 
-**Sources**: `raw/kueue/pkg/cache/scheduler/`, `raw/kueue/pkg/cache/hierarchy/`, `raw/kueue/pkg/cache/queue/`, pr-16375.md, pr-16438.md, pr-16360.md, pr-16479.md, pr-16492.md, pr-16527.md, pr-16738.md, pr-15040.md, pr-15107.md, pr-16382.md, pr-16630.md, pr-17455.md, issue-16624.md, pr-17346.md, pr-17404.md, pr-17407.md, pr-17041.md, issue-17040.md, pr-17461.md, pr-17414.md, pr-17416.md, pr-17417.md, pr-17448.md, pr-17452.md, issue-17412.md, pr-16728.md, pr-16340.md, raw/kueue/pkg/cache/scheduler/initial_sync.go, raw/kueue/pkg/cache/scheduler/candidate_order_cache.go, raw/kueue/pkg/controller/core/cohort_controller.go, raw/kueue/pkg/cache/queue/manager.go, raw/kueue/pkg/cache/queue/pending_workloads.go, pr-17578.md, pr-17582.md, pr-17856.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
+**Sources**: `raw/kueue/pkg/cache/scheduler/`, `raw/kueue/pkg/cache/hierarchy/`, `raw/kueue/pkg/cache/queue/`, pr-16375.md, pr-16438.md, pr-16360.md, pr-16479.md, pr-16492.md, pr-16527.md, pr-16738.md, pr-15040.md, pr-15107.md, pr-16382.md, pr-16630.md, pr-17455.md, issue-16624.md, pr-17346.md, pr-17404.md, pr-17407.md, pr-17041.md, issue-17040.md, pr-17461.md, pr-17414.md, pr-17416.md, pr-17417.md, pr-17448.md, pr-17452.md, issue-17412.md, pr-16728.md, pr-16340.md, raw/kueue/pkg/cache/scheduler/initial_sync.go, raw/kueue/pkg/cache/scheduler/candidate_order_cache.go, raw/kueue/pkg/controller/core/cohort_controller.go, raw/kueue/pkg/cache/queue/manager.go, raw/kueue/pkg/cache/queue/pending_workloads.go, pr-17578.md, pr-17582.md, pr-17856.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, issue-17637.md, issue-17956.md, issue-18396.md, pr-17957.md, pr-18397.md, pr-18592.md, pr-18662.md, pr-18748.md, pr-18806.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -169,6 +169,20 @@ With `TASCacheTopologyTree` (Beta/on from v0.20) the cache holds an **immutable 
 ## `RequeueWorkload` owns the inflight cleanup
 
 Inflight bookkeeping is cleared **inside `Manager.RequeueWorkload`, before `info.Update` clears the source ClusterQueue** ([[pr-13885]]). Doing it there rather than at the call sites also fixes the `requeueAndUpdate` path and LocalQueue retargeting, where the previous ClusterQueue kept counting a moved Workload as pending. See [[scheduler-internals#Popped heads must survive a snapshot failure]].
+
+## Elastic workload slices are charged once (pr-18397)
+
+During elastic scale-up the cache charged the ClusterQueue for both the replacement slice (from assumption) and the slice it replaces (until that slice's `Finished` update arrived), so usage could exceed what the job runs and even the quota, and the scheduler admitted/preempted against the inflated number. The cache now charges each *chain* of slices once; a slice covered by another slice of its chain is not charged. A chain is identified by namespace, controller and the `kueue.x-k8s.io/workload-slice-name` annotation carried by every slice; a `workloadSliceTracker` keeps the slices, and the larger of two slices covers the smaller (source: pr-18397.md, fixes issue-18396.md).
+
+## Deleting an assumed Workload still notifies its ClusterQueue
+
+An assumed Workload's reservation exists only in the scheduler cache. If it is deleted after its LocalQueue, `handleDelete` used to notify watchers with the informer object (no reservation), and `ClusterQueueReconciler.requestCQForWL` needs the LocalQueue to find the ClusterQueue, so the CQ was never requeued. `Cache.ForgetWorkload` now returns the cached Workload it removed, and `handleDelete` notifies with that copy (call moved from a `defer`, which would have evaluated its argument early, to the last line) (source: pr-18662.md, fixes issue-17637.md).
+
+## Queue manager liveness and backoff
+
+- **Namespace lookup failures.** The inadmissible-Workload requeue worker could silently skip a failed Namespace lookup, consuming the notification and leaving an eligible Workload pending (informer-backed `NotFound` can be a transient cache miss). Failures including `NotFound` are now retried while the worker context lives, with per-request exponential delay 5 s up to 2 min (reset after a successful pass); the 1 s batching is unchanged; Workload backoff is checked before fetching the Namespace; eligible Workloads in other ClusterQueues/Cohort children still progress (source: pr-18592.md).
+- **Cohort reconcile fan-out.** A CQ event requeued its ancestor Cohorts, every Cohort reconcile notified every CQ below it, and each CQ status write is a CQ event, so the sweep never ended in busy trees (~900 CQs: one status write cost ~900 reconciles). `CohortReconciler` now keeps a set of Cohorts whose CQs the next reconcile notifies; entries are added on Cohort create or spec/quota change and, with fair sharing, on CQ create/delete/spec-or-quota change (`clusterQueueSpecOrQuotaUpdated`, moved to `helpers.go`; the ClusterQueue-to-Cohort channel carries old and new CQ). A Cohort requeued by a CQ status write only refreshes its own status and metrics. With fair sharing `NotifyCohortUpdate` enqueues the whole tree (`cache.ClusterQueuesInCohortTree`), because the weighted share divides by the tree's lendable quota; before, other branches' `status.fairSharing.weightedShare` went stale (source: pr-17957.md, fixes issue-17956.md).
+- **Parent Workloads under ConcurrentAdmission.** The Parent is not queued; each Variant is. `variantParentCounts` (per status active/inadmissible/inflight, updated beside `schedulingHashCounts`) lets `Pending()` subtract Variants beyond the first per Parent, so ClusterQueue `status.pendingWorkloads` and `kueue_pending_workloads` count one per Parent (a Parent is active if any Variant is active or inflight). `PendingBreakdown()` (custom labels) and the Visibility API are unchanged (source: pr-18748.md). For LocalQueues the Parent could still enter items via restart ordering (`addLocalQueueLocked`), a Parent event before its ClusterQueue exists (ClusterQueue-policy lookup missed it), and eviction requeue through `AddOrUpdateWorkloadWithoutLock`; the Parent-label check moved into `AddOrUpdateWorkloadWithoutLock`, with ClusterQueue policy as fallback for a not-yet-labelled Parent (source: pr-18806.md).
 
 ## Related pages
 

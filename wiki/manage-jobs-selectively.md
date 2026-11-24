@@ -2,9 +2,9 @@
 
 **Summary**: Kueue provides two configuration knobs — `manageJobsWithoutQueueName` and `managedJobsNamespaceSelector` — that together let cluster admins precisely control which jobs Kueue manages, scoped to namespaces rather than individual jobs.
 
-**Sources**: `raw/kueue/keps/3589-manage-jobs-selectively/README.md`, `raw/kueue/keps/3589-manage-jobs-selectively/kep.yaml`, pr-13375.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16982.md, pr-17843.md, pr-17869.md, issue-16974.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
+**Sources**: `raw/kueue/keps/3589-manage-jobs-selectively/README.md`, `raw/kueue/keps/3589-manage-jobs-selectively/kep.yaml`, pr-13375.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-16982.md, pr-17843.md, pr-17869.md, issue-16974.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-17989.md, pr-18592.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -86,6 +86,14 @@ To apply the selector, `ReconcileGenericJob` reads the job's Namespace from the 
 ## Interaction with LocalQueue defaulting
 
 [[local-queue-defaulting]] injects the queue-name label into jobs before the webhook decides whether to manage them. If defaulting is active, `manageJobsWithoutQueueName` becomes less relevant for the namespaces that have a `default` LocalQueue. (source: keps/3589-manage-jobs-selectively/README.md)
+
+## The `ManagedJobsNamespaceSelectorAlwaysRespected` gate is removed (pr-17989)
+
+The gate was GA and `LockToDefault` since v0.19 (#13021), and that PR already removed every `features.Enabled(...)` read, so the "disabled" row of the behaviour matrix above can no longer happen. The gate definition was deleted from main (v0.21) two releases later, following the normal feature-gate lifecycle; nothing in the code read it (source: pr-17989.md). In the matrix, read the **enabled** row as the only behaviour: with a selector set, jobs in non-matching namespaces are never managed, even when labeled.
+
+## Inadmissible-Workload requeue retries Namespace lookup failures (pr-18592)
+
+The worker that re-queues inadmissible Workloads reads each Workload's Namespace to evaluate the selector. A lookup failure (including `NotFound`, which with informer-backed reads can be a transient cache miss) used to be skipped silently, consuming the notification and leaving an otherwise eligible Workload pending until another event. Now failures are retried while the worker context is live, with a per-request exponential delay from 5s capped at 2 minutes (state forgotten after a successful pass); the 1s notification batching is unchanged. Workload backoff is checked before the Namespace fetch, and eligible Workloads in other ClusterQueues or Cohort children still progress when one lookup fails (source: pr-18592.md).
 
 ## Related pages
 

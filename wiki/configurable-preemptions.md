@@ -2,9 +2,9 @@
 
 **Summary**: `PreemptionConfig` (KEP-13396, `kueue.x-k8s.io/v1alpha1`, cluster-scoped) lets an administrator declare extra preemption rules with triggers and candidate selectors; a [[cluster-queue]] opts in through an annotation. **Alpha, feature gate `ConfigurablePreemptions`, off by default, new in v0.20.** Rules add *fallback candidates* on top of the classical and fair-sharing algorithms; they never replace them.
 
-**Sources**: pr-15889.md, pr-15913.md, pr-15992.md, pr-16062.md, pr-16124.md, pr-16130.md, pr-16139.md, pr-16202.md, pr-16208.md, pr-16269.md, pr-16324.md, issue-15892.md, issue-15893.md, issue-16295.md, raw/kueue/apis/kueue/v1alpha1/preemptionconfig_types.go, raw/kueue/pkg/scheduler/preemption/config/, raw/kueue/keps/13396-configurable-preemptions/README.md, pr-16374.md, pr-16390.md, pr-16598.md, pr-17091.md, pr-16695.md, pr-16343.md, pr-17216.md, pr-17128.md, pr-16684.md, pr-17019.md, pr-17746.md, raw/kueue/pkg/scheduler/preemption/config/filters/priority_filters.go, raw/kueue/pkg/scheduler/preemption/config/filters/factory.go, raw/kueue/pkg/scheduler/preemption/config/evaluator.go
+**Sources**: pr-15889.md, pr-15913.md, pr-15992.md, pr-16062.md, pr-16124.md, pr-16130.md, pr-16139.md, pr-16202.md, pr-16208.md, pr-16269.md, pr-16324.md, issue-15892.md, issue-15893.md, issue-16295.md, raw/kueue/apis/kueue/v1alpha1/preemptionconfig_types.go, raw/kueue/pkg/scheduler/preemption/config/, raw/kueue/keps/13396-configurable-preemptions/README.md, pr-16374.md, pr-16390.md, pr-16598.md, pr-17091.md, pr-16695.md, pr-16343.md, pr-17216.md, pr-17128.md, pr-16684.md, pr-17019.md, pr-17746.md, raw/kueue/pkg/scheduler/preemption/config/filters/priority_filters.go, raw/kueue/pkg/scheduler/preemption/config/filters/factory.go, raw/kueue/pkg/scheduler/preemption/config/evaluator.go, pr-18271.md, pr-19011.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -131,6 +131,18 @@ Targets with reason `ConfigurablePreemption` are exempt from the `FairSharingVer
 ## Open follow-ups (not shipped)
 
 Defragmentation test isolation (issue-16207) and review follow-ups (issue-16203) remain open; the umbrella is issue-16367. **Update (2026-10-21)**: issue-16141 (overlapping TAS flavors) and issue-16210 (typed identifiers) are now fixed, see above.
+
+## Timed requeue when no candidate matches yet (pr-18271)
+
+Part 1 of the time-based-filter work (issue-13396): plumbing so a Workload is retried at the moment skipped candidates become eligible. Pieces: `WorkloadTimeFilter` and `CandidateFilters.WLTimeFilters`; `PreemptionEvaluator.RetryAt()`; `Preemptor.TakeRetryAt()`; `NotifyRetryInadmissibleAfter` on the queue `Manager`/`workqueueRequeuer`; armed in `Scheduler.requeueAndUpdate` for `PreemptionNoCandidates` or `NoFit`.
+
+- Within one `CandidateSelector`, `matchesWorkload` evaluates static `WLFilters` first, then takes the *latest* retry time across failing `WLTimeFilters` (all filters in a selector must hold simultaneously). Candidates already matched by another selector of the same trigger are ignored; `cmputil.EarliestTime` keeps the earliest across remaining candidates.
+- The retry time is recorded only when all strategies are exhausted without the caller stopping early, so a successful preemption leaves no stale timestamp; covers oracle flavor probes, `nativePlanner` and `wasPlanner`.
+- The delay is `max(delay, batchPeriod)` (source: pr-18271.md).
+
+## Retry inadmissible Workloads when a PreemptionConfig changes (pr-19011)
+
+A Workload that cannot be admitted under a ClusterQueue's `PreemptionConfig` moves to the inadmissible list, and creating, deleting or editing that `PreemptionConfig` used to leave it pending until an unrelated event. A PreemptionConfig controller, registered only when `ConfigurablePreemptions` is enabled, now retries the inadmissible Workloads of the ClusterQueues that reference the config on create, on delete and on spec changes (`metadata.generation`); label- and annotation-only updates are ignored. It only touches in-memory queues, so it runs on every replica (`NeedLeaderElection: false`) (source: pr-19011.md).
 
 ## Related pages
 

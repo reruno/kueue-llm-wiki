@@ -2,9 +2,9 @@
 
 **Summary**: `kueuectl` (installable as the `kubectl-kueue` plugin) is Kueue's CLI for day-to-day operator and user tasks: creating ClusterQueues and LocalQueues, listing/stopping/resuming workloads, draining queues, and passing `get`/`describe`/`edit`/`patch`/`delete` on Kueue resource types through to `kubectl`.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-15376.md, pr-16040.md, pr-16510.md, pr-16531.md, pr-16609.md, pr-16633.md, pr-16667.md, pr-16850.md, pr-16981.md, pr-17055.md, issue-17054.md; 2026-10-28 batch: pr-17708.md, issue-17707.md, pr-17818.md, pr-17829.md, pr-17830.md, `raw/kueue/cmd/kueuectl/app/passthrough/passthrough.go`, `raw/kueue/test/integration/singlecluster/kueuectl/passthrough_test.go`; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-15376.md, pr-16040.md, pr-16510.md, pr-16531.md, pr-16609.md, pr-16633.md, pr-16667.md, pr-16850.md, pr-16981.md, pr-17055.md, issue-17054.md; 2026-10-28 batch: pr-17708.md, issue-17707.md, pr-17818.md, pr-17829.md, pr-17830.md, `raw/kueue/cmd/kueuectl/app/passthrough/passthrough.go`, `raw/kueue/test/integration/singlecluster/kueuectl/passthrough_test.go`; `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `CHANGELOG-0.19.md`, `CHANGELOG-0.18.md`.; 2026-11-24 batch: pr-18174.md, pr-18054.md, pr-18057.md, pr-18075.md, pr-18197.md, pr-18138.md, pr-18296.md, CHANGELOG-0.20.md, CHANGELOG-0.19.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -83,6 +83,22 @@ Open inconsistency: `kueuectl create clusterqueue` validates resource-group over
 
 - **Standalone Pod.** The selector became `pod-group-name=` (empty value) and matched nothing (`No resources found`). The CLI now detects a Pod without the group label and selects it by namespace and name through a field selector, merged with any user `--field-selector` and `--selector`; `PodLabelSelector()` is unchanged (source: pr-15435.md).
 - **Annotation-based groups.** When the group name is stored in the `kueue.x-k8s.io/pod-group-name` **annotation** rather than the label (annotation form, see [[integration-leaderworkerset]]), label selectors cannot match. kueuectl now reads the annotation, lists the namespace's Pods without a group selector and filters client-side (source: pr-15739.md, fixes issue-15709.md).
+
+### Annotation-group scan warning (v0.21, pr-18174)
+
+Kubernetes filters on label selectors server-side but not on annotations, so `kueuectl list pods --for pod/NAME` for a Pod group named by the `kueue.x-k8s.io/pod-group-name` **annotation** lists Pods in scope and filters client-side. The command now prints a warning to stderr first, stating the scan scope and the supplied label/field selectors and suggesting `--selector` when none was given. The scan stays in the anchor Pod's namespace, including with `--all-namespaces`. Label-based groups and standalone Pods stay silent, and the selected Pods are unchanged. (An earlier variant, pr-18173, described an all-namespaces scan and was not merged; pr-17909, the mixed label/annotation fix, was also still unmerged at this snapshot.) (source: pr-18174.md)
+
+## `list` request limit
+
+`KUEUECTL_LIST_REQUEST_LIMIT` controls pagination for `kueuectl list`; it is now documented in `kueuectl list --help` and the website reference (pr-18054). Negative values are rejected with an error; `0` is accepted and disables pagination (v0.20.5 via #18087; v0.19.13 via #18681). (source: pr-18054.md, CHANGELOG-0.20.md, CHANGELOG-0.19.md)
+
+## `create clusterqueue` validation and error text
+
+`create clusterqueue` validates quota specs with the API server's rules: valid values such as `cpu=1e-3` or a resource name like `foo--bar.example.com/gpu` are accepted, names the API server rejects are refused, and errors name the invalid spec and flag (v0.20.6 via #18540, v0.19.13 via #18542). The `invalid resource group` error names the conflicting flavors and the resources each covers (v0.20.5 / v0.19.12, #18097 / #18096). `kueuectl delete workload` usage now says it takes multiple names, that names and `--all` are mutually exclusive, and that `--all-namespaces` needs `--all` (v0.20.4 / v0.19.11). (source: CHANGELOG-0.20.md, CHANGELOG-0.19.md)
+
+## Ownership and test conventions
+
+`cmd/kueuectl` has `kueuectl-approvers` (mbobrovskyi, since pr-17846) and `kueuectl-reviewers` (henry3260 self-nominated, pr-18057) aliases, also applied to the kueuectl docs and test OWNERS (pr-18075). Tests were reshaped: the pass-through table became independent scenarios, a shared in-process execution helper exists (pr-18197), the create-clusterqueue tests use a single `wantErr` string and inline error sentinels (pr-18138, pr-18296), and the CI builds `kueuectl` only for test targets that run it. (source: pr-18057.md, pr-18075.md, pr-18197.md, pr-18138.md, pr-18296.md)
 
 ## `list workload --for`
 

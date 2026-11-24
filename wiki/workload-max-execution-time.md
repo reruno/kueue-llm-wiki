@@ -2,9 +2,9 @@
 
 **Summary**: Kueue can enforce a maximum wall-clock execution time for any job type by automatically deactivating the workload once the cumulative admitted time exceeds `spec.maximumExecutionTimeSeconds`.
 
-**Sources**: `raw/kueue/keps/3125-maximum-execution-time/README.md`, `raw/kueue/keps/3125-maximum-execution-time/kep.yaml`, pr-14449.md, pr-13420.md, raw/kueue/apis/kueue/v1beta2/workload_types.go
+**Sources**: `raw/kueue/keps/3125-maximum-execution-time/README.md`, `raw/kueue/keps/3125-maximum-execution-time/kep.yaml`, pr-14449.md, pr-13420.md, raw/kueue/apis/kueue/v1beta2/workload_types.go, pr-18218.md, issue-18217.md, pr-18489.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -66,6 +66,12 @@ If a workload is preempted before its budget expires, the elapsed time is accumu
 ## Debugging
 
 Check `status.accumulatedPastExecutionTimeSeconds` to see how much time has been consumed across cycles. Fleet-wide, `kueue_execution_time_seconds` / `kueue_local_queue_execution_time_seconds` (v0.20) observe the same accumulator plus the final admitted segment when a Workload finishes, so they show how close finished jobs ran to their budget (source: pr-13420.md; see [[metrics]]). A Warning event with reason `MaximumExecutionTimeExceeded` indicates that the budget expired (followed by an `EvictedDueToDeactivatedDueToMaximumExecutionTimeExceeded` eviction event).
+
+## Label value is bounded by int32 (pr-18218)
+
+For the `kueue.x-k8s.io/max-exec-time-seconds` job label, the creation webhook now rejects values above 2147483647 (`should be less than or equal to 2147483647`). Before, a larger value passed validation (`strconv.Atoi`) but the reader `MaximumExecutionTimeSecondsForObject` parses 32 bits, so the Workload silently got no `maximumExecutionTimeSeconds` and the job ran unlimited. Non-numeric and non-positive errors are unchanged; objects that already exist are unaffected and the update path only checks immutability (source: pr-18218.md, issue-18217.md).
+
+Per-admission run-duration limits (pr-18489) were closed without merging and are not part of the shipped behaviour (source: pr-18489.md).
 
 ## Related pages
 

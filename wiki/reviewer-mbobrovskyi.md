@@ -2,11 +2,15 @@
 
 **Summary**: Profile of Kueue reviewer @mbobrovskyi — review philosophy, domain focus, and approval patterns. Specializes in test infrastructure, API consolidation, controller-runtime patterns, and code-reuse hygiene.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` — analysis of PRs where @mbobrovskyi left substantive feedback. Representative examples: pr-10244, pr-10294, pr-10323, pr-10388, pr-10595; 2026-10-28 batch: pr-17708.md, pr-17613.md.
+**Sources**: `raw/github/kubernetes-sigs__kueue/` — analysis of PRs where @mbobrovskyi left substantive feedback. Representative examples: pr-10244, pr-10294, pr-10323, pr-10388, pr-10595; 2026-10-28 batch: pr-17708.md, pr-17613.md.; 2026-11-24 batch: pr-18191.md, pr-18284.md, pr-18478.md, pr-18712.md, pr-18707.md, pr-17965.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
+
+## Role changes (2026-11)
+
+Became approver for the Pod-based integrations (pod, deployment, statefulset, leaderworkerset; pr-18191), for the `jobframework` implementation excluding `interface.go` and `multikueue.go` (pr-18284), for kueuectl (pr-17846), and extended `infra-approvers` / added `infra-reviewers` coverage (pr-18478, pr-18712). Also authored most of the v0.20.x / v0.19.x patch backports and release-prep PRs of the period, and the `StartManagerForSpec` test-helper conversion (pr-18707). See [[reviewers]].
 
 ## Identity and role
 

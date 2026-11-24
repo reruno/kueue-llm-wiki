@@ -1024,3 +1024,31 @@ Cross-slice facts were relayed between slices or applied by the coordinator (`jo
 - pr-17621's "scheduler-library#63 enables quota preemption" comes from the description only; the WAS planner still rejects `Preempt`.
 - pr-17649's "too few eligible devices → inadmissible, retried with backoff" comes from the PR description, not the code.
 - The v0.19.10 changelog cites main PRs #16630/#17346 instead of their backports (pr-17582/pr-17407).
+
+## 2026-11-24 — Ingest of data-collection 188137fab (kueue@5cccc136e): 32 CVEs, ~1,000 issues/PRs
+
+- **Date**: 2026-11-24
+- **Data-collection commit**: 188137fab57e7db9ce838502f952d77f4ec4fed0 (`[data-collection] 1068 new,519 updated items from kubernetes-sigs/kueue, kueue@5cccc136e`)
+- **Method**: only PRs whose raw file shows `State: closed (merged)` were treated as shipped behaviour. Open, draft and closed-unmerged PRs and open issues were excluded (about 139 of the new PR files). The candidate list used at the start wrongly included such PRs, and a cleanup pass removed their claims from the TAS/scheduler/DRA pages. Some claims remain explicitly marked as unmerged or unverified (e.g. `PrioritySortingWithinCohort` GA, pr-18179; elastic replacement-Pod fix, pr-18099/pr-18530).
+- **Source files analysed**: the 32 CVE files (CVE-2026-102339, -102340, -103002, -103506, -109797, -116472, -118760, -119115, -119572, -119573, -120091, -120306, -120307, -121374, -122310, -122986, -123047, -123059, -123810, -126643, -126802, -127073, -127077, -127080, -59185, -62284, -63121, -88982, -88984, -91163, -91168, -97373); issues and PRs under `raw/github/kubernetes-sigs__kueue/` as added in that commit: issue-12701 … issue-18873 (about 261 files) and pr-15406, pr-17896 … pr-18878 (about 775 files). The full file list is the task's file list for this commit (`git show --name-only 188137fa -- raw`).
+
+**Pages updated (no new pages created)**
+- `security.md`: 2026-11-24 wave section (32 CVEs by theme, none a Kueue advisory); corpus 803 → 855.
+- `security-authn-authz.md`, `security-code-patterns.md`, `security-injection-and-input-validation.md`, `security-information-disclosure.md`, `security-denial-of-service.md`, `security-supply-chain.md`, `security-best-practices.md`: new patterns, Kueue-specific checks and review checklist items from the CVEs.
+- `multikueue.md`: quota automation removed in v0.21; ClusterProfile Beta and late CRD install; reconnect resync (skipped reads, low-priority requeue); retry with no cluster connected; worker removal; pending messages; DRA CEL skip on manager; `--cascade=orphan`; Ray slice repointing.
+- `dynamic-quota-orchestration.md`: opt-in effective quota expiration; `DistributionIncomplete`; subtree handoff; local-capacity and MultiKueue capacity providers.
+- `concurrent-admission.md`: Policy removal cleanup; no Variants for finished/deleting Parents; labels not shared; no re-eviction of evicted Variants; Parent-once pending counts.
+- `topology-aware-scheduling.md`: ancestor-capacity tie-break, preferred-affinity score fixes, node-label match, cordoned-node replacement, unhealthy-node cleanup, second-pass quota, elastic topology rejections, AppWrapper equivalence, StatefulSet refresh, GA gates.
+- `dra.md`: `excludeDeviceClassNames`, CEL check skips (MultiKueue), pool eligibility, missing-DeviceClass rejection.
+- `scheduler-internals.md`, `borrowing-and-lending.md`: FlavorFungibility preemption+borrowing merge across resources (pr-18823); toleration non-mutation; usage on flavors without quota counted as borrowed.
+- `cache-architecture.md`, `queueing-strategy.md`, `cohort.md`, `cluster-queue.md`, `local-queue.md`, `metrics.md`: elastic slice charged once, assumed-Workload deletion, Namespace-lookup retry, cohort notification rules, terminating-ClusterQueue and LocalQueue metric lifecycle, creation-latency histogram.
+- `preemption.md`, `fair-sharing.md`, `admission-fair-sharing.md`, `configurable-preemptions.md`: boost re-evaluation, second-pass quota, per-ClusterQueue entry iteration, timed requeue and requeue on PreemptionConfig change (pr-19011).
+- `resource-flavor.md`, `workload-priority.md`, `workload-resource-adjustment.md`, `admission.md`: flavor `nodeLabels` match rule, atomic queue+priority update, `WorkloadPriorityClassWatchesWorkloads`, LimitRange pod-max check, evict-before-backoff, deleted-Workload handling.
+- `integration-batchjob.md`, `integration-plain-pod.md`, `integration-leaderworkerset.md`, `integration-statefulset.md`, `integration-spark.md`, `integration-rayjob.md`, `integration-appwrapper.md`, `integration-argo-workflow.md`, `integration-trainjob.md`, `integrations.md`, `job-framework-interface.md`: AlreadyExists race, int32 label bound, stale Pod requests, LWS container mutation and `groupIdentity: Hash` rejection, StatefulSet name fallback gate, elastic Spark/Ray fixes, `ReconcileGenericJob` split, v0.21 roll-up.
+- `elastic-jobs.md`, `wait-for-pods-ready.md`, `provisioning-request.md`, `failure-recovery.md`, `workload-max-execution-time.md`, `admission-check.md`, `webhooks.md`, `workload.md`, `manage-jobs-selectively.md`: slice charging, optional `timeoutSeconds`, ProvisioningRequest container handling, grace-period unit fix, unique `podSetUpdates`, `Evict` nil-admission fix, removal of `ManagedJobsNamespaceSelectorAlwaysRespected`.
+- `feature-gates.md`: 2026-11 batch of GA/removed/Beta/new gates and release-branch-only gates.
+- `release-process.md`, `architecture.md`, `api-versions.md`: v0.19.11–13 and v0.20.4–6 rows, fix-to-patch-release table, release automation, `/convert` fix.
+- `kueuectl.md`, `dashboard.md`, `testing.md`, `testing-integration.md`, `reviewers.md`, `reviewer-mbobrovskyi.md`: annotation-scan warning, KueueViz disclosure fix, `ginkgo.Ordered` removal and `StartManagerForSpec`, reviewer self-nominations, PR-evidence skills.
+- `index.md`: snapshot header (2026-11-24, 855 CVEs), feature-gates blurb.
+
+**Left open / unverified**: gate stages for `PartialPreemption` and `KueueDRAExcludeDeviceClasses` come from release notes only; `/convert` fix on release-0.19 not checked; LimitRange `maxLimitRequestRatio` (issue-18800) has no fix; the `PreemptionConfig` preemptor-hash-field set (pr-18492) is not merged.

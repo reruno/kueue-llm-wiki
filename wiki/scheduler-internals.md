@@ -2,9 +2,9 @@
 
 **Summary**: The Kueue scheduler runs a continuous scheduling cycle that snapshots the cluster state, assigns resource flavors to pending workloads, and admits or preempts them according to quota and fair-sharing rules.
 
-**Sources**: `raw/kueue/pkg/scheduler/scheduler.go`, `raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go`, `raw/kueue/pkg/scheduler/logging.go`, pr-15444.md, pr-16078.md, pr-15829.md, pr-15844.md, pr-16167.md, pr-16290.md, pr-16130.md, issue-14792.md, pr-13956.md, pr-15432.md, pr-16765.md, pr-16766.md, pr-17069.md, pr-16466.md, issue-16443.md, pr-16658.md, issue-16661.md, pr-13616.md, pr-17010.md, pr-16479.md, pr-16492.md, pr-16527.md, pr-16672.md, pr-16682.md, pr-14520.md, pr-13668.md, issue-16405.md, issue-16486.md, pr-13844.md, pr-16521.md, pr-16858.md, pr-16630.md, pr-17455.md, issue-16624.md, pr-17346.md, pr-17041.md, pr-17474.md, issue-17040.md, pr-17461.md, pr-17514.md, pr-17517.md, pr-17227.md, pr-17107.md, pr-17146.md, pr-17168.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/cache/scheduler/initial_sync.go, raw/kueue/pkg/workload/flavor_scan_state.go, pr-17195.md, pr-17665.md, pr-17685.md, pr-17582.md, pr-17578.md, pr-17370.md, pr-17371.md, pr-17746.md, pr-17835.md, pr-17839.md, pr-17161.md, pr-17682.md, pr-17688.md, pr-16662.md, pr-17460.md, pr-17579.md, pr-17398.md, pr-17581.md, pr-17419.md, raw/kueue/pkg/resources/resource_formatter.go, raw/kueue/apis/kueue/v1beta2/workload_types.go
+**Sources**: `raw/kueue/pkg/scheduler/scheduler.go`, `raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go`, `raw/kueue/pkg/scheduler/logging.go`, pr-15444.md, pr-16078.md, pr-15829.md, pr-15844.md, pr-16167.md, pr-16290.md, pr-16130.md, issue-14792.md, pr-13956.md, pr-15432.md, pr-16765.md, pr-16766.md, pr-17069.md, pr-16466.md, issue-16443.md, pr-16658.md, issue-16661.md, pr-13616.md, pr-17010.md, pr-16479.md, pr-16492.md, pr-16527.md, pr-16672.md, pr-16682.md, pr-14520.md, pr-13668.md, issue-16405.md, issue-16486.md, pr-13844.md, pr-16521.md, pr-16858.md, pr-16630.md, pr-17455.md, issue-16624.md, pr-17346.md, pr-17041.md, pr-17474.md, issue-17040.md, pr-17461.md, pr-17514.md, pr-17517.md, pr-17227.md, pr-17107.md, pr-17146.md, pr-17168.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/cache/scheduler/initial_sync.go, raw/kueue/pkg/workload/flavor_scan_state.go, pr-17195.md, pr-17665.md, pr-17685.md, pr-17582.md, pr-17578.md, pr-17370.md, pr-17371.md, pr-17746.md, pr-17835.md, pr-17839.md, pr-17161.md, pr-17682.md, pr-17688.md, pr-16662.md, pr-17460.md, pr-17579.md, pr-17398.md, pr-17581.md, pr-17419.md, raw/kueue/pkg/resources/resource_formatter.go, raw/kueue/apis/kueue/v1beta2/workload_types.go, issue-18801.md, pr-17962.md, pr-18180.md, pr-18271.md, pr-18750.md, pr-18823.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -321,6 +321,26 @@ Two pieces have shipped behind the Alpha, off-by-default `SchedulerLibraryIntegr
 - When several PodSets fail TAS placement, the reported PodSet is chosen deterministically, in alphabetical order (`TASAssignmentsResult.Failure()`, pr-17579). `TopologyPlacementFailed` is set through `assignment.ResolvePodSetFailure` even when another PodSet needs preemption (pr-17398).
 - With `SchedulerLibraryIntegration` (Alpha), `UntrackPod` returns the node name, which feeds the `notifyFreedNode` requeue in `pkg/controller/tas/pod_usage_controller.go`, so a terminating Pod moves inadmissible Workloads back to the heap (pr-17581; shipped in v0.20.3 as #17608).
 - With `SchedulerLibraryDeepIntegration` (Alpha) on, the Workload webhook rejects a new or changed `topologyRequest.preferred` (pr-17419).
+
+## Flavor mode aggregation keeps preemption and borrowing separately (v0.21 main)
+
+`findFlavorForPodSets` summarised a flavor's resources by keeping the "worst" mode via `isPreferred`, but `isPreferred` is the ranking used to compare *different flavors*. When one resource needs borrowing and another needs preemption in the same flavor, one requirement was lost: under `flavorFungibility.preference: PreemptionOverBorrowing` the flavor reported `Fit`, no victims were selected and the Workload stayed pending forever (cpu borrowed, memory needing preemption). Under the default `BorrowingOverPreemption` the merge lost information the other way (cpu `{preempt,0}` + memory `{fit,1}` became `{preempt,0}`), so with `whenCanBorrow: TryNextFlavor` + `whenCanPreempt: MayStopSearch` the scan stopped instead of moving on to a flavor that fits. A flavor now keeps two independent values: the worst preemption mode and the deepest borrowing level across its resources; `isPreferred` still orders flavors (`RepresentativeMode()` is `Preempt` in the mixed case) (source: pr-18823.md, fixes issue-18801.md).
+
+## Flavor assignment must not write into Workload tolerations
+
+The taint check used `append(podSpec.Tolerations, flavor.Spec.Tolerations...)`; with spare capacity this wrote into the Workload's backing array, which is shared with the informer cache. It now uses `slices.Concat`. No user-visible effect today, but `TestAssignFlavors` asserts `AssignFlavors` never mutates PodSet tolerations (source: pr-17962.md).
+
+## Deleted Workloads during a cycle are not errors
+
+If a pending Workload is deleted while the cycle holds it (e.g. its gated Pod was deleted), the status update returns NotFound. `requeueAndUpdate` logs at V(3) and returns without recording a Warning event; `waitForPodsReadyIfNeeded` logs at V(3). Other errors still log at error level. The NotFound path in preemption is out of scope (source: pr-18750.md).
+
+## Timed requeue for preemption with no candidates yet
+
+When candidate evaluation finds no eligible victims but skipped candidates may become eligible at a known time (time-based `PreemptionConfig` filters), the scheduler arms a delayed inadmissible retry: `Preemptor.TakeRetryAt()` accumulates the earliest retry timestamp across exhausted strategies (including `PreemptionOracle` flavor probes, `nativePlanner`, `wasPlanner`), and `Scheduler.requeueAndUpdate` calls `Manager.NotifyRetryInadmissibleAfter` (`workqueueRequeuer.AddAfter(max(delay, batchPeriod))`) when the entry is requeued with `PreemptionNoCandidates` or `NoFit`. The timestamp is recorded only when all strategies are exhausted without the caller stopping early, so successful preemptions leave no stale value; `getAssignments` always drains it. Details in [[configurable-preemptions]] (source: pr-18271.md).
+
+## Related graduations on main (0.21)
+
+`AssignQueueLabelsForPods` (Beta since v0.17) is GA; default unchanged (source: pr-18180.md).
 
 ## Related pages
 

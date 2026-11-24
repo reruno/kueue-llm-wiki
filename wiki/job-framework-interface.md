@@ -2,9 +2,9 @@
 
 **Summary**: The Kueue job framework defines the `GenericJob` interface and base reconciler that any new job type must implement to get full Kueue integration — suspend/resume lifecycle, quota accounting, condition propagation, and webhook scaffolding — for free.
 
-**Sources**: `raw/kueue/keps/369-job-interface/README.md`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`, pr-16370.md, pr-16436.md, pr-16460.md, pr-16461.md, pr-16470.md, pr-13375.md, pr-16773.md, pr-16774.md, pr-16779.md, pr-16881.md, pr-16972.md, pr-16973.md, pr-13775.md, pr-12948.md, pr-16994.md, pr-17529.md, pr-17530.md, issue-16736.md, pr-15412.md, issue-15400.md, pr-17053.md, raw/kueue/pkg/controller/jobframework/defaults.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/controller/jobframework/multikueue.go, pr-17420.md, pr-17738.md, pr-16612.md, pr-16982.md, pr-17843.md, pr-17869.md, issue-16974.md, pr-16754.md, pr-17816.md
+**Sources**: `raw/kueue/keps/369-job-interface/README.md`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`, pr-16370.md, pr-16436.md, pr-16460.md, pr-16461.md, pr-16470.md, pr-13375.md, pr-16773.md, pr-16774.md, pr-16779.md, pr-16881.md, pr-16972.md, pr-16973.md, pr-13775.md, pr-12948.md, pr-16994.md, pr-17529.md, pr-17530.md, issue-16736.md, pr-15412.md, issue-15400.md, pr-17053.md, raw/kueue/pkg/controller/jobframework/defaults.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, raw/kueue/pkg/controller/jobframework/multikueue.go, pr-17420.md, pr-17738.md, pr-16612.md, pr-16982.md, pr-17843.md, pr-17869.md, issue-16974.md, pr-16754.md, pr-17816.md, pr-18520.md, issue-18419.md, pr-18010.md, pr-18329.md, pr-18218.md, pr-18803.md, pr-18600.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -219,6 +219,35 @@ The serving integrations (StatefulSet, LeaderWorkerSet) have a separate, stricte
 ## Priority lookup takes an event recorder
 
 `ExtractPriority` and `PrepareWorkloadPriority` now take an `events.EventRecorder`, so that a missing WorkloadPriorityClass can be reported on the object (see [[workload-priority#Missing WorkloadPriorityClass: Warning event]]). `ExtractPriority` stays exported. **Out-of-tree integrations that call these helpers must pass a recorder** (source: pr-13775.md).
+
+## `ReconcileGenericJob` is split into step helpers (pr-18520)
+
+`ReconcileGenericJob` (about 315 lines) was broken into helpers so it reads as an ordered list of steps (about 115 lines), mirroring the workload controller breakdown in #17811. Helpers that can end reconciliation return `(done bool, result ctrl.Result, err error)` and the call site is `if done { return result, err }`. `reconcileChildJob` and `reconcileSuspendedJob` always end reconciliation, so their condition stays at the call site and they return `(ctrl.Result, error)`. No behaviour change; the old numbered step comments were dropped because helper names carry the order (source: pr-18520.md, issue-18419.md).
+
+## `AlreadyExists` on Workload create is not an error (pr-18010)
+
+When the informer cache lags behind a just-created Workload, `handleJobWithNoWorkload` gets `AlreadyExists` from `Create`. The reconciler returns success without requeue and relies on the Workload create event (Workload watch) to requeue the Job. This applies to jobs with workload slices too, since the same-second slice ordering is fixed (#12931) (source: pr-18010.md).
+
+## Queue name and priority are written in one Workload update (pr-18329)
+
+When a suspended job changes both `kueue.x-k8s.io/queue-name` and the WorkloadPriorityClass label, the framework used to persist the new priority first and the new queue in a second update. A watcher (the scheduler) could see the new priority in the old queue, reserve quota there, and then the queue change is forbidden (`spec.queueName` is immutable once quota is reserved), so the Workload could be admitted through the old queue. Now the eligible queue-name mutation is prepared in memory and sent in the same update that persists the resolved priority fields (source: pr-18329.md).
+
+- Scope: generic job-framework path, including compatible workload slices. Atomic per Workload object, not across slices. No API field or gate.
+- Queue preparation is skipped for running, finished, on-hold, deleting, admitted or quota-reserved Workloads. An evicted Workload is eligible once its quota is released, even while `Evicted=True`; one that still holds quota keeps its queue. An illegal queue move must not block a legal priority update on a reserved Workload.
+- Queue-only changes keep the old handler path. Custom queue-name handlers keep their separate update unless they implement the new write-free preparation interface; the Pod integration opts in and keeps its serving-pod-group exception. The exported variadic `UpdateWorkloadPriority` keeps its priority-only contract (LeaderWorkerSet callers).
+- Multi-workload priority resolution still happens once per batch: retained reserved slices keep their queue, eligible pending slices get queue and priority together.
+
+## `max-exec-time-seconds` is bounded to int32 (pr-18218)
+
+The shared create validation rejects values above 2147483647; see [[integration-batchjob#`max-exec-time-seconds` label is bounded by int32 (pr-18218)]] (source: pr-18218.md).
+
+## DNS-safe generated names (pr-18803)
+
+Generated names that cut a prefix to a length limit and append `-<hash>` could end in `.` before the dash (`.-`), which is not a valid DNS subdomain, so the API server returned 422 for the Workload (or ProvisioningRequest). `utilstrings.TruncateNamePrefix` cuts and then drops trailing dots. It is used by `GenerateWorkloadNameWithExtra` (and `GetWorkloadNameForVariant` via `generateWorkloadNameWithHash`), `GenerateWorkloadNamePrefix` (so prefix matching still holds), `limitObjectNameWithReservedSuffix` (ProvisioningRequest and PodTemplate names) and `virtualPodName` (source: pr-18803.md).
+
+## AppWrapper keeps TAS annotations in `podSetInfos`, so `PodSets` must mirror them (pr-18600)
+
+For implicit TAS (TAS-only ClusterQueue, no TAS annotations on the job) `FromAssignment` adds `kueue.x-k8s.io/podset-unconstrained-topology: "true"` to the PodSetInfo, and `expectedRunningPodSets` mirrors it as `TopologyRequest.Unconstrained` (since #14585). Integrations that merge PodSetInfos into the Pod template see it in `PodSets`; AppWrapper stores them in `spec.components[].podSetInfos`, so `EquivalentToWorkload` reported a mismatch and the AppWrapper was suspended right after start, again and again (a prebuilt Workload was finished `OutOfSync`). `AppWrapper.PodSets` now sets `Unconstrained` when the matching PodSetInfo has the annotation, under the same condition as `FromAssignment`; both use `IsUnconstrainedByDefault` from `pkg/util/tas`. Lesson for new integrations: if you do not merge PodSetInfos into the template, `PodSets` must reproduce what `expectedRunningPodSets` derives (source: pr-18600.md).
 
 ## Related pages
 

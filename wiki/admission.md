@@ -2,9 +2,9 @@
 
 **Summary**: "Admission" is Kueue's term for releasing a [[workload]] to run. It's a two-phase process: first the scheduler reserves quota (`QuotaReserved`), then any configured [[admission-check]]s must return `Ready`, after which the Workload is `Admitted` and the integration controller unsuspends the underlying job.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15371.md, pr-16627.md, pr-17010.md, pr-12786.md, pr-16479.md, pr-16630.md, pr-17041.md, pr-16728.md, pr-17147.md, pr-17195.md, pr-17578.md, pr-17582.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
+**Sources**: `raw/github/kubernetes-sigs__kueue/`, pr-15371.md, pr-16627.md, pr-17010.md, pr-12786.md, pr-16479.md, pr-16630.md, pr-17041.md, pr-16728.md, pr-17147.md, pr-17195.md, pr-17578.md, pr-17582.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-18010.md, pr-18116.md, pr-18723.md, pr-18750.md, pr-18809.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -71,6 +71,13 @@ Two conditions that used to be able to disagree, both now fixed:
 
 - An AdmissionCheck flipping to `Rejected` **while an eviction was in flight** was dropped, leaving `Admitted=True` beside a `Rejected` check ([[pr-14309]]). See [[admission-check#A `Rejected` check during an in-flight eviction]].
 - A Workload deactivated with a derived `DeactivatedDueTo<Cause>` reason stayed stuck after reactivation because its `Requeued` condition was never transitioned ([[pr-14874]]). See [[workload#Reactivation matches deactivation reasons by prefix]].
+
+## Fixes on main (v0.21 dev)
+
+- **Evict before admission-check retry backoff.** On a delayed AdmissionCheck retry the Workload controller recorded `requeueAt` and returned early *before* eviction, so quota and topology reservations were held for the whole delay. The backoff is now applied only after the reservation is released: the eviction path suspends the Job and releases reservations once it is inactive, other Workloads can use the capacity, and the original cannot reserve again until the backoff expires (restores KEP-3258 ordering) (source: pr-18116.md).
+- **Deleted Workload mid-cycle**: NotFound on the scheduler's status write is a V(3) event (source: pr-18750.md).
+- **Admission-time resource checks**: Pod-type LimitRange `max` vs limits (source: pr-18723.md) and missing DeviceClass (source: pr-18809.md) keep a Workload inadmissible instead of admitting it and failing at Pod creation.
+- **Workload already created**: when the informer has not seen a just-created Workload, the Job reconciler gets `AlreadyExists` and now returns without error or requeue (the Workload create event requeues the Job) (source: pr-18010.md).
 
 ## Related pages
 

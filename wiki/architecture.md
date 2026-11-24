@@ -2,9 +2,9 @@
 
 **Summary**: Kueue is a single controller-manager binary hosting a set of controllers (queue, workload, job integrations, scheduler, cache) plus validating/mutating webhooks. It watches jobs, wraps each one in a [[workload]], and toggles `.spec.suspend` (or Pod scheduling gates) to release the job when quota is available.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-16312.md, issue-16232.md, `raw/kueue/charts/kueue/values.yaml`, `raw/kueue/charts/kueue/templates/manager/_config.tpl`; pr-17227.md; pr-16630.md; 2026-10-28 batch: pr-17455.md, pr-17582.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md (v0.20.3), CHANGELOG-0.19.md (v0.19.10).
+**Sources**: `raw/github/kubernetes-sigs__kueue/`; pr-16312.md, issue-16232.md, `raw/kueue/charts/kueue/values.yaml`, `raw/kueue/charts/kueue/templates/manager/_config.tpl`; pr-17227.md; pr-16630.md; 2026-10-28 batch: pr-17455.md, pr-17582.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md (v0.20.3), CHANGELOG-0.19.md (v0.19.10).; 2026-11-24 batch: pr-18139.md, pr-17965.md, pr-17966.md, pr-18353.md, pr-18354.md, pr-18693.md, pr-18694.md, CHANGELOG-0.20.md, CHANGELOG-0.19.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -67,6 +67,22 @@ The manager reads one Configuration object (`config.kueue.x-k8s.io/v1beta2`) fro
 **Action required only if:** your values have other keys directly under `managerConfig` (only `mode`, `structuredOverrides`, `controllerManagerConfigYaml` are allowed), invalid types (mode must be `yaml`/`structured`; overrides a map; YAML a string; checked even for the unused input), or your tooling read the default YAML from `values.yaml` (read the rendered ConfigMap instead).
 
 **Upgrade gotcha with `--reuse-values`:** the first reuse upgrade without an explicit `mode: structured` can keep the old default YAML, which then wins over the new overrides. To migrate, copy intentional YAML customisations into `structuredOverrides` and pass `mode: structured` in the upgrade values, and keep it there. Reuse flags also keep saved overrides you omitted and can drop `null` removals; to remove an override, use `--reset-values` with all customisations you want to keep. Field values are still validated by Kueue when it loads the configuration, not by Helm.
+
+**Null inputs (pr-18139, merged 2026-11-13, fixes #17717):** `mode`, `controllerManagerConfigYaml` and `structuredOverrides` set to `null` are treated as absent in both the Kueue and Populator charts (schemas, config selection, tests and migration docs updated). Before, migrating from the old chart's `controllerManagerConfigYaml: null` with `--reuse-values` worked once, but Helm saved the null and the next upgrade failed schema validation. An explicit empty string keeps its legacy meaning, and wrong non-null types and unknown keys are still rejected. Docs now explain what `--reuse-values`, `--reset-then-reuse-values` and `--reset-values` do with inherited defaults and saved overrides. Related: the KueueViz auth mode is validated in the values schema ([[dashboard]]).
+
+## Shipping status of fixes (patch releases, 2026-10-29 to 2026-11-12)
+
+Details per release are in [[release-process]]. Architecture-relevant items and where they shipped (source: CHANGELOG-0.20.md, CHANGELOG-0.19.md):
+
+| Area | Fix | Shipped in |
+|---|---|---|
+| API / CRDs | CRD conversion restored for unserved `v1beta1` APIs, so kube-apiserver can initialise watch caches for ClusterQueue, Cohort, LocalQueue, MultiKueueCluster, Workload (#18411; see [[api-versions]]) | v0.20.6 |
+| Admission / scheduling | Pod node selectors deterministic when flavors conflict on a label (first flavor in sorted resource-name order, #18369); preemption capacity reservation no longer negative (#18618); FairSharing second-pass workloads no longer skipped (#18674); PodSet totals past the largest Quantity no longer stored as MaxInt64 | v0.20.6 / v0.19.13; PodSet overflow v0.20.4 / v0.19.11 |
+| Cache / controllers | Cohort and ClusterQueue status writes no longer fan out to every CQ in the Cohort tree (#18205); RuntimeClass events requeue only Workloads using that class (#17386); namespace-creation race for Jobs | v0.20.5 / v0.19.12; RuntimeClass v0.20.6 / v0.19.13; namespace race v0.20.4 / v0.19.11 |
+| Elastic jobs | slice plus replacement no longer double-charged (#18648); rank-based Pod ungating (#18269) | v0.20.6 / v0.19.13; v0.20.5 / v0.19.12 |
+| MultiKueue | resync on worker reconnect (v0.20.4), skip finished Workloads in resync and skip remote reads for replaced slices (v0.20.5), retry when no worker is connected, late ClusterProfile CRD, richer pending message (v0.20.6) | as listed |
+| TAS | LWS hot swap keeps group in domain (v0.20.5); `TASAncestorCapacityTieBreak` (v0.20.6); gate-off/on requeue (v0.20.6) | as listed |
+| Observability | scheduler log levels (v0.20.4), job reconciler log levels (v0.20.5): both ACTION REQUIRED for log-based alerts | as listed |
 
 ## Why a separate scheduling loop
 

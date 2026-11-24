@@ -2,9 +2,9 @@
 
 **Summary**: The plain-Pod integration lets Kueue govern Pods that aren't owned by a supported higher-level controller. Kueue attaches a scheduling gate at Pod admission-webhook time, creates a Workload, and removes the gate once the Workload is admitted. Groups of related Pods can be treated as a gang using the `kueue.x-k8s.io/pod-group-name` label — a "PodGroup."
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13014.md, pr-13945.md, pr-17123.md, pr-17124.md, pr-16358.md, pr-16365.md, pr-16385.md, pr-17077.md, pr-17087.md, issue-16517.md, pr-17053.md, pr-17173.md, pr-17204.md, issue-16901.md, pr-17454.md, pr-17501.md, pr-17505.md, pr-16044.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobs/pod/pod_controller.go, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-17420.md, pr-17738.md, raw/kueue/pkg/controller/jobs/pod/pod_multikueue_adapter.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/`., pr-13014.md, pr-13945.md, pr-17123.md, pr-17124.md, pr-16358.md, pr-16365.md, pr-16385.md, pr-17077.md, pr-17087.md, issue-16517.md, pr-17053.md, pr-17173.md, pr-17204.md, issue-16901.md, pr-17454.md, pr-17501.md, pr-17505.md, pr-16044.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobs/pod/pod_controller.go, raw/kueue/pkg/features/kube_features.go, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-17420.md, pr-17738.md, raw/kueue/pkg/controller/jobs/pod/pod_multikueue_adapter.go, pr-18266.md, pr-16156.md, pr-18195.md, issue-18154.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -215,6 +215,14 @@ The Pod webhook enforces `managedJobsNamespaceSelector` earlier in admission, so
 ## Queue-name changes on gated Pods are validated
 
 The Pod webhook does not re-run create validation on update. A gated Pod could therefore switch `kueue.x-k8s.io/queue-name` to a value that is not a valid LocalQueue name, and the reconciler then failed on every retry. A changed, non-empty value is now validated. Shipped in v0.20.2 (#16972) and v0.19.9 (#16973). Details: [[job-framework-interface#Queue-name format is validated on update]] (source: raw/kueue/CHANGELOG/CHANGELOG-0.20.md, CHANGELOG-0.19.md).
+
+## Stale single-pod reconcile requests for pods that joined a group are dropped (pr-18266)
+
+StatefulSet and LeaderWorkerSet Pods are created without `kueue.x-k8s.io/pod-group-name`; the Pod create event queues a single-pod request, and shortly after the parent's reconciler sets the group name, whose update event queues a group request. When the pod controller reached the stale single-pod request, `Load` returned a retryable error (`got a single pod reconcile request for a pod group`), so controller-runtime requeued it with backoff until the Pod was deleted. The error is now unretryable and the stale request is dropped (source: pr-18266.md).
+
+## `DeclareWorkloadFailureOnUnretriablePodGroups` (pr-16156, pr-18195)
+
+A Pod group that ends because a Pod has `kueue.x-k8s.io/retriable-in-group: "false"` and no Pods are running used to be reported by `Pod.Finished()` as `success=true` even if Pods failed, so the Workload finished with reason `Succeeded` and a message like `Pods succeeded: 0/2.`. #16156 reports the group as successful only if all Pods succeeded; otherwise the Workload finishes with reason `Failed`. #18195 put the behaviour behind the `DeclareWorkloadFailureOnUnretriablePodGroups` feature gate, enabled by default on main, so it can be cherry-picked to released branches with the gate downgraded to Alpha (default off); the maintainers decided not to backport the ungated change because users read the Workload status as the job result (source: pr-16156.md, pr-18195.md, issue-18154.md). The gate default on released branches is taken from PR text and is unverified.
 
 ## Related pages
 

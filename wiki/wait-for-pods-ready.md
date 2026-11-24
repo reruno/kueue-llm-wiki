@@ -2,9 +2,9 @@
 
 **Summary**: Reference for the `waitForPodsReady` Configuration block and the four v0.19/v0.20 knobs around it: enabled-by-default with a 30 minute timeout, per-Workload overrides, a separate unscheduled-Pods timeout, and a not-ready Pod budget for Pod groups. Complements the conceptual description in [[gang-scheduling]].
 
-**Sources**: pr-15503.md, pr-15672.md, pr-15734.md, pr-16059.md, pr-15531.md, pr-15627.md, pr-16217.md, issue-13502.md, raw/kueue/apis/config/v1beta2/configuration_types.go, raw/kueue/apis/config/v1beta2/defaults.go, raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/config/validation.go, raw/kueue/pkg/features/kube_features.go, pr-15372.md, pr-15402.md, issue-16366.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, issue-14811.md, pr-17147.md, pr-17643.md, pr-17765.md, pr-17772.md, pr-16754.md, pr-17816.md, pr-17874.md, pr-17591.md, pr-17603.md, pr-17604.md, pr-17451.md, pr-17576.md, pr-17610.md, pr-17618.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobframework/interface.go, raw/kueue/pkg/controller/jobs/job/job_controller.go, raw/kueue/pkg/controller/jobs/raycluster/raycluster_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md
+**Sources**: pr-15503.md, pr-15672.md, pr-15734.md, pr-16059.md, pr-15531.md, pr-15627.md, pr-16217.md, issue-13502.md, raw/kueue/apis/config/v1beta2/configuration_types.go, raw/kueue/apis/config/v1beta2/defaults.go, raw/kueue/pkg/util/waitforpodsready/waitforpodsready.go, raw/kueue/pkg/controller/core/workload_controller.go, raw/kueue/pkg/controller/jobframework/validation.go, raw/kueue/pkg/config/validation.go, raw/kueue/pkg/features/kube_features.go, pr-15372.md, pr-15402.md, issue-16366.md, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, issue-14811.md, pr-17147.md, pr-17643.md, pr-17765.md, pr-17772.md, pr-16754.md, pr-17816.md, pr-17874.md, pr-17591.md, pr-17603.md, pr-17604.md, pr-17451.md, pr-17576.md, pr-17610.md, pr-17618.md, raw/kueue/pkg/controller/jobframework/reconciler.go, raw/kueue/pkg/controller/jobframework/interface.go, raw/kueue/pkg/controller/jobs/job/job_controller.go, raw/kueue/pkg/controller/jobs/raycluster/raycluster_controller.go, raw/kueue/CHANGELOG/CHANGELOG-0.19.md, pr-18446.md, pr-18547.md, pr-18772.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -84,6 +84,14 @@ Release status: all of the above merged on main and was backported to release-0.
 - **SparkApplication `SUBMISSION_FAILED`** no longer finishes the Workload, so an application the operator resubmits stays under `waitForPodsReady` (see [[integration-spark]]).
 - **Recovery-timeout eviction left quota reserved (issue-14811, fixed by pr-17147; v0.20.2 / v0.19.9).** A JobSet `Recreate` restart recreated already-succeeded child Jobs, lowering the reclaimable count; a `PodsReadyTimeout` eviction with `underlyingCause: WaitForRecovery` then suspended the JobSet, but the job reconciler kept failing on the webhook-rejected `reclaimablePods` decrease before it reached the eviction step, so `Admitted`, `QuotaReserved` and `Evicted` stayed `True` and the Workload was never requeued. Details on [[workload#`reclaimablePods` must not block eviction (pr-17147, fixes issue-14811)]].
 - Known gap, open as of this snapshot: controller-manager memory grows during repeated JobSet `PodsReadyTimeout` / requeue cycles (issue-16629, reopened).
+
+## `timeoutSeconds` is optional in the per-Workload annotation (pr-18446)
+
+In the `kueue.x-k8s.io/wait-for-pods-ready` annotation (`WorkloadLevelWaitForPodsReady`) the field `timeoutSeconds` became optional, so an object can override only `recoveryTimeoutSeconds` and keep the cluster-level startup `timeout`. This continues the alpha2 plan of KEP-4803 (source: pr-18446.md). The validation rules above ("`timeoutSeconds > 0`") now apply when the field is present; the exact handling in `determineTimeouts` for an absent value is not stated in the PR and is unverified.
+
+## SparkApplication PodsReady
+
+SparkApplication counts ready executor Pods of the current submission (not `status.executorState`), and with dynamic allocation waits for the starting executors before falling back to `minExecutors`; see [[integration-spark#Elastic SparkApplication (main, not in a release as of v0.20)]] (source: pr-18547.md, pr-18772.md).
 
 ## Related pages
 

@@ -2,9 +2,9 @@
 
 **Summary**: Kueue's `kueue.x-k8s.io`, visibility and Configuration APIs moved from `v1beta1` to `v1beta2`. In **v0.20** the `v1beta1` versions stop being **served** (`served: false`) and the v1beta1 conversion support is removed — an action-required upgrade for any client, manifest or GitOps repo still writing v1beta1. On **main (v0.21 dev)** the v1beta1 Go packages and CRD versions are deleted entirely (pr-16485), so every stored object must be at v1beta2 and `status.storedVersions` trimmed before that upgrade.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/pr-14558.md`, `raw/github/kubernetes-sigs__kueue/pr-14720.md`, `raw/github/kubernetes-sigs__kueue/pr-13224.md`, pr-15913.md, pr-16300.md, pr-16168.md, raw/kueue/config/components/crd/alpha/kustomization.yaml, pr-16485.md, issue-13957.md, pr-16489.md, pr-16984.md, issue-16983.md, pr-15371.md, pr-14445.md, pr-14449.md, raw/kueue/hack/migrate-to-v1beta2.sh, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-17159.md, pr-17528.md, issue-17498.md, pr-17121.md, issue-17120.md, pr-16035.md, raw/kueue/apis/config/v1beta2/configuration_types.go
+**Sources**: `raw/github/kubernetes-sigs__kueue/pr-14558.md`, `raw/github/kubernetes-sigs__kueue/pr-14720.md`, `raw/github/kubernetes-sigs__kueue/pr-13224.md`, pr-15913.md, pr-16300.md, pr-16168.md, raw/kueue/config/components/crd/alpha/kustomization.yaml, pr-16485.md, issue-13957.md, pr-16489.md, pr-16984.md, issue-16983.md, pr-15371.md, pr-14445.md, pr-14449.md, raw/kueue/hack/migrate-to-v1beta2.sh, raw/kueue/CHANGELOG/CHANGELOG-0.20.md, pr-17159.md, pr-17528.md, issue-17498.md, pr-17121.md, issue-17120.md, pr-16035.md, raw/kueue/apis/config/v1beta2/configuration_types.go; 2026-11-24 batch: pr-18411.md, CHANGELOG-0.20.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -45,6 +45,10 @@ https://raw.githubusercontent.com/kubernetes-sigs/kueue/main/hack/migrate-to-v1b
 It triggers a **no-op update** for every existing Kueue object, which forces the API server to pass each one through the conversion webhooks and persist it at the new storage version. Run it and verify cluster stability *before* installing v0.20.
 
 Anything that writes Kueue objects directly also needs updating: Helm values and raw manifests, GitOps repositories, CI fixtures, custom controllers and admission checks, and any client-go/controller-runtime scheme registration that still imports the v1beta1 packages.
+
+## v0.20.6: `/convert` restored for the unserved v1beta1 (release-0.20 only)
+
+#14558 removed the `v1beta1` scheme registration from the manager, but the five conversion-enabled CRDs (ClusterQueue, Cohort, LocalQueue, MultiKueueCluster, Workload) and the certificate rotator still referenced the `/convert` webhook. controller-runtime registers `/convert` only when the scheme contains convertible versions, so the manager answered 404 and kube-apiserver repeatedly failed to fill its `v1beta1` watch cache. pr-18411 (release-0.20, shipped v0.20.6) registers the `v1beta1` types in the scheme during `cmd/kueue` initialisation while keeping `v1beta1` unserved; `TestSchemeConvertibleTypes` in `cmd/kueue` asserts that the real manager scheme reports those five kinds as convertible. It deliberately does not backport the larger v1beta1 removal of pr-16485 (below). (source: pr-18411.md, CHANGELOG-0.20.md)
 
 ## v1beta1 removed entirely on main (pr-16485, v0.21 dev)
 

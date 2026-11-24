@@ -2,9 +2,9 @@
 
 **Summary**: Elastic jobs let an already-admitted [[workload]] change its Pod count (scale up or down) without going back through admission from scratch. Implemented via **WorkloadSlices** (KEP-77), the feature splits a Workload's quota into slices so that a scale-down releases quota immediately and a scale-up only needs incremental admission.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` (cited inline; this update: pr-16125.md, pr-16601.md, pr-16613.md, pr-16371.md, pr-16400.md, pr-16514.md, pr-16521.md, pr-16743.md, pr-16780.md, pr-16473.md, pr-16740.md, pr-16776.md, pr-13996.md, pr-12964.md, pr-12965.md, pr-12963.md, pr-14283.md, pr-15106.md, issue-16443.md, issue-16623.md; this update: pr-17119.md, pr-17359.md, pr-16771.md, pr-16189.md, pr-17224.md, issue-15323.md, pr-17107.md, pr-17146.md; this update (2026-10-28): pr-16662.md, pr-17561.md, pr-17580.md, issue-16657.md, pr-17643.md, pr-17765.md, pr-17772.md, pr-16754.md, pr-17816.md, pr-17874.md, pr-17591.md, pr-17161.md, pr-17682.md, pr-17688.md, issue-14230.md, pr-17690.md, pr-17692.md, pr-17700.md, pr-17460.md), `raw/kueue/pkg/workloadslicing/`, `raw/kueue/pkg/scheduler/scheduler.go`, `raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobs/job/job_controller.go`, `raw/kueue/pkg/workload/workload.go`, `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `raw/kueue/CHANGELOG/CHANGELOG-0.19.md`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (cited inline; this update: pr-16125.md, pr-16601.md, pr-16613.md, pr-16371.md, pr-16400.md, pr-16514.md, pr-16521.md, pr-16743.md, pr-16780.md, pr-16473.md, pr-16740.md, pr-16776.md, pr-13996.md, pr-12964.md, pr-12965.md, pr-12963.md, pr-14283.md, pr-15106.md, issue-16443.md, issue-16623.md; this update: pr-17119.md, pr-17359.md, pr-16771.md, pr-16189.md, pr-17224.md, issue-15323.md, pr-17107.md, pr-17146.md; this update (2026-10-28): pr-16662.md, pr-17561.md, pr-17580.md, issue-16657.md, pr-17643.md, pr-17765.md, pr-17772.md, pr-16754.md, pr-17816.md, pr-17874.md, pr-17591.md, pr-17161.md, pr-17682.md, pr-17688.md, issue-14230.md, pr-17690.md, pr-17692.md, pr-17700.md, pr-17460.md), `raw/kueue/pkg/workloadslicing/`, `raw/kueue/pkg/scheduler/scheduler.go`, `raw/kueue/pkg/scheduler/flavorassigner/flavorassigner.go`, `raw/kueue/pkg/controller/jobframework/reconciler.go`, `raw/kueue/pkg/controller/jobframework/interface.go`, `raw/kueue/pkg/controller/jobs/job/job_controller.go`, `raw/kueue/pkg/workload/workload.go`, `raw/kueue/CHANGELOG/CHANGELOG-0.20.md`, `raw/kueue/CHANGELOG/CHANGELOG-0.19.md`., pr-18397.md, issue-18396.md, issue-17948.md, pr-18064.md, pr-18568.md, pr-18569.md, pr-18613.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -216,6 +216,24 @@ With `SchedulingEquivalenceHashing` (Beta, on since v0.18), a `NoFit` or `Preemp
 ~~`SchedulingEquivalenceHashing` does not yet handle slice-replacement state ([[issue-14230]])~~. **Update (2026-10-28)**: fixed by pr-17161, and issue-14230 is closed; see *Replacement slices get their own scheduling-equivalence class* (source: pr-17161.md, issue-14230.md).
 
 **Update (2026-10-21)**: three gaps listed here earlier are fixed. Cohort over-commit on slice replacement ([[issue-16118]]) and a replaced slice staying in the TAS snapshot ([[issue-16119]]) are fixed by #16125; see *Replacement accounting within one scheduling cycle*. The panic when an elastic TAS group scales workers 0 to 1 ([[issue-16239]]) is fixed by pr-16740 (source: pr-16125.md, pr-16740.md).
+
+## The cache charges one slice per chain during replacement (pr-18397)
+
+During scale-up the scheduler cache used to charge the ClusterQueue for both the replacement slice and the slice it replaces, from the moment the replacement is assumed until the replaced slice's `Finished` update arrives, so usage could exceed what the job runs, even exceed quota, and the scheduler admitted and preempted against inflated usage (issue-18396). Now each chain is charged once (source: pr-18397.md):
+
+- A chain is identified by namespace, controller and the `kueue.x-k8s.io/workload-slice-name` annotation (every slice carries it); a `workloadSliceTracker` in the cache keeps the slices. A slice covered by another slice of its chain is not charged.
+- The larger of two slices covers the smaller one; at equal usage the newer covers the older (ordered by creation time). Equal usage in the same second, or slices that each charge more of some resource, all stay charged: a tie can over-charge but never under-charge.
+- A replacement can shrink while it waits for quota (e.g. Spark driver lowers its executor target); the larger slice keeps covering it until it finishes, so a failed admission of the smaller one cannot leave the ClusterQueue over quota.
+- TAS slices keep the old accounting (a newer slice may be placed on other nodes than the older slice's running Pods).
+- The job UID label is not used for identity because `ConstructWorkload` omits it when the UID is not a valid label value. Slices without controller or slice name (as in `TestSchedule`) keep the old accounting. Gate `ElasticJobsViaWorkloadSlices` off charges both.
+
+## Replacement Pod stuck behind a Terminating Pod
+
+Issue-17948 (closed 2026-11-02): an elastic Job's replacement Pod stayed gated while the evicted Pod was stuck `Terminating` on an unreachable node. The first fix PR (pr-18099) was closed without merging, and the ungater follow-up for stuck-deleting Pods (pr-18530) was still open at this snapshot, so the final behaviour is unverified (source: issue-17948.md, pr-18099.md).
+
+## Elastic SparkApplication and partial scale-up
+
+Partial scale-up now also exists for SparkApplication, with `minCount = spec.dynamicAllocation.minExecutors`; see [[integration-spark#Elastic SparkApplication (main, not in a release as of v0.20)]] (source: pr-18064.md). Elastic RayCluster, RayJob, RayService and SparkApplication reject required/preferred topology at creation when `ElasticJobsViaWorkloadSlicesWithTAS` is on (source: pr-18568.md, pr-18569.md, pr-18613.md).
 
 ## Related pages
 

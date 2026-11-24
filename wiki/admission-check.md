@@ -2,9 +2,9 @@
 
 **Summary**: An AdmissionCheck is a pluggable gate that runs after QuotaReservation and before the Workload is `Admitted`. Checks can gate on capacity (ProvisioningRequest / cluster-autoscaler), dispatch ([[multikueue]]), or any custom condition. A [[cluster-queue]] lists the checks it requires; each must pass for the Workload to proceed.
 
-**Sources**: `raw/github/kubernetes-sigs__kueue/` (this update: pr-16514.md), `raw/kueue/pkg/controller/elasticjobs/elastic_job_ungater.go`.
+**Sources**: `raw/github/kubernetes-sigs__kueue/` (this update: pr-16514.md), `raw/kueue/pkg/controller/elasticjobs/elastic_job_ungater.go`., pr-18116.md, pr-18021.md, issue-17899.md
 
-**Last updated**: 2026-10-28
+**Last updated**: 2026-11-24
 
 ---
 
@@ -63,6 +63,14 @@ Follow-up [[pr-14874]] fixed the matching reactivation path for derived `Deactiv
 ## `observedGeneration` on the `Active` condition
 
 An AdmissionCheck reconciler that skips the status write when status/reason/message are unchanged leaves `observedGeneration` stale after a parameter change that happens to preserve the health result. Fixed for the MultiKueue check in [[pr-14838]]; see [[multikueue#AdmissionCheck `observedGeneration` is refreshed on config change]].
+
+## Retry backoff applies only after the quota reservation is released (pr-18116)
+
+When a check sets `Retry` with a delayed retry, the Workload controller records `requeueAt` and returns early on later reconciles until that deadline. That early return used to come **before** eviction, so the Workload kept its quota and topology reservations during the whole delay. The backoff is now applied only once the quota reservation has been released: the normal eviction path suspends the Job and releases reservations when the Job is inactive, other workloads can use the capacity while the original waits, and the original cannot reserve again until the backoff expires. This restores the ordering in KEP-3258 (source: pr-18116.md).
+
+## Repeated `podSetUpdates` for one PodSet are rejected (pr-18021)
+
+Job start and the TAS node controller apply only the **first** `podSetUpdates` entry for a PodSet, while TAS placement applies **all** of them, so an admission check that wrote two entries for the same PodSet could make TAS place Pods on a node whose taint the started Pods do not tolerate (issue-17899). The Workload webhook rejects more than one entry per PodSet within one check, behind the `WorkloadValidateUniquePodSetUpdates` gate (Beta, default on). On update, a list identical to the old object is still allowed so existing Workloads with repeats can be updated and finalized. Controllers writing several entries must merge them into one or the gate must be disabled (source: pr-18021.md, issue-17899.md).
 
 ## Related pages
 
