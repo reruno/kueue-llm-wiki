@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/3141
 
-**Last updated**: 2026-09-29T12:36:14Z
+**Last updated**: 2026-11-24T17:10:35Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@mimowo](https://github.com/mimowo)
 - **Created**: 2024-09-26T09:13:11Z
-- **Updated**: 2026-09-29T12:36:14Z
+- **Updated**: 2026-11-24T17:10:35Z
 - **Closed**: —
 - **Labels**: `kind/bug`
-- **Assignees**: [@mimowo](https://github.com/mimowo)
-- **Comments**: 19
+- **Assignees**: _none_
+- **Comments**: 20
 
 ## Description
 
@@ -361,5 +361,9 @@ Please send feedback to sig-contributor-experience at [kubernetes/community](htt
 /remove-lifecycle stale
 
 ### Comment by [@mszadkow](https://github.com/mszadkow) — 2026-09-29T12:36:14Z
+
+/unassign
+
+### Comment by [@mimowo](https://github.com/mimowo) — 2026-11-24T17:10:28Z
 
 /unassign

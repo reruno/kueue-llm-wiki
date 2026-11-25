@@ -4,7 +4,7 @@
 
 **Sources**: https://github.com/kubernetes-sigs/kueue/issues/7222
 
-**Last updated**: 2026-11-16T07:05:17Z
+**Last updated**: 2026-11-25T01:40:52Z
 
 ---
 
@@ -13,11 +13,11 @@
 - **State**: open
 - **Author**: [@tenzen-y](https://github.com/tenzen-y)
 - **Created**: 2025-10-10T11:04:16Z
-- **Updated**: 2026-11-16T07:05:17Z
+- **Updated**: 2026-11-25T01:40:52Z
 - **Closed**: —
 - **Labels**: `kind/bug`, `priority/important-longterm`
-- **Assignees**: _none_
-- **Comments**: 17
+- **Assignees**: [@lkhun9311](https://github.com/lkhun9311)
+- **Comments**: 19
 
 ## Description
 
@@ -294,3 +294,11 @@ What is still missing is the client-go REST metrics (`rest_client_*`), as zouyee
 I'd propose removing that import, opting in to controller-runtime's REST client metrics in `cmd/kueue/main.go`, and adding a unit test in `cmd/kueue` that checks the manager registry under the binary's real import graph. Removing the import drops most `rest_client_*` families from the visibility server's endpoint, so I would note that in the release note.
 
 Would it be OK if I take this?
+
+### Comment by [@lkhun9311](https://github.com/lkhun9311) — 2026-11-25T01:24:46Z
+
+/assign
+
+### Comment by [@lkhun9311](https://github.com/lkhun9311) — 2026-11-25T01:40:52Z
+
+@tenzen-y @mimowo I assigned myself for the remaining `rest_client_*` part described above, since the controller `workqueue_*` metrics already show up on the manager endpoint on current main. Before I open the PR: is it fine to drop those `rest_client_*` families from the visibility server's endpoint, or should they stay there as well?
